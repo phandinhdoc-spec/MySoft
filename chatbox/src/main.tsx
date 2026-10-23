@@ -1,0 +1,18 @@
+import {WorkflowWindow} from './WorkflowWindow';
+import {DocumentPreviewProvider} from './DocumentPreview';
+import React from 'react';
+import {createRoot} from 'react-dom/client';
+import {App} from './App';
+import './fonts.css';
+import './style.css';
+import './studio.css';
+import './composer.css';
+import './updater.css';
+import './pdf.css';
+import '../../shared/src/interface.css';
+import './native.css';
+import './sidebar.css';
+import './activity-bar.css';
+import './composer-tools.css';
+import './layout-fluid.css';
+createRoot(document.getElementById('root')!).render(<DocumentPreviewProvider>{location.hash.startsWith('#workflow=')?<WorkflowWindow id={decodeURIComponent(location.hash.slice(10))}/>:<App/>}</DocumentPreviewProvider>);

@@ -1,0 +1,98 @@
+/* Thanh bên: đổi độ rộng, biểu tượng chat, chế độ Dự án, hộp xác nhận liên kết. Nạp sau cùng. */
+.app:not(.sidebar-collapsed){grid-template-columns:var(--sidebar-w,216px) minmax(0,1fr)}
+@media(max-width:600px){.app:not(.sidebar-collapsed){grid-template-columns:1fr}}
+.app{grid-template-rows:minmax(0,1fr)}
+.sidebar{position:relative;min-width:0;min-height:0;overflow-y:auto;overflow-x:hidden}
+.sidebar .recent-list{min-height:132px}
+.sidebar .sidebar-bottom{position:sticky;bottom:0;z-index:2;background:var(--sidebar)}
+.sidebar nav,.sidebar .brand,.sidebar .new-chat,.sidebar .sidebar-bottom,.sidebar-project,.sidebar-section{flex:none}
+.app{position:relative}
+.sidebar-resizer{position:absolute;top:0;bottom:0;left:calc(var(--sidebar-w,216px) - 4px);width:8px;cursor:col-resize;z-index:6;touch-action:none;background:transparent;border:0}
+.sidebar-resizer::after{content:"";position:absolute;top:0;bottom:0;left:4px;width:1px;background:transparent;transition:background .15s,width .15s,left .15s}
+.sidebar-resizer:hover::after,.sidebar-resizer:focus-visible::after,body.resizing-sidebar .sidebar-resizer::after{left:2px;width:3px;background:var(--accent);opacity:.55;border-radius:2px}
+.sidebar-resizer:focus-visible{outline:none}
+body.resizing-sidebar{cursor:col-resize;user-select:none;-webkit-user-select:none}
+.sidebar-collapsed .sidebar-resizer{display:none}
+@media(max-width:600px){.sidebar-resizer{display:none}}
+.recent-row>.chat-object>button>.recent-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
+.recent-row>.chat-object>button small{flex:none;max-width:42%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Chat thường: hai gạch ngắn ở trên, một gạch dài ở dưới */
+.glyph-lines{flex:none;display:inline-block;width:14px;height:12px;opacity:.75;background:
+ linear-gradient(currentColor,currentColor) 0 0/7px 2px no-repeat,
+ linear-gradient(currentColor,currentColor) 0 5px/7px 2px no-repeat,
+ linear-gradient(currentColor,currentColor) 0 10px/14px 2px no-repeat}
+/* Dự án: hình bình hành có một lớp viền lệch làm điểm nhấn */
+.glyph-para{flex:none;position:relative;display:inline-block;width:14px;height:9px;margin:0 3px 0 2px;border-radius:2px;transform:skewX(-22deg);background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 40%,#fff));box-shadow:0 1px 3px color-mix(in srgb,var(--accent) 35%,transparent)}
+.glyph-para::after{content:"";position:absolute;inset:-3px -3px 3px 3px;border:1.5px solid color-mix(in srgb,var(--accent) 55%,transparent);border-radius:2px;opacity:.7}
+.glyph-para.big{width:20px;height:13px;margin:0 5px 0 3px}
+.sidebar-project{margin:18px 0 0;padding:10px 10px 8px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--accent-soft) 55%,transparent)}
+.sidebar-project-head{display:flex;align-items:center;gap:6px;min-width:0}
+.sidebar-project-head strong{flex:1;min-width:0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sidebar-project-head>button{flex:none;padding:2px 8px;font-size:16px;line-height:1;color:var(--accent);border-radius:8px}
+.sidebar-project-head>button:hover{background:var(--hover)}
+.sidebar-project-back{display:block;margin-top:6px;padding:3px 2px;font-size:11px;color:var(--muted)}
+.sidebar-project-back:hover{color:var(--accent)}
+.sidebar-filter{margin:0 4px 6px;padding:6px 10px;font-size:12px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--text);min-width:0}
+/* Chat trong dự án như tệp trong thư mục: thụt vào và có đường dẫn nối */
+.project-tree{position:relative;margin-left:10px;padding-left:6px;border-left:1px dashed color-mix(in srgb,var(--accent) 45%,var(--line))}
+.project-tree .recent-row.in-project>.chat-object>button{padding:8px 10px}
+.link-guard{width:min(480px,92vw)}
+.link-guard-url{margin:0 0 8px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);font-size:12px;word-break:break-all;max-height:110px;overflow:auto}
+.link-guard .modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:14px}
+/* Trong dự án: thu gọn thanh điều hướng để dành chỗ cho danh sách chat của dự án */
+.sidebar.in-project{padding-top:16px}
+.sidebar.in-project .brand{padding-bottom:10px}
+.sidebar.in-project .new-chat{padding:8px 10px}
+.sidebar.in-project nav{margin-top:8px;gap:0}
+.sidebar.in-project nav button{padding:5px 10px;font-size:12px}
+.sidebar.in-project .sidebar-project{margin-top:10px}
+.sidebar.in-project .sidebar-section{margin-top:12px}
+/* Điều hướng xổ xuống: danh sách có vùng cuộn riêng, nhãn không đẩy rộng thanh bên. */
+.sidebar nav.sidebar-nav{gap:3px;margin-top:18px}
+.side-menu{min-width:0}
+.side-menu-heading{display:flex;align-items:center;gap:2px}
+.sidebar-nav .side-menu-heading .side-menu-link{flex:1;min-width:0;padding:9px 10px}
+.side-menu-link>span:not(.icon){flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sidebar-nav .side-menu-heading .side-menu-toggle{flex:none;width:27px;min-height:34px;padding:0;justify-content:center;font-size:21px;color:var(--muted)}
+.side-submenu{margin:3px 3px 8px 12px;padding:5px 0 5px 8px;border-left:1px solid var(--line)}
+.side-menu-search{display:flex;align-items:center;gap:4px;margin:2px 2px 6px;padding:3px 6px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.side-menu-search input{min-width:0;border:0;background:transparent;padding:4px 0;font-size:12px}
+.side-menu-search:focus-within{outline:2px solid var(--accent);outline-offset:1px}
+.side-menu-search kbd{font-size:10px;color:var(--muted)}
+.side-menu-items{max-height:400px;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin}
+.side-menu-items.side-items-projects{max-height:250px}
+.sidebar-nav .side-menu-items>button{width:100%;height:50px;min-height:50px;gap:7px;padding:6px;font-size:12px;border-radius:7px}
+.sidebar-nav .side-items-github>button{height:36px;min-height:36px}
+.side-menu-items>button>span:not(.icon){min-width:0;flex:1;overflow:hidden}
+.side-menu-items strong{display:block;font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sidebar-nav .side-menu-items small{display:block;border:0;padding:0;margin:3px 0 0;font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.side-menu-items .icon,.side-menu-heading .icon{flex:none}
+.side-menu-items .icon svg{width:16px;height:16px}
+.side-menu-items p{font-size:12px;color:var(--muted);margin:8px 5px}
+.sidebar-nav button.side-menu-all{font-size:11px;min-height:28px;padding:5px;color:var(--accent)}
+.side-status{font-weight:500}.side-status.done{color:var(--success,#359b66)}.side-status.error{color:var(--danger,#d17b64)}.side-status.pending{color:var(--accent)}
+.sidebar .sidebar-bottom{margin-top:auto;padding-top:16px;flex-shrink:0}
+.sidebar-bottom>div{min-width:0;flex:1}.sidebar-bottom strong,.sidebar-bottom small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sidebar-bottom .avatar,.sidebar-bottom>button,.sidebar-bottom .icon,.sidebar-bottom svg{flex-shrink:0}
+.sidebar-bottom>button{width:32px;height:32px;display:grid;place-items:center;padding:6px}
+.sidebar-bottom .icon,.sidebar-bottom svg{width:20px;height:20px;min-width:20px;aspect-ratio:1}
+
+.quick-access{padding:10px 6px 14px;border-bottom:1px solid var(--border);margin-bottom:12px}
+.quick-access>.row{justify-content:space-between;gap:4px}.quick-access>.row>.workspace-side-row{flex:1;min-width:0}
+.quick-access small{display:block;line-height:1.5;opacity:.75}.quick-access select{width:100%;margin-top:6px}
+.skill-suggestion-notice{position:fixed;right:20px;bottom:18px;z-index:35;max-width:min(380px,90vw);box-shadow:0 3px 18px #0002;display:flex;align-items:center;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:2px}.skill-suggestion-notice>button:first-child{flex:1;min-width:0;text-align:left}
+
+/* Biểu tượng hồ sơ cá nhân: chữ cái đầu của tên, bấm để mở hồ sơ. */
+.sidebar-bottom>button.avatar-button{margin-left:0;padding:0;width:32px;height:32px;font-size:13px;font-weight:600;color:var(--accent);cursor:pointer}
+.sidebar-bottom>button.avatar-button:hover{background:var(--accent-soft);border-color:var(--accent)}
+.sidebar-bottom>button.avatar-button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.profile-head{display:flex;align-items:center;gap:14px}
+.profile-head small{display:block;margin-top:4px;color:var(--muted)}
+.profile-avatar{width:56px;height:56px;font-size:24px;font-weight:600;flex-shrink:0}
+.profile-guide{border-top:1px solid var(--line);padding-top:14px;display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--muted)}
+.profile-guide p{margin:0;line-height:1.55}.profile-guide strong{color:var(--text);font-weight:600}
+.sidebar-nav .side-items-projects>.project-object{display:flex;align-items:center;gap:4px;width:100%}
+.sidebar-nav .side-items-projects>.project-object>button:first-child{flex:1;min-width:0;height:50px;min-height:50px;gap:7px;padding:6px;font-size:12px;border-radius:7px;display:flex;align-items:center;text-align:left}
+.sidebar-nav .side-items-projects>.project-object>button:first-child>span:not(.icon){min-width:0;flex:1;overflow:hidden}
+.chat-object.project-card-actions{display:block;position:relative}
+.chat-object.project-card-actions>.chat-menu-btn{position:absolute;right:10px;bottom:10px}

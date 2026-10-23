@@ -1,0 +1,32 @@
+import {afterEach,expect,it} from 'vitest';
+import {mkdtemp,rm,writeFile} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
+import {execFileSync} from 'node:child_process';
+import {githubAction,githubUrl} from '../src/desktop/github';
+const dirs:string[]=[];
+afterEach(async()=>{await Promise.all(dirs.splice(0).map(dir=>rm(dir,{recursive:true,force:true})));});
+it('accepts GitHub HTTPS and SSH remotes without exposing credentials',()=>{
+ expect(githubUrl('git@github.com:owner/repo.git')).toBe('https://github.com/owner/repo');
+ expect(githubUrl('https://github.com/owner/repo.git')).toBe('https://github.com/owner/repo');
+ expect(()=>githubUrl('https://github.com.evil.test/owner/repo')).toThrow();
+ expect(()=>githubUrl('https://token@github.com/owner/repo')).toThrow();
+});
+it('stages, commits, inspects diffs and switches branches in a real repository',async()=>{
+ const dir=await mkdtemp(path.join(tmpdir(),'pvta-git-'));dirs.push(dir);
+ const git=(...args:string[])=>execFileSync('git',args,{cwd:dir,encoding:'utf8'});
+ git('init');git('config','user.email','test@example.com');git('config','user.name','PVTA Test');
+ await writeFile(path.join(dir,'lesson.txt'),'first\n');
+ expect(await githubAction(dir,'status')).toContain('lesson.txt');
+ await expect(githubAction(dir,'commit','unstaged')).rejects.toThrow();
+ await githubAction(dir,'stage');await githubAction(dir,'commit','First lesson');
+ expect(await githubAction(dir,'log')).toContain('First lesson');
+ await writeFile(path.join(dir,'lesson.txt'),'second\n');
+ expect(await githubAction(dir,'diff')).toContain('+second');
+ await githubAction(dir,'createBranch','lesson-update');
+ expect(await githubAction(dir,'branches')).toContain('* lesson-update');
+ await expect(githubAction(dir,'switch','--detach')).rejects.toThrow('Tên nhánh');
+ await expect(githubAction(dir,'delete')).rejects.toThrow('không được hỗ trợ');
+ git('remote','add','origin','git@github.com:school/lessons.git');
+ expect(await githubAction(dir,'actions')).toBe('https://github.com/school/lessons/actions');
+});

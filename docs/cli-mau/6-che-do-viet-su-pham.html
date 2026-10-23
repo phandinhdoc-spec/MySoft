@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><title>PVTA CLI · Chế độ Viết &amp; Soạn thảo Sư phạm (mẫu thiết kế)</title>
+<style>
+body{margin:0;background:#091715;font:13.5px/1.55 "SF Mono",Menlo,Consolas,monospace;color:#d8efe9;display:flex;justify-content:center;padding:24px}
+.t{width:1160px;border:2px solid #2fb59b;border-radius:12px;background:#0d2320;box-shadow:0 10px 36px #000a;overflow:hidden}
+.h{padding:10px 18px;background:#14332e;border-bottom:1px solid #2fb59b66;display:flex;justify-content:space-between;color:#6fe3c9;font-weight:bold}
+.s{padding:7px 18px;background:#0e2824;border-bottom:1px solid #2fb59b44;color:#9fc9bf;font-size:12.5px}
+.s b{color:#ffd479}
+.g{display:grid;grid-template-columns:300px 1fr;min-height:460px}
+.col-tools{padding:14px;border-right:1px solid #2fb59b44;background:#0a1a18;font-size:12.5px}
+.col-tools h4{margin:0 0 10px;color:#6fe3c9;font-size:12.5px}
+.tool-card{background:#112d27;border:1px solid #2fb59b44;border-radius:6px;padding:8px 10px;margin-bottom:10px}
+.tool-card b{color:#ffd479;display:block;margin-bottom:3px}
+.col-chat{padding:16px 20px;background:#0f2723;display:flex;flex-direction:column;justify-content:space-between}
+.u{color:#ffd479}.a{color:#6fe3c9}.d{color:#7fa59c}
+.action-box{background:#133830;border:1.5px solid #2fb59b;border-radius:8px;padding:12px 16px;margin:12px 0}
+.btn-row{display:flex;gap:10px;margin-top:10px}
+.btn{background:#2fb59b;color:#061a16;font-weight:bold;padding:5px 12px;border-radius:4px;border:0;cursor:pointer;font-size:12px}
+.btn-sec{background:#1a463e;color:#6fe3c9;padding:5px 12px;border-radius:4px;border:1px solid #2fb59b55;font-size:12px}
+.tag{background:#1a463e;color:#6fe3c9;padding:2px 6px;border-radius:4px;font-size:11.5px}
+.in{padding:10px 18px;border-top:1px solid #2fb59b55;background:#0b1e1b;color:#fff;display:flex;justify-content:space-between;align-items:center}
+.k{padding:6px 18px 10px;background:#091917;color:#7fa59c;font-size:12px}
+.note{margin-top:12px;color:#7fa59c;font:13px sans-serif;text-align:center}
+</style></head><body><div>
+<div class="t">
+<div class="h">
+  <span>╭─ PVTA · Chế độ Viết &amp; Soạn thảo Sư phạm (Giáo án &amp; Hành chính)</span>
+  <span class="tag">PEDAGOGY MODE</span>
+</div>
+<div class="s">
+  Chế độ: <b>Sư phạm (Chuẩn CV 5512)</b> · Quyền: <b>Hỏi duyệt trước khi ghi</b> · Kiểm tra: <span style="color:#6fe3c9">Chính tả &amp; Ma trận chuẩn hóa</span>
+</div>
+<div class="g">
+  <div class="col-tools">
+    <h4>BỘ TIỆN ÍCH SƯ PHẠM</h4>
+    <div class="tool-card">
+      <b>✦ Soát chính tả &amp; Thuật ngữ</b>
+      <span class="d">Tự động phát hiện lỗi chính tả, chuẩn hóa danh từ khoa học theo CT GDPT 2018.</span>
+    </div>
+    <div class="tool-card">
+      <b>✦ Ma trận Đề &amp; Đề song sinh</b>
+      <span class="d">Tạo 4 mức độ: Nhận biết, Thông hiểu, Vận dụng, Vận dụng cao.</span>
+    </div>
+    <div class="tool-card">
+      <b>✦ Bộ công cụ tính toán</b>
+      <span class="d">Mọi điểm số, phần trăm được tính qua <code>pvta-calc</code> (Python độc lập).</span>
+    </div>
+    <div class="tool-card">
+      <b>✦ Xuất bản đa định dạng</b>
+      <span class="d">Xuất Word (.docx), Typst (ZIP đóng gói PDF + .typ) hoặc PowerPoint Bento.</span>
+    </div>
+  </div>
+  <div class="col-chat">
+    <div>
+      <div style="margin-bottom:12px"><span class="u">Thầy cô ›</span> Tạo đề kiểm tra 15 phút phần Quang học kèm bảng ma trận và xuất file Word chuẩn mực.</div>
+      <div style="margin-bottom:10px"><span class="a">PVTA ›</span> Tôi đã thiết kế xong đề kiểm tra kèm bảng ma trận theo chuẩn sư phạm.</div>
+      
+      <div class="action-box">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span style="color:#ffd479;font-weight:bold;font-size:13.5px">📄 ĐỀ XUẤT HÀNH ĐỘNG: Tạo tệp Word</span>
+          <span class="tag">create_office (.docx)</span>
+        </div>
+        <div style="font-size:12.5px;color:#d8efe9">
+          Đường dẫn: <code>/Users/phananh/MySoft/De-kiem-tra-Quang-hoc-15p.docx</code><br>
+          Cấu trúc: Tiêu đề trường/lớp, Bảng ma trận 4 mức độ (có tô đậm Tổng), 10 câu trắc nghiệm + 1 câu tự luận có đáp án và thang điểm chi tiết.
+        </div>
+        <div class="btn-row">
+          <button class="btn">[D] Duyệt &amp; Ghi tệp ngay</button>
+          <button class="btn-sec">[X] Xem trước nội dung</button>
+          <button class="btn-sec">[C] Chỉnh sửa yêu cầu</button>
+          <button class="btn-sec">[B] Bỏ qua</button>
+        </div>
+      </div>
+
+      <div class="d">
+        Gợi ý tiếp theo:<br>
+        - Tạo thêm 01 đề song sinh (đề B) tương đương độ khó.<br>
+        - Xuất trọn bộ sang Typst/PDF để in ấn sắc nét không lệch dòng.
+      </div>
+    </div>
+    <div class="d" style="font-size:12px">
+      Trạng thái: Đang đợi thầy cô bấm phím tắt [D] để ghi tệp.
+    </div>
+  </div>
+</div>
+<div class="in">
+  <div>› [D]uyệt tạo Word · Nhập yêu cầu chỉnh sửa…▌</div>
+  <div><span class="tag">[D] Duyệt</span> &nbsp;<span class="tag">#quy-tắc</span> &nbsp;<span class="tag">/song-sinh</span> &nbsp;<span class="tag">/typst</span></div>
+</div>
+<div class="k">Phím tắt: &nbsp;<b>/chinh-ta</b> rà lỗi &nbsp;·&nbsp; <b>/ma-tran</b> mở bảng đặc tả &nbsp;·&nbsp; <b>/calc</b> tính điểm &nbsp;·&nbsp; <b>/mau</b> chọn mẫu giáo án</div>
+</div>
+<div class="note">Mẫu thiết kế tĩnh (HTML) — Mô phỏng Chế độ Viết &amp; Soạn thảo Sư phạm cho PVTA CLI.</div>
+</div></body></html>

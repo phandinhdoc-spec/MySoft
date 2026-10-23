@@ -1,0 +1,86 @@
+[Đoạn 1] KHUNG MA TRẬN, BẢN ĐẶC TẢ VÀ ĐỀ KIỂM TRA GIỮA HKI
+[Đoạn 2] - Thời điểm kiểm tra: Kết thúc tuần 8 -  Chương 3: Bài 13: Năng lượng của dòng điện và công suất điện
+[Đoạn 3] - Thời gian làm bài: 60 phút.
+[Đoạn 4] - Hình thức kiểm tra: 100 % trắc nghiệm
+[Đoạn 5] - Cấu trúc:+ Mức độ đề: 40% Nhận biết 30% Thông hiểu 30% Vận dụng
+[Đoạn 6] + Dạng thức: Trắc nghiệm nhiều lựa chọn: 18 câu
+[Đoạn 7] Trắc nghiệm Đúng/Sai: 4 câu x 4 lệnh hỏi
+[Đoạn 8] Trắc nghiệm trả lời ngắn: 6 câu
+[Đoạn 9] BẢNG NĂNG LỰC TƯ DUY
+[Bảng 1 · Hàng 1] [R1C1; bắt đầu gộp dọc] Thành phần năng lực | [R1C2–C10] Cấp độ
+[Bảng 1 · Hàng 2] [R2C1; gộp dọc từ R1C1] [trống] | [R2C2–C4] Phần 1: TN nhiều lựa chọn | [R2C5–C7] Phần 2: TN Đúng/Sai | [R2C8–C10] Phần 3: TN trả lời ngắn
+[Bảng 1 · Hàng 3] [R3C1; gộp dọc từ R1C1] [trống] | [R3C2] Biết | [R3C3] Hiểu | [R3C4] V.dụng | [R3C5] Biết | [R3C6] Hiểu | [R3C7] V.dụng | [R3C8] Biết | [R3C9] Hiểu | [R3C10] V.dụng
+[Bảng 1 · Hàng 4] [R4C1] Nhận thức KHTN | [R4C2] 4 | [R4C3] 2 | [R4C4] [trống] | [R4C5] 7 | [R4C6] 2 | [R4C7] [trống] | [R4C8] 1 | [R4C9] [trống] | [R4C10] [trống]
+[Bảng 1 · Hàng 5] [R5C1] Tìm hiểu tự nhiên | [R5C2] 4 | [R5C3] 5 | [R5C4] [trống] | [R5C5] [trống] | [R5C6] 3 | [R5C7] [trống] | [R5C8] [trống] | [R5C9] [trống] | [R5C10] [trống]
+[Bảng 1 · Hàng 6] [R6C1] V.dụng kiến thức, kĩ năng | [R6C2] [trống] | [R6C3] [trống] | [R6C4] 3 | [R6C5] [trống] | [R6C6] [trống] | [R6C7] 4 | [R6C8] [trống] | [R6C9] [trống] | [R6C10] 5
+[Bảng 1 · Hàng 7] [R7C1; bắt đầu gộp dọc] Tổng | [R7C2] 8 | [R7C3] 7 | [R7C4] 3 | [R7C5] 7 | [R7C6] 5 | [R7C7] 4 | [R7C8] 1 | [R7C9] [trống] | [R7C10] 5
+[Bảng 1 · Hàng 8] [R8C1; gộp dọc từ R7C1] [trống] | [R8C2–C4] 18 câu  | [R8C5–C7] 4 câu x 4 lệnh hỏi | [R8C8–C10] 6 câu
+[Đoạn 70] BẢNG ĐẶC TẢ
+[Bảng 2 · Hàng 1] [R1C1] NỘI DUNG | [R1C2] MỨC ĐỘ | [R1C3] YÊU CẦU CẦN ĐẠT | [R1C4] MÃ HÓA | [R1C5] DẠNG THỨC | [R1C6] SỐ CÂU HỎI | [R1C7] CÂU SỐ
+[Bảng 2 · Hàng 2] [R2C1] CHỦ ĐÈ NĂNG LƯỢNG CƠ HỌC | [R2C2] [trống] | [R2C3] [trống] | [R2C4] [trống] | [R2C5] [trống] | [R2C6] [trống] | [R2C7] [trống]
+[Bảng 2 · Hàng 3] [R3C1] Động năng và thế năng | [R3C2] NB | [R3C3] Viết được biểu thức tính động năng, thế năng của vật   | [R3C4] 1.1 | [R3C5] I | [R3C6] 2 | [R3C7] 1,2
+[Bảng 2 · Hàng 4] [R4C1] [trống] | [R4C2] VD | [R4C3] Vận dụng công thức tính động năng để xác định các đại lượng còn lại trong công thức khi đã biết trước 2 đại lượng | [R4C4] [trống] | [R4C5] [trống] | [R4C6] [trống] | [R4C7] [trống]
+[Bảng 2 · Hàng 5] [R5C1] [trống] | [R5C2] [trống] | [R5C3] Vận dụng công thức tính thế năng để xác định các đại lượng còn lại trong công thức khi đã biết trước 2 đại lượng | [R5C4] [trống] | [R5C5] [trống] | [R5C6] [trống] | [R5C7] [trống]
+[Bảng 2 · Hàng 6] [R6C1] Cơ năng | [R6C2] NB | [R6C3] Nêu được cơ năng là tổng động năng và thế năng của các vật. | [R6C4] 1,1 | [R6C5] II | [R6C6] 1 | [R6C7] 19a
+[Bảng 2 · Hàng 7] [R7C1] [trống] | [R7C2] VD | [R7C3] Vận dụng khái niệm cơ năng phân tích được sự chuyển hoá năng lượng trong một số trường hợp đơn giản  | [R7C4] [trống] | [R7C5] [trống] | [R7C6] [trống] | [R7C7] [trống]
+[Bảng 2 · Hàng 8] [R8C1] [trống] | [R8C2] VDC | [R8C3] - Vận dụng kiến thức “Định luật bảo toàn và chuyển hóa năng lượng”, chế tạo các vật dụng đơn giản phục vụ cho đời sống. Ví dụ: mô hình máy phát điện gió, mô hình nhà máy thủy điện… | [R8C4] [trống] | [R8C5] [trống] | [R8C6] [trống] | [R8C7] [trống]
+[Bảng 2 · Hàng 9] [R9C1] Công và công suất | [R9C2] NB | [R9C3] Liệt kê được một số đơn vị thường dùng đo công và công suất. | [R9C4] 1.1 | [R9C5] II | [R9C6] 1 | [R9C7] 19c
+[Bảng 2 · Hàng 10] [R10C1] [trống] | [R10C2] TH | [R10C3] Phân tích ví dụ cụ thể để rút ra được: công có giá trị bằng lực nhân với quãng đường dịch chuyển theo hướng của lực, công suất là tốc độ thực hiện công  | [R10C4] [trống] | [R10C5] [trống] | [R10C6] [trống] | [R10C7] [trống]
+[Bảng 2 · Hàng 11] [R11C1] [trống] | [R11C2]  / VD | [R11C3] Vận dụng được công thức   để giải được các bài tập tìm một đại lượng khi biết giá trị của 2 đại lượng còn lại. | [R11C4] 2.4 | [R11C5] II | [R11C6] 2 | [R11C7] 19b, 19d
+[Bảng 2 · Hàng 12] [R12C1] [trống] | [R12C2] [trống] | [R12C3] Vận dụng được công thức   để giải được các bài tập tìm một đại lượng khi biết giá trị của 2 đại lượng còn lại. | [R12C4] 2.4 | [R12C5] III | [R12C6] 1 | [R12C7] 23
+[Bảng 2 · Hàng 13] [R13C1] [trống] | [R13C2] VDC | [R13C3] Vận dụng, tổng hợp kiến thức “Công và công suất”, đề xuất các phương án giải quyết các vấn đề trong cuộc sống: Khi đưa một vật lên cao, khi kéo 1 vật nặng…..    | [R13C4] 3.3 | [R13C5] III | [R13C6] 1 | [R13C7] 25
+[Bảng 2 · Hàng 14] [R14C1] [trống] | [R14C2] [trống] | [R14C3] Tính được công và công suất của một số trường hợp trong thực tế đời | [R14C4] [trống] | [R14C5] III | [R14C6] 1 | [R14C7] 26
+[Bảng 2 · Hàng 15] [R15C1] Chủ đề Ánh sáng | [R15C2] [trống] | [R15C3] [trống] | [R15C4] [trống] | [R15C5] [trống] | [R15C6] [trống] | [R15C7] [trống]
+[Bảng 2 · Hàng 16] [R16C1] Sự khúc xạ | [R16C2] NB | [R16C3] Nêu được chiết suất có giá trị bằng tỉ số tốc độ ánh sáng trong không khí (hoặc chân không) với tốc độ ánh sáng trong môi trường. | [R16C4] 1.1 | [R16C5] I | [R16C6] 1 | [R16C7] 3
+[Bảng 2 · Hàng 17] [R17C1] [trống] | [R17C2] [trống] | [R17C3] Phát biểu được định luật khúc xạ ánh sáng | [R17C4] 1.1 | [R17C5] [trống] | [R17C6] [trống] | [R17C7] [trống]
+[Bảng 2 · Hàng 18] [R18C1] [trống] | [R18C2] VD | [R18C3] Thực hiện được thí nghiệm chứng tỏ được khi truyền từ môi trường trong suốt này sang môi trường trong suốt khác, tia sáng có thể bị khúc xạ. | [R18C4] [trống] | [R18C5] [trống] | [R18C6] [trống] | [R18C7] [trống]
+[Bảng 2 · Hàng 19] [R19C1] [trống] | [R19C2] [trống] | [R19C3] - Thực hiện được thí nghiệm để rút ra định luật khúc xạ ánh sáng. | [R19C4] [trống] | [R19C5] [trống] | [R19C6] [trống] | [R19C7] [trống]
+[Bảng 2 · Hàng 20] [R20C1] [trống] | [R20C2] [trống] | [R20C3] - Vận dụng được biểu thức n = sini / sinr trong một số trường hợp đơn giản. | [R20C4] [trống] | [R20C5] II, III | [R20C6] 2 | [R20C7] 21c, 23
+[Bảng 2 · Hàng 21] [R21C1] Lăng kính – Sự tán sắc – Màu sắc | [R21C2] NB | [R21C3] - Nêu được khái niệm về ánh sáng màu. | [R21C4] 1.1 | [R21C5] [trống] | [R21C6] [trống] | [R21C7] [trống]
+[Bảng 2 · Hàng 22] [R22C1] [trống] | [R22C2] [trống] | [R22C3] Nêu được màu sắc của một vật được nhìn thấy phụ thuộc vào màu sắc của ánh sáng bị vật đó hấp thụ và phản xạ. | [R22C4] 1.1 | [R22C5] [trống] | [R22C6] [trống] | [R22C7] [trống]
+[Bảng 2 · Hàng 23] [R23C1] [trống] | [R23C2] [trống] | [R23C3] Nêu được độ lệch của tia sáng đỏ qua lăng kính là ít nhất, độ lệch của tia sáng màu tím qua lăng kính là nhiều nhất. | [R23C4] [trống] | [R23C5] II | [R23C6] 1 | [R23C7] 21b
+[Bảng 2 · Hàng 24] [R24C1] [trống] | [R24C2] TH | [R24C3] Vẽ được sơ đồ đường truyền của tia sáng qua lăng kính. | [R24C4] 1.4 | [R24C5] I | [R24C6] 1 | [R24C7] 13
+[Bảng 2 · Hàng 25] [R25C1] [trống] | [R25C2] [trống] | [R25C3] Giải thích được một cách định tính sự tán sắc ánh sáng Mặt Trời qua lăng kính. | [R25C4] 1.5 | [R25C5] I | [R25C6] 1 | [R25C7] 14
+[Bảng 2 · Hàng 26] [R26C1] [trống] | [R26C2] [trống] | [R26C3] Giải thích được màu sắc của một vật được nhìn thấy phụ thuộc vào màu sắc của ánh sáng bị vật đó hấp thụ và phản xạ. | [R26C4] [trống] | [R26C5] II | [R26C6] 2 | [R26C7] 21a, 21d
+[Bảng 2 · Hàng 27] [R27C1] [trống] | [R27C2] VD | [R27C3] Thực hiện thí nghiệm với lăng kính tạo được quang phổ của ánh sáng trắng qua lăng kính. | [R27C4] [trống] | [R27C5] [trống] | [R27C6] [trống] | [R27C7] [trống]
+[Bảng 2 · Hàng 28] [R28C1] [trống] | [R28C2] [trống] | [R28C3] Vận dụng kiến thức về sự truyền ánh sáng, màu sắc ánh sáng, giải thích được một số hiện tượng đơn giản thường gặp trong thực tế. | [R28C4] [trống] | [R28C5] [trống] | [R28C6] [trống] | [R28C7] [trống]
+[Bảng 2 · Hàng 29] [R29C1] Sự phản xạ toàn phần | [R29C2] VD | [R29C3] Thực hiện thí nghiệm để rút ra được điều kiện xảy ra phản xạ toàn phần và xác định được góc tới hạn | [R29C4] [trống] | [R29C5] [trống] | [R29C6] [trống] | [R29C7] [trống]
+[Bảng 2 · Hàng 30] [R30C1] Thấu kính | [R30C2] NB | [R30C3] Nêu được các khái niệm: quang tâm, trục chính, tiêu điểm chính và tiêu cự của thấu kính. | [R30C4] 1.1 | [R30C5] I | [R30C6] 1 | [R30C7] 4, 20a
+[Bảng 2 · Hàng 31] [R31C1] [trống] | [R31C2] [trống] | [R31C3] Nhận biết được thấu kính hội tụ, phân kì. | [R31C4] 1.1 | [R31C5] I | [R31C6] 2 | [R31C7] 5, 6
+[Bảng 2 · Hàng 32] [R32C1] [trống] | [R32C2] [trống] | [R32C3] Nêu được các đặc điểm về  ảnh của một vật tạo bởi thấu kính phân kì. | [R32C4] 1.1 | [R32C5] I | [R32C6] 1 | [R32C7] 7
+[Bảng 2 · Hàng 33] [R33C1] [trống] | [R33C2] [trống] | [R33C3] Nêu được các đặc điểm về  ảnh của một vật tạo bởi thấu kính hội tụ. | [R33C4] 1.1 | [R33C5] II | [R33C6] 1 | [R33C7] 21a
+[Bảng 2 · Hàng 34] [R34C1] [trống] | [R34C2] TH | [R34C3] Giải thích được nguyên lí hoạt động của thấu kính bằng việc sử dụng sự khúc xạ của một số các lăng kính nhỏ. | [R34C4] [trống] | [R34C5] [trống] | [R34C6] [trống] | [R34C7] [trống]
+[Bảng 2 · Hàng 35] [R35C1] [trống] | [R35C2] [trống] | [R35C3] Mô tả được đường truyền của tia sáng đặc biệt qua thấu kính hội tụ. | [R35C4] 1.4 | [R35C5] II | [R35C6] 1 | [R35C7] 20b
+[Bảng 2 · Hàng 36] [R36C1] [trống] | [R36C2] [trống] | [R36C3] Giải thích được đặc điểm về ảnh của một vật tạo bởi thấu kính hội tụ. | [R36C4] 1.5 | [R36C5] II | [R36C6] 2 | [R36C7] 20c, 20d
+[Bảng 2 · Hàng 37] [R37C1] [trống] | [R37C2] [trống] | [R37C3] Giải thích được đặc điểm về ảnh của một vật tạo bởi thấu kính phân kì. | [R37C4] [trống] | [R37C5] [trống] | [R37C6] [trống] | [R37C7] [trống]
+[Bảng 2 · Hàng 38] [R38C1] [trống] | [R38C2] [trống] | [R38C3] Thực hiện thí nghiệm khẳng định dược: Ảnh thật là ảnh hứng được trên màn; ảnh ảo là ảnh không hứng được trên màn. | [R38C4] [trống] | [R38C5] [trống] | [R38C6] [trống] | [R38C7] [trống]
+[Bảng 2 · Hàng 39] [R39C1] [trống] | [R39C2] [trống] | [R39C3] Vận dụng kiến thức về sự truyền ánh sáng, màu sắc ánh sáng, giải thích được một số hiện tượng đơn giản thường gặp trong thực tế. | [R39C4] [trống] | [R39C5] [trống] | [R39C6] [trống] | [R39C7] [trống]
+[Bảng 2 · Hàng 40] [R40C1] [trống] | [R40C2] [trống] | [R40C3] Thực hiện được đề rút ra được điều kiện phản xạ toàn phần và xác định được góc tới hạn. | [R40C4] [trống] | [R40C5] [trống] | [R40C6] [trống] | [R40C7] [trống]
+[Bảng 2 · Hàng 41] [R41C1] [trống] | [R41C2] [trống] | [R41C3] Tiến hành thí nghiệm rút ra được đường đi một số tia sáng qua thấu kính (tia qua quang tâm, tia song song qua trục chính) | [R41C4] [trống] | [R41C5] [trống] | [R41C6] [trống] | [R41C7] [trống]
+[Bảng 2 · Hàng 42] [R42C1] [trống] | [R42C2] VD | [R42C3] Vẽ được ảnh qua thấu kính hội phân kì | [R42C4] 2.5 | [R42C5] II | [R42C6] 1 | [R42C7] 21d
+[Bảng 2 · Hàng 43] [R43C1] [trống] | [R43C2] [trống] | [R43C3] Vẽ được ảnh qua thấu kính hội tụ | [R43C4] [trống] | [R43C5] [trống] | [R43C6] [trống] | [R43C7] [trống]
+[Bảng 2 · Hàng 44] [R44C1] [trống] | [R44C2] [trống] | [R44C3] Vẽ được sơ đồ tỉ lệ để giải các bài tập đơn giản về thấu kính hội tụ. | [R44C4] [trống] | [R44C5] [trống] | [R44C6] [trống] | [R44C7] [trống]
+[Bảng 2 · Hàng 45] [R45C1] [trống] | [R45C2] [trống] | [R45C3] Vẽ được sơ đồ tỉ lệ để giải các bài tập đơn giản về thấu kính phân kì. | [R45C4] [trống] | [R45C5] [trống] | [R45C6] [trống] | [R45C7] [trống]
+[Bảng 2 · Hàng 46] [R46C1] [trống] | [R46C2] [trống] | [R46C3] Đo được tiêu cự của thấu kính hội tụ bằng dụng cụ thực hành. | [R46C4] [trống] | [R46C5] [trống] | [R46C6] [trống] | [R46C7] [trống]
+[Bảng 2 · Hàng 47] [R47C1] [trống] | [R47C2] VDC | [R47C3] Vận dụng được biểu thức n = sini/sinr trong một số trường hợp đơn giản. | [R47C4] [trống] | [R47C5] [trống] | [R47C6] [trống] | [R47C7] [trống]
+[Bảng 2 · Hàng 48] [R48C1] Chủ đề Điện | [R48C2] [trống] | [R48C3] [trống] | [R48C4] [trống] | [R48C5] [trống] | [R48C6] [trống] | [R48C7] [trống]
+[Bảng 2 · Hàng 49] [R49C1] Điện trở. Định luật Ohm. Đoạn mạch một chiều mắc nối tiếp, mắc song song. Năng lượng của dòng điện và công suất điện | [R49C2] NB | [R49C3] Nêu được: Công thức tính điện trở của một đoạn dây dẫn (theo độ dài, tiết diện, điện trở suất);  | [R49C4] 1.1 / 1.1 | [R49C5] I / II | [R49C6] 1 / 1 | [R49C7] 8 / 22a
+[Bảng 2 · Hàng 50] [R50C1] [trống] | [R50C2] [trống] | [R50C3] Nêu được: công thức tính điện trở tương đương của đoạn mạch một chiều nối tiếp, song song. | [R50C4] 1.1 | [R50C5] I | [R50C6] 2 | [R50C7] 9, 10
+[Bảng 2 · Hàng 51] [R51C1] [trống] | [R51C2] [trống] | [R51C3] Nhận biết được mạch nối tiếp, mạch song song | [R51C4] 1.1 | [R51C5] I | [R51C6] 1 | [R51C7] 16
+[Bảng 2 · Hàng 52] [R52C1] [trống] | [R52C2] [trống] | [R52C3] Nêu được công suất định mức của dụng cụ điện. | [R52C4] 1.1 | [R52C5] I | [R52C6] 2 | [R52C7] 11, 12
+[Bảng 2 · Hàng 53] [R53C1] [trống] | [R53C2] TH | [R53C3] Thực hiện được thí nghiệm đơn giản để nêu được điện trở có tác dụng cản trở dòng điện trong mạch. | [R53C4] [trống] | [R53C5] [trống] | [R53C6] [trống] | [R53C7] [trống]
+[Bảng 2 · Hàng 54] [R54C1] [trống] | [R54C2] [trống] | [R54C3] Thực hiện thi nghiệm để xây dựng được định luật Ohm. | [R54C4] [trống] | [R54C5] [trống] | [R54C6] [trống] | [R54C7] [trống]
+[Bảng 2 · Hàng 55] [R55C1] [trống] | [R55C2] [trống] | [R55C3] Thực hiện thí nghiệm để rút ra được: Trong đoạn mạch mắc nối tiếp, cường độ dòng điện là như nhau cho mọi điểm; trong đoạn mạch mắc song song, tổng cường độ dòng điện trong các nhánh bằng cường độ dòng điện chạy trong mạch chính. | [R55C4] [trống] | [R55C5] II | [R55C6] 2 | [R55C7] 22c, 22d
+[Bảng 2 · Hàng 56] [R56C1] [trống] | [R56C2] [trống] | [R56C3] Lấy được ví dụ chứng tỏ dòng điện có năng lượng. | [R56C4] 1.4 | [R56C5] I, II | [R56C6] 2 | [R56C7] 15, 22b
+[Bảng 2 · Hàng 57] [R57C1] [trống] | [R57C2] [trống] | [R57C3] Lắp được mạch điện và đo được cường độ dòng điện trong một đoạn mạch mắc nối tiếp. | [R57C4] [trống] | [R57C5] [trống] | [R57C6] [trống] | [R57C7] [trống]
+[Bảng 2 · Hàng 58] [R58C1] [trống] | [R58C2] [trống] | [R58C3] Lắp được mạch điện và đo được cường độ dòng điện trong một đoạn mạch mắc song song. | [R58C4] 3.1 | [R58C5] I | [R58C6] 1 | [R58C7] 16
+[Bảng 2 · Hàng 59] [R59C1] [trống] | [R59C2] VD | [R59C3] Sử dụng công thức đã cho để tính được điện trở của một đoạn dây dẫn | [R59C4] 2.4 | [R59C5] I | [R59C6] 1 | [R59C7] 17
+[Bảng 2 · Hàng 60] [R60C1] [trống] | [R60C2] [trống] | [R60C3] Sử dụng công thức đã cho để tính được điện trở của một đoạn dây dẫn, điện trở tương đương của đoạn mạch một chiều nối tiếp trong một số trường hợp đơn giản. | [R60C4] 2.4 | [R60C5] I, III | [R60C6] 1 | [R60C7] 18, 24
+[Bảng 2 · Hàng 61] [R61C1] [trống] | [R61C2] [trống] | [R61C3] Sử dụng công thức đã cho để tính được điện trở của một đoạn dây dẫn, điện trở tương đương của đoạn mạch một chiều song song trong một số trường hợp đơn giản. | [R61C4] [trống] | [R61C5] [trống] | [R61C6] [trống] | [R61C7] [trống]
+[Bảng 2 · Hàng 62] [R62C1] [trống] | [R62C2] [trống] | [R62C3] Tính được cường dộ dòng điện trong đoạn mạch một chiều mắc nối tiếp trong một số trường hợp đơn giản. | [R62C4] [trống] | [R62C5] [trống] | [R62C6] [trống] | [R62C7] [trống]
+[Bảng 2 · Hàng 63] [R63C1] [trống] | [R63C2] [trống] | [R63C3] Tính được cường dộ dòng điện trong đoạn mạch một chiều mắc song song trong một số trường hợp đơn giản. | [R63C4] [trống] | [R63C5] [trống] | [R63C6] [trống] | [R63C7] [trống]
+[Bảng 2 · Hàng 64] [R64C1] [trống] | [R64C2] VDC | [R64C3] Sử dụng công thức đã cho để tính được điện trở của một đoạn dây dẫn. | [R64C4] [trống] | [R64C5] [trống] | [R64C6] [trống] | [R64C7] [trống]
+[Bảng 2 · Hàng 65] [R65C1] [trống] | [R65C2] [trống] | [R65C3] Sử dụng công thức đã cho để tính được điện trở tương đương của đoạn mạch một chiều nối tiếp, song song trong một số trường hợp đơn giản. | [R65C4] 2.6 | [R65C5] III | [R65C6] 1 | [R65C7] 27
+[Bảng 2 · Hàng 66] [R66C1] [trống] | [R66C2] [trống] | [R66C3] Tính được cường dộ dòng điện trong đoạn mạch một chiều mắc nối tiếp trong một số trường hợp đơn giản. | [R66C4] 2.4 | [R66C5] III | [R66C6] 1 | [R66C7] 24
+[Bảng 2 · Hàng 67] [R67C1] [trống] | [R67C2] [trống] | [R67C3] Tính được cường dộ dòng điện trong đoạn mạch một chiều mắc song song trong một số trường hợp đơn giản. | [R67C4] [trống] | [R67C5] [trống] | [R67C6] [trống] | [R67C7] [trống]
+[Bảng 2 · Hàng 68] [R68C1] [trống] | [R68C2] [trống] | [R68C3] Tính được năng lượng của dòng điện và công suất điện trong trường hợp đơn giản. | [R68C4] 3.3 | [R68C5] III | [R68C6] 1 | [R68C7] 28

@@ -1,0 +1,60 @@
+.tpl-dialog{width:min(720px,94vw);max-height:88vh;padding:0;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:inherit}
+.tpl-dialog::backdrop{background:rgba(0,0,0,.4)}
+.tpl-dialog>header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line)}
+.tpl-body{display:grid;gap:12px;padding:14px 16px;overflow:auto;max-height:calc(88vh - 56px)}
+.tpl-body label{display:grid;gap:4px;font-size:13px}
+.tpl-body input,.tpl-body textarea,.tpl-body select{font:inherit;max-width:100%}
+.tpl-section,.tpl-params,.tpl-scope{display:grid;gap:8px;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.tpl-section legend,.tpl-params legend,.tpl-scope legend{font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--muted)}
+.tpl-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.tpl-row input{flex:1;min-width:110px}
+.tpl-row label{display:inline-flex;grid-template:none;flex-direction:row;align-items:center;gap:4px}
+.tpl-step{display:grid;gap:6px;padding:8px;border:1px dashed var(--line);border-radius:8px}
+.tpl-picks{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:6px}.tpl-picks strong{width:100%;font-size:12px}.tpl-picks label{display:inline-flex;flex-direction:row;align-items:center;gap:4px}
+.tpl-actions{display:flex;justify-content:flex-end;gap:8px}
+.tpl-edit-fields{display:grid;gap:12px;border:0;padding:0;margin:0;min-width:0}
+.tpl-save-status{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600}
+.tpl-saved{color:#278452}.tpl-unsaved{color:var(--danger,#dc2626)}
+
+.wf-tabs{display:flex;gap:6px;margin:8px 0 12px}
+.wf-tabs button{padding:6px 14px}
+.tpl-inline{display:block;padding:4px 0}
+.tpl-inline-editor>.tpl-body{max-height:none;overflow:visible;padding:0}
+
+
+.tpl-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:12px}
+.tpl-head p{margin:4px 0 0;font-size:13px;max-width:560px}
+.tpl-search{width:100%;max-width:360px;margin-bottom:12px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:inherit;font:inherit}
+.tpl-empty{display:grid;justify-items:center;gap:6px;padding:36px 16px;border:1px dashed var(--line);border-radius:14px;text-align:center}
+.tpl-empty span{font-size:34px}.tpl-empty p{margin:0;max-width:420px;font-size:13px}
+.tpl-grid{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.tpl-card{display:flex;flex-direction:column;gap:8px;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--surface);transition:border-color .15s,box-shadow .15s}
+.tpl-card:hover{border-color:var(--accent);box-shadow:var(--shadow,0 4px 14px rgba(0,0,0,.08))}
+.tpl-card-top{display:grid;gap:6px}.tpl-card-top>strong{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tpl-chips{display:flex;flex-wrap:wrap;gap:4px}.tpl-chips span{padding:2px 8px;border-radius:999px;background:var(--accent-soft);font-size:11px}
+.tpl-chips .tpl-chip-accent{background:var(--accent);color:#fff}
+.tpl-desc{margin:0;font-size:12px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.tpl-flow{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:4px;counter-reset:s}
+.tpl-flow li{counter-increment:s;max-width:100%;padding:2px 8px;border:1px solid var(--line);border-radius:6px;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tpl-flow li:not(.tpl-more)::before{content:counter(s) ". ";color:var(--muted)}
+.tpl-card-actions{display:flex;gap:6px;margin-top:auto;padding-top:6px}.tpl-card-actions button{flex:1;padding:6px 4px;font-size:13px}
+.tpl-card-actions .tpl-del{flex:0 0 auto;color:var(--danger)}
+
+.tpl-flow-edit{display:flex;flex-wrap:wrap;gap:6px;list-style:none;padding:0;margin:8px 0}
+.tpl-flow-edit li button{border-radius:999px;padding:4px 10px;font-size:12px}
+.tpl-flow-edit li.on button{background:var(--accent,#364e78);color:#fff}
+.tpl-step:not(.open){opacity:.92}
+.tpl-summary{margin:2px 0 0 30px}
+.wf-plan-advanced{margin:12px 0;border:1px solid var(--line,#d8dee9);border-radius:10px;padding:8px 12px}
+
+/* Gọi quy trình mẫu từ khung chat */
+.tpl-from-chat{margin-left:8px;padding:1px 8px;font-size:11px;border:1px solid var(--line);border-radius:6px;color:var(--accent)}
+.tpl-run{margin-right:auto;display:inline-flex;gap:6px;align-items:center;font-size:13px}
+.chat-wf{position:relative;display:inline-flex}
+.chat-wf-menu{position:fixed;z-index:30;width:300px;max-height:320px;overflow:auto;padding:6px;border:1px solid var(--line);border-radius:12px;background:var(--surface);box-shadow:0 10px 30px rgba(15,23,42,.18);display:flex;flex-direction:column;gap:2px}
+.chat-wf-menu>button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;padding:7px 9px;border-radius:8px}
+.chat-wf-menu>button:hover,.chat-wf-menu>button:focus-visible{background:var(--sidebar)}
+.chat-wf-menu small,.chat-wf-menu p{color:var(--muted);font-size:11.5px;margin:0}
+.chat-wf-menu p{padding:6px 9px}
+
+.composer .composer-toolbar .chat-wf-menu>button{height:auto;min-height:0;width:100%;padding:7px 9px;line-height:1.3;justify-content:flex-start}
+.chat-wf-menu strong{font-size:13px}

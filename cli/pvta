@@ -1,0 +1,8 @@
+#!/usr/bin/env node
+import fs from 'node:fs';
+import {fileURLToPath} from 'node:url';
+const entry = new URL('./dist/pvta.cjs', import.meta.url);
+if (!fs.existsSync(entry)) {
+  process.stderr.write('Chạy npm run build:cli trong thư mục MySoft trước.\n');
+  process.exitCode = 1;
+} else await import(fileURLToPath(entry));

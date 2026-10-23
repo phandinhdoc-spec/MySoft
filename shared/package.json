@@ -1,0 +1,8 @@
+{
+  "name": "@pvta/shared",
+  "version": "1.5.1",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts"
+}

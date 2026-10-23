@@ -1,0 +1,288 @@
+name: PVTA Studio — Build & Release
+on:
+  workflow_dispatch:
+    inputs:
+      only:
+        description: 'Chỉ build và tải các gói này; để trống = win,mac-arm64. Khóa: win (Studio cho cả x64 và ARM64), mac-arm64, mac-x64, linux-x64, office. Ví dụ: win,mac-arm64'
+        required: false
+        default: ''
+        type: string
+  push:
+    tags: ['desktop-v*']
+concurrency:
+  group: studio-release-${{ github.ref }}
+  cancel-in-progress: false
+permissions:
+  contents: write
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      count: ${{ steps.plan.outputs.count }}
+      win: ${{ steps.plan.outputs.win }}
+      mac: ${{ steps.plan.outputs.mac }}
+      office: ${{ steps.plan.outputs.office }}
+    steps:
+      - id: plan
+        env:
+          ONLY: ${{ inputs.only }}
+        run: |
+          FULL='[
+            {"key":"mac-arm64","os":"macos-latest","target":"aarch64-apple-darwin","arch":"arm64","bundles":"dmg"},
+            {"key":"mac-x64","os":"macos-15-intel","target":"x86_64-apple-darwin","arch":"x64","bundles":"dmg"},
+            {"key":"win-x64","os":"windows-latest","target":"x86_64-pc-windows-msvc","arch":"x64","bundles":"nsis"},
+            {"key":"win-arm64","os":"windows-11-arm","target":"aarch64-pc-windows-msvc","arch":"arm64","bundles":"nsis"},
+            {"key":"linux-x64","os":"ubuntu-22.04","target":"x86_64-unknown-linux-gnu","arch":"x64","bundles":"appimage"}
+          ]'
+          # Mặc định bản 1.5.1: Studio Windows (x64 + ARM64) và Studio macOS Apple Silicon (gói Office đi kèm tự động). Linux và Intel Mac chỉ khi chọn rõ.
+          ONLY="${ONLY:-win,mac-arm64}"
+          ONLY="$(echo ",${ONLY// /}," | sed 's/,win,/,win-x64,win-arm64,/')"
+          has() { [[ "$ONLY" == *",$1,"* ]]; }
+          if { has win-x64 && ! has win-arm64; } || { has win-arm64 && ! has win-x64; }; then
+            echo "::error::Studio Windows gồm cả x64 và ARM64: chọn 'win', đừng chọn riêng một kiến trúc."; exit 1
+          fi
+          WIN=false; has win-x64 && WIN=true
+          MAC=false; { has mac-arm64 || has mac-x64; } && MAC=true
+          OFFICE=false; { has office || [[ $WIN == true || $MAC == true ]]; } && OFFICE=true
+          SELECTED=$(jq -c --arg only "$ONLY" '[.[] | . as $m | select($only | contains("," + $m.key + ","))]' <<< "$FULL")
+          COUNT=$(jq 'length' <<< "$SELECTED")
+          echo "Nền tảng được build ($COUNT): $SELECTED; win=$WIN mac=$MAC office=$OFFICE"
+          { echo "count=$COUNT"; echo "win=$WIN"; echo "mac=$MAC"; echo "office=$OFFICE"; echo "matrix=$(jq -c '{include: .}' <<< "$SELECTED")"; } >> "$GITHUB_OUTPUT"
+  desktop:
+    needs: plan
+    if: ${{ needs.plan.outputs.count != '0' }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: chatbox/src-tauri
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev librsvg2-dev libayatana-appindicator3-dev
+      - run: npm ci
+      - run: node --test scripts/test/version.test.mjs scripts/test/runtime.test.mjs
+      - run: npm run version:check
+      - run: npm run typecheck
+      - name: Build desktop packages
+        id: desktop_build
+        shell: bash
+        run: |
+          set -o pipefail
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            # linuxdeploy's bundled strip can reject modern ELF .relr.dyn sections.
+            export NO_STRIP=true
+            npm run desktop:build -w chatbox -- --verbose --no-bundle 2>&1 | tee desktop-build.log
+            # The runtime is created by beforeBuildCommand above. Its private shared
+            # libraries must be discoverable by ldd when linuxdeploy scans AppDir.
+            PVTA_LIBRARY_PATH="$(node scripts/runtime/bundle-env.mjs)"
+            export LD_LIBRARY_PATH="$PVTA_LIBRARY_PATH"
+            npm exec -w chatbox -- tauri bundle --verbose --bundles '${{ matrix.bundles }}' 2>&1 | tee -a desktop-build.log
+          else
+            npm run desktop:build -w chatbox -- --verbose --bundles '${{ matrix.bundles }}' 2>&1 | tee desktop-build.log
+          fi
+        env:
+          PVTA_TARGET: ${{ matrix.target }}
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+      - name: Show build error summary
+        if: ${{ failure() && steps.desktop_build.outcome == 'failure' }}
+        shell: bash
+        run: |
+          # Surface the end of the build log as an annotation on the run summary page.
+          MSG="$(tail -n 40 desktop-build.log | tr -d '\r' | cut -c1-400)"
+          MSG="${MSG//'%'/'%25'}"; MSG="${MSG//$'\n'/'%0A'}"
+          echo "::error title=Build log tail (${{ matrix.os }})::${MSG}"
+      - name: Collect desktop packages
+        if: ${{ !cancelled() && steps.desktop_build.outcome != 'skipped' }}
+        shell: bash
+        run: node scripts/collect-desktop.mjs '${{ matrix.arch }}'
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() && steps.desktop_build.outcome != 'skipped' }}
+        with:
+          name: desktop-${{ matrix.os }}-${{ matrix.arch }}
+          path: release/chatbox/*
+          if-no-files-found: warn
+      - name: Upload desktop build log
+        if: ${{ !cancelled() && steps.desktop_build.outcome != 'skipped' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-${{ matrix.os }}-${{ matrix.arch }}
+          path: desktop-build.log
+          if-no-files-found: warn
+  office:
+    needs: plan
+    if: ${{ needs.plan.outputs.office == 'true' }}
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: bash scripts/package.sh
+      - run: |
+          mkdir -p office-release
+          cp release/pvta.tar.gz office-release/pvta-office.tar.gz
+          cp install/latest.json office-release/office-latest.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: office
+          path: office-release/*
+          if-no-files-found: error
+  # Studio Windows: MỘT tệp .exe có sẵn PVTA Chat (x64 và ARM64) và tiện ích Office; tự chọn kiến trúc khi cài.
+  studio-win:
+    needs: [plan, desktop, office]
+    if: ${{ always() && needs.plan.outputs.win == 'true' && needs.desktop.result == 'success' && needs.office.result == 'success' }}
+    timeout-minutes: 30
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: parts
+          pattern: desktop-windows-*
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: office
+          path: parts
+      - name: Build PVTA Studio Setup
+        shell: pwsh
+        run: |
+          $v = node -p "require('./package.json').version"
+          New-Item -ItemType Directory -Force release/studio-payload | Out-Null
+          foreach ($f in "PVTA-Chatbox-$v-x64.exe", "PVTA-Chatbox-$v-arm64.exe", 'pvta-office.tar.gz', 'office-latest.json') {
+            if (-not (Test-Path "parts/$f")) { throw "Thiếu $f để đóng gói Studio" }
+            Copy-Item "parts/$f" release/studio-payload/
+          }
+          if (-not (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe")) { choco install innosetup -y --no-progress }
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DAppVersion=$v" scripts\windows\studio.iss
+          if ($LASTEXITCODE -ne 0) { throw 'Studio build failed' }
+          Get-ChildItem release/PVTA-Studio-Setup-*.exe | ForEach-Object { "{0} {1:N0} MB" -f $_.Name, ($_.Length / 1MB) }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: studio-win
+          path: release/PVTA-Studio-Setup-*.exe
+          if-no-files-found: error
+  # Studio macOS: .dmg có PVTA.app + Cai-tien-ich-Office.command (kèm gói Office, không cần Internet).
+  studio-mac:
+    needs: [plan, desktop, office]
+    if: ${{ always() && needs.plan.outputs.mac == 'true' && needs.desktop.result == 'success' && needs.office.result == 'success' }}
+    timeout-minutes: 30
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          path: parts
+          pattern: desktop-macos-*
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: office
+          path: parts
+      - name: Build PVTA Studio dmg
+        shell: bash
+        run: |
+          V="$(node -p "require('./package.json').version")"
+          mkdir -p studio-out
+          for arch in arm64 x64; do
+            if [[ -f "parts/PVTA-Chatbox-$V-$arch.dmg" ]]; then
+              bash scripts/build-studio-dmg.sh "parts/PVTA-Chatbox-$V-$arch.dmg" parts/pvta-office.tar.gz "$arch" studio-out
+            fi
+          done
+          ls -lh studio-out
+          test -n "$(ls studio-out/*.dmg)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: studio-mac
+          path: studio-out/*.dmg
+          if-no-files-found: error
+  publish:
+    timeout-minutes: 15
+    needs: [plan, desktop, office, studio-win, studio-mac]
+    if: ${{ always() && needs.plan.result == 'success' && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: parts
+          pattern: desktop-*
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        if: ${{ needs.plan.outputs.office == 'true' }}
+        with:
+          name: office
+          path: parts
+      - uses: actions/download-artifact@v4
+        with:
+          path: parts
+          pattern: studio-*
+          merge-multiple: true
+      - name: Validate version and package set
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ONLY: ${{ inputs.only }}
+        shell: bash
+        run: |
+          node scripts/version.mjs --check
+          V="$(node -p "require('./package.json').version")"
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            [[ "$GITHUB_REF_NAME" == "desktop-v$V" ]] || exit 1
+          fi
+          # Chỉ đưa lên Releases các gói người dùng cần: Studio (Windows, macOS), AppImage, gói Office.
+          # Gói PVTA Chat riêng lẻ chỉ là nguyên liệu đóng gói Studio nên không được công bố.
+          ONLY="${ONLY:-win,mac-arm64}"
+          ONLY=",${ONLY// /},"
+          has() { [[ "$ONLY" == *",$1,"* ]]; }
+          FILES=()
+          { has win || has win-x64; } && FILES+=("PVTA-Studio-Setup-$V.exe")
+          has mac-arm64 && FILES+=("PVTA-Studio-$V-arm64.dmg")
+          has mac-x64 && FILES+=("PVTA-Studio-$V-x64.dmg")
+          has linux-x64 && FILES+=("PVTA-Chatbox-$V-x64.AppImage")
+          if has office || has win || has win-x64 || has mac-arm64 || has mac-x64; then FILES+=("pvta-office.tar.gz" "office-latest.json"); fi
+          for f in "${FILES[@]}"; do test -f "parts/$f" || { echo "Thiếu $f"; exit 1; }; done
+          if [[ " ${FILES[*]} " == *" office-latest.json "* ]]; then
+            node -e 'const fs=require("fs"); if(JSON.parse(fs.readFileSync("parts/office-latest.json")).version!==JSON.parse(fs.readFileSync("package.json")).version)process.exit(1)'
+          fi
+          mkdir -p packages
+          for f in "${FILES[@]}"; do cp "parts/$f" packages/; done
+          cd packages
+          sha256sum "${FILES[@]}" > new.sums
+          TAG="desktop-v$V"
+          # Giữ mã SHA256 của gói không build lần này, để SHA256SUMS của bản phát hành luôn đầy đủ.
+          if gh release download "$TAG" -p SHA256SUMS -O old.sums --clobber 2>/dev/null; then
+            awk 'NR==FNR{seen[$2]=1; print; next} !($2 in seen)' new.sums old.sums > SHA256SUMS
+          else
+            mv new.sums SHA256SUMS
+          fi
+          rm -f new.sums old.sums
+          ls -lh .
+      - name: Publish complete draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          V="$(node -p "require('./package.json').version")"
+          TAG="desktop-v$V"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            [[ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" == true ]] || { echo 'Do not overwrite a published release; bump version.'; exit 1; }
+          else
+            gh release create "$TAG" --draft --target "$GITHUB_SHA" --title "PVTA Studio $V" --notes "PVTA Studio $V: PVTA Chat và tiện ích Office cùng phiên bản."
+          fi
+          gh release upload "$TAG" packages/* --clobber

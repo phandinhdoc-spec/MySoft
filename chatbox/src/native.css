@@ -1,0 +1,100 @@
+/* Selected direction A (quiet native chrome) + B (document workspace). */
+:root{--bg:#f6f7f9;--surface:#fff;--sidebar:#edf0f4;--line:#dce1e8;--text:#202936;--muted:#596779;--accent:#1769dc;--accent-soft:#e8f0fd;--hover:#e6ebf2;--heading:#202936;--heading-em:#1769dc;--primary:#1769dc;--primary-hover:#1057b9;--on-primary:#fff;--shadow:0 8px 28px #24364d0d}
+:root[data-theme=dark]{--bg:#1b1e24;--surface:#242932;--sidebar:#171b21;--line:#3c4552;--text:#edf1f7;--muted:#b5c0ce;--accent:#9bc2ff;--accent-soft:#293c59;--hover:#303a48;--heading:#edf1f7;--heading-em:#9bc2ff;--primary:#9bc2ff;--primary-hover:#c4dbff;--on-primary:#14233b}
+@media(prefers-color-scheme:dark){:root[data-theme=system]{--bg:#1b1e24;--surface:#242932;--sidebar:#171b21;--line:#3c4552;--text:#edf1f7;--muted:#b5c0ce;--accent:#9bc2ff;--accent-soft:#293c59;--hover:#303a48;--heading:#edf1f7;--heading-em:#9bc2ff;--primary:#9bc2ff;--primary-hover:#c4dbff;--on-primary:#14233b}}
+.app{grid-template-columns:216px minmax(0,1fr)}.sidebar{padding:24px 12px 0;border-right:1px solid var(--line)}.brand{padding:0 8px 24px}.brand-mark{width:32px;height:32px;border-radius:9px;background:var(--primary);box-shadow:none;font-size:23px}.brand-name{font-size:20px}.brand-name small,.sidebar-bottom small{font-size:12px}.sidebar nav button{min-height:40px;padding:9px 12px;gap:12px}.sidebar-section{font-size:11px;letter-spacing:.5px}.new-chat{font-size:13px;min-height:38px;box-shadow:none}.topbar{height:56px;padding:0 24px;background:var(--surface)}.breadcrumb{font-size:14px}.local-badge{font-size:12px}.icon svg{width:20px;height:20px}.sidebar-collapsed{grid-template-columns:0 minmax(0,1fr)}
+.welcome h1{font-size:32px;line-height:1.3;font-weight:650;letter-spacing:-.7px}.welcome>p{font-size:15px;line-height:1.65}.welcome-symbol{margin-bottom:16px}.suggestion{border-radius:12px;box-shadow:none;min-height:88px}.suggestion small{font-size:12px;line-height:1.55}.suggestion-icon{width:32px;height:36px;border-radius:8px}.messages{padding:24px 32px}.message-body{line-height:1.7}.message-meta,.meta{font-size:12px}
+.composer-area{padding:12px 24px 20px}.composer{border-radius:14px;box-shadow:0 3px 14px #24364d0a}.composer textarea{font-size:15px}.composer-footer,.composer-footer button,.composer-note{font-size:12px}.composer-footer button{min-height:32px}.project-destination,.file-chips,.file-chips small{font-size:12px}.action-card,.source-context,.health-card{border-radius:12px;box-shadow:none}.artifact-heading strong{font-size:14px}.artifact-heading small,.artifact-destination{font-size:12px}.badge{font-size:11px}.card-actions{gap:8px}.card-actions button,.preview-toggle{font-size:13px;min-height:36px}.modal{border-radius:16px}.settings-tabs button{font-size:13px}.modal-backdrop{backdrop-filter:blur(5px)}
+.document-workspace{display:grid;grid-template-columns:minmax(300px,42%) minmax(360px,1fr);flex:1;min-height:0;min-width:0}.document-workspace>.chat-stack{overflow:hidden}.document-workspace .messages{padding:20px}.document-workspace .composer-area{padding:12px 16px 16px}.document-workspace .suggestion-grid{grid-template-columns:1fr}.document-reader{display:flex;flex-direction:column;min-width:0;min-height:0;border-left:1px solid var(--line);background:var(--sidebar)}.document-reader>header{display:flex;gap:12px;align-items:center;padding:12px 16px;background:var(--surface);border-bottom:1px solid var(--line)}.document-reader header>div{flex:1;min-width:0}.document-reader header strong{display:block;overflow-wrap:anywhere;font-size:14px}.document-reader header small{display:block;margin-top:4px;font-size:12px;color:var(--muted)}.document-reader header button{width:36px;flex:none}.document-scroll{overflow:auto;padding:24px;flex:1;min-height:0}.document-paper{padding:32px;background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:3px;box-shadow:0 3px 12px #24364d08;min-height:100%;font-size:15px;line-height:1.7;overflow-wrap:anywhere}.document-paper table{display:block;max-width:100%;overflow:auto}.document-paper pre{white-space:pre-wrap}.document-reader .file-path{margin-top:24px;font-size:12px}
+@media(max-width:1120px){.document-workspace{grid-template-columns:1fr;grid-template-rows:minmax(260px,1fr) minmax(260px,1fr)}.document-reader{border-left:0;border-top:1px solid var(--line)}.document-scroll{padding:16px}.document-paper{padding:24px}}
+@media(max-width:850px){.app{grid-template-columns:184px minmax(0,1fr)}.sidebar-collapsed{grid-template-columns:0 minmax(0,1fr)}.topbar{padding:0 16px}.messages{padding:20px}.composer-area{padding:12px 16px}}
+@media(max-width:600px){.app{grid-template-columns:1fr}.sidebar{display:none}.document-paper{padding:16px}.document-reader>header{padding:8px 12px}.welcome h1{font-size:28px}}
+
+.composer-toolbar{gap:8px;flex-wrap:wrap}.composer-toolbar button{min-height:36px;font-size:12px}.send-button{width:36px;height:36px;border-radius:10px}.composer-left,.composer-right{gap:6px;flex-wrap:wrap}.document-workspace .composer-toolbar{align-items:center}.document-workspace .composer-footer{flex-wrap:wrap;gap:8px}
+
+/* Neutral surfaces let each palette's accent carry the theme quietly. */
+.sidebar {background:var(--sidebar);}
+.topbar,:is(.suggestion,.bento-feature-card,.tool-card) {background:var(--surface);}
+:is(.suggestion,.bento-feature-card,.tool-card) {border:1px solid var(--line);}
+:is(.suggestion,.bento-feature-card,.tool-card):hover {border-color:var(--accent);background:var(--hover);}
+:is(.suggestion-icon,.bento-icon,.tool-card>span) {color:var(--accent);background:var(--accent-soft);}
+.welcome h1 em {color:var(--accent);background:none;-webkit-text-fill-color:currentColor;}
+.welcome-symbol,.new-chat {background:var(--surface);box-shadow:none;}
+
+.task-failure-banner{display:flex;align-items:center;gap:8px;min-width:0;padding:6px 12px;}
+.task-failure-banner>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;}
+.task-failure-banner>button{flex:none;}
+
+:root:is([data-palette=contrast-light],[data-palette=contrast-dark]) {
+  & :is(input,textarea,select) {border:1px solid var(--line);}
+  & :is(button,a,input,textarea,select,summary,[tabindex]):focus-visible {outline:3px solid var(--accent);outline-offset:3px;}
+  & :is(button.selected,button[aria-pressed=true],button[aria-current=page]) {box-shadow:inset 0 -2px var(--accent);font-weight:700;}
+  & :is(input,textarea)::placeholder {color:var(--muted);opacity:1;}
+  & :is(.sidebar,.topbar,.composer,.modal,.plan-card,.wf-node) {border-color:var(--line);box-shadow:none;}
+  --r-xs:0;--r-sm:4px;--r-md:0;--r-lg:0;
+  & :is(.badge,.bento-badge,.suite-badge,.level-badge,.level-pill,.level-tag,.slide-num,.count-pill,.dist-pill,.stat-badge,.ref-tag,.file-pill,.slot-chip,.slot-show,.chip-original,.chip-replacement,.diff-pair del,.diff-pair ins,.hint-chips>span,.file-chips>span,.trigger-char,.composer-hint kbd,.manager kbd) {border-radius:var(--r-xs);}
+  & :is(button:not(.avatar):not(.message-avatar),input,textarea,select,.composer .composer-toolbar button,.composer .composer-toolbar select,.composer .composer-toolbar input,.send-button,.new-chat,.palette-quick-btn,.suite-btn,.suite-btn.primary,.suite-actions button,.suite-attach-btn,.suite-add-slide-btn,.preset-btn,.variant-tab,.slide-title-input,.slide-bullets-input,.settings-tabs,.backend-tabs) {border-radius:var(--r-sm);}
+  & :is(.suggestion,.bento-feature-card,.tool-card,.project-card,.skill-card,.empty-card,.action-card,.source-context,.health-card,.plan-card,.backend-card,.appearance-option,.system-appearance,.planning-progress,.skill-import,.chat-object-form,.wf-node,.activity-item,.cloud-settings,.history-item,.hero-file-dropzone,.suite-tab,.kpi-chip,.slide-count-bar,.slot-bar,.sidebar-project,.choice,.refine-status,.std-result,.diff-card,.slide-preview-card,.audit-banner,.suite-table-wrap,.yccd-table-container,.grade-results-container,.suite-preview-box,.variant-preview-box,.diff-preview-box,.chat-menu,.trigger-menu) {border-radius:var(--r-md);}
+  & :is(.composer,.modal,.suite-shell,.office-workspace .settings-section) {border-radius:var(--r-lg);}
+  & :is(.brand-mark,.welcome-symbol,.tool-card>span,.bento-icon,.dropzone-icon,.artifact-icon) {border-radius:var(--r-md);}
+  & .message.user .markdown {border-radius:var(--r-xs) var(--r-lg) var(--r-lg) var(--r-lg);}
+  & :is(.avatar,.message-avatar,.context-dot) {border-radius:50%;}
+  & :is(.github-panel,.github-card,.github-panel pre,.github-panel input,.github-panel select,.github-panel textarea,.github-table,.modal,.modal-body,.document-paper,.artifact-icon,.file-chips>*,.chat-attachments,.chat-attachments *) {border-radius:var(--r-md);}
+  & :is(.github-panel button) {border-radius:var(--r-sm);}
+
+  /* Frame work areas, not every action. Transparent borders preserve hit areas. */
+  & :is(.activity-bar,.topbar,.sidebar,.composer-toolbar,.composer-footer,.message-tools,.file-chips,.running-popover) button {border-color:transparent;box-shadow:none;}
+  & :is(.activity-bar,.topbar,.sidebar,.composer-toolbar,.composer-footer,.message-tools,.file-chips,.running-popover) button:not(:disabled):hover {background:var(--hover);}
+  & :is(.sidebar-project,.source-context) {border:0;background:transparent;}
+  & .sidebar-project {border-top:1px solid var(--line);padding-top:14px;}
+  & .project-tree {border-left:0;margin-left:4px;padding-left:4px;}
+  & :is(.side-menu-items,.recent-list) {padding:3px;}
+  & :is(.sidebar .side-menu-items button,.recent-row>.chat-object>button,.sidebar .workspace-side-row):is(.active,.selected,[aria-current=page]) {
+    background:var(--accent-soft);color:var(--text);border-color:transparent;
+    box-shadow:inset 3px 0 var(--accent);font-weight:700;
+  }
+  & .activity-bar button.active {background:var(--accent-soft);}
+  & .sidebar :is(.side-menu-search,.workspace-side-search) input {border:0;outline:none;}
+  & .sidebar :is(.side-menu-search,.workspace-side-search):focus-within {outline:3px solid var(--accent);outline-offset:2px;}
+  & .composer {border:1px solid var(--line);box-shadow:none;}
+  & .composer:focus-within {border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);}
+  & .composer textarea {border:0;background:transparent;}
+  & .composer textarea:focus-visible {outline:none;}
+  & .composer .composer-toolbar {border-top:0;gap:8px;}
+  & .composer .composer-toolbar button {border-color:transparent;}
+  & .composer .composer-toolbar button:is([aria-checked=true],[aria-pressed=true],.selected) {
+    background:var(--accent-soft);color:var(--accent);box-shadow:inset 0 -2px var(--accent);
+  }
+  & .composer .send-button {background:var(--primary);color:var(--on-primary);}
+  & .composer .send-button:not(:disabled):hover {background:var(--primary-hover);}
+  & .source-context summary {padding:8px 4px;}
+  & .source-context[open] {border-bottom:1px solid var(--line);}
+  & .file-chips>.attachment-chip {border:0;background:var(--surface);padding:4px 8px;}
+  & .message.user .markdown {border-color:transparent;}
+  & .running-popover {background:var(--surface);border:1px solid var(--line);box-shadow:none;}
+  & .running-popover .running-stop {text-decoration:underline;text-underline-offset:3px;}
+  /* Inset rings remain visible inside scrollable lists and narrow toolbars. */
+  & :is(.sidebar,.activity-bar,.composer-toolbar,.file-chips,.running-popover) button:focus-visible {
+    outline:3px solid var(--accent);outline-offset:-3px;
+  }
+}
+
+/* Tương phản sáng: tách các hàng và tránh khung lồng trong cùng một điều khiển. */
+:root[data-palette=contrast-light] {
+  & .sidebar .side-menu-items {display:flex;flex-direction:column;gap:6px;padding:3px;}
+  & .sidebar .side-menu-items>button {flex:none;height:auto;min-height:44px;padding:6px 8px;}
+  & .sidebar .recent-list {padding-top:3px;padding-bottom:3px;}
+  & .sidebar .recent-list>:is(.recent-row,.recent-rename)+:is(.recent-row,.recent-rename) {margin-top:6px;}
+  & :is(.recent-row,.history-item)>.chat-object {gap:6px;}
+  & .recent-row>.chat-object>button:first-child {min-height:34px;padding:6px 8px;}
+  & .recent-row .chat-menu-btn {min-width:28px;min-height:32px;padding:4px;}
+  & .sidebar .side-menu-search input {border:0;border-radius:0;}
+  & .sidebar .side-menu-search input:focus-visible {outline:none;}
+  & .sidebar .side-menu-search:focus-within {outline:3px solid var(--accent);outline-offset:2px;}
+  & .history-item {padding:10px;}
+  & .history-item .history-open {margin-bottom:0;padding:6px 8px;border-color:transparent;}
+  & .history-item .history-open :is(strong,small) {max-width:100%;overflow-wrap:anywhere;}
+}
+@media(any-pointer:coarse) {
+  :root[data-palette=contrast-light] .recent-row .chat-menu-btn {min-width:44px;min-height:44px;}
+}

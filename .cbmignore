@@ -1,0 +1,6 @@
+upstream-office/
+node_modules/
+**/target/
+**/dist/
+.build-cache/
+release/

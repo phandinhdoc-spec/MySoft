@@ -1,0 +1,176 @@
+{
+  "source": "quy-trinh-mau-sinh-3-ma-de.md",
+  "sha256": "6f597a37513b85c63bccd4a6ddff4407e2bb00ba538583266eebd025adf639c0",
+  "mode": "controlled-model-response-from-source-not-live-AI",
+  "liveAiError": "Codex CLI failed to initialize in-process app-server client: Operation not permitted",
+  "steps": 25,
+  "sourceHeading": "## Bảng nút (28 nút)",
+  "dependencies": [
+    {
+      "name": "s1-doc-de",
+      "waitFor": []
+    },
+    {
+      "name": "s2-cau-1",
+      "waitFor": [
+        1
+      ]
+    },
+    {
+      "name": "s2-cau-2",
+      "waitFor": [
+        1
+      ]
+    },
+    {
+      "name": "s2-cau-3",
+      "waitFor": [
+        1
+      ]
+    },
+    {
+      "name": "s2-cau-4",
+      "waitFor": [
+        1
+      ]
+    },
+    {
+      "name": "s2-cau-5",
+      "waitFor": [
+        1
+      ]
+    },
+    {
+      "name": "s2-cau-6",
+      "waitFor": [
+        1
+      ]
+    },
+    {
+      "name": "s2-cau-7",
+      "waitFor": [
+        1
+      ]
+    },
+    {
+      "name": "s2-cau-8",
+      "waitFor": [
+        1
+      ]
+    },
+    {
+      "name": "s2-cau-9",
+      "waitFor": [
+        1
+      ]
+    },
+    {
+      "name": "s2-cau-10",
+      "waitFor": [
+        1
+      ]
+    },
+    {
+      "name": "s3-cau-1",
+      "waitFor": [
+        2
+      ]
+    },
+    {
+      "name": "s3-cau-2",
+      "waitFor": [
+        3
+      ]
+    },
+    {
+      "name": "s3-cau-3",
+      "waitFor": [
+        4
+      ]
+    },
+    {
+      "name": "s3-cau-4",
+      "waitFor": [
+        5
+      ]
+    },
+    {
+      "name": "s3-cau-5",
+      "waitFor": [
+        6
+      ]
+    },
+    {
+      "name": "s3-cau-6",
+      "waitFor": [
+        7
+      ]
+    },
+    {
+      "name": "s3-cau-7",
+      "waitFor": [
+        8
+      ]
+    },
+    {
+      "name": "s3-cau-8",
+      "waitFor": [
+        9
+      ]
+    },
+    {
+      "name": "s3-cau-9",
+      "waitFor": [
+        10
+      ]
+    },
+    {
+      "name": "s3-cau-10",
+      "waitFor": [
+        11
+      ]
+    },
+    {
+      "name": "s4-gom",
+      "waitFor": [
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21
+      ]
+    },
+    {
+      "name": "s5a-kiem-tra",
+      "waitFor": [
+        22
+      ]
+    },
+    {
+      "name": "s5b-lam-lai",
+      "waitFor": [
+        23
+      ]
+    },
+    {
+      "name": "s6-xuat-word",
+      "waitFor": [
+        24
+      ]
+    }
+  ],
+  "checks": [
+    "source passed unchanged",
+    "draft parsed and validated",
+    "template expanded",
+    "workflow normalized",
+    "JSON exported and reimported",
+    "merge waits for all ten branches"
+  ],
+  "executedWorkflow": false
+}

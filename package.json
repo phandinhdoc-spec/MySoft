@@ -1,0 +1,46 @@
+{
+  "name": "pvta",
+  "private": true,
+  "version": "1.5.1",
+  "description": "PVTA — trợ lý AI độc lập và tiện ích Office cho giáo viên",
+  "type": "module",
+  "workspaces": [
+    "shared",
+    "bridge",
+    "addin",
+    "core",
+    "chatbox"
+  ],
+  "scripts": {
+    "cli": "node cli/dist/pvta.cjs",
+    "build:cli": "node cli/build.mjs",
+    "typecheck:cli": "tsc -p cli",
+    "test:cli": "vitest run --config cli/vitest.config.ts",
+    "typecheck": "tsc -p shared && tsc -p core && tsc -p bridge && npm run typecheck -w addin && npm run typecheck -w chatbox",
+    "test": "vitest run",
+    "pretest": "npm run check:viet-skill",
+    "build:bridge": "npm run build -w bridge",
+    "build:addin": "npm run build -w addin",
+    "build": "npm run build:bridge && npm run build:addin && npm run build:chatbox",
+    "bridge": "npm run start -w bridge",
+    "dev": "npm run dev -w chatbox",
+    "desktop": "npm run desktop -w chatbox",
+    "build:chatbox": "npm run build -w chatbox",
+    "build:sidecar": "node scripts/build-sidecar.mjs",
+    "build:desktop": "npm run desktop:build -w chatbox",
+    "test:python": "python3 -m unittest discover -s core/python -p test_documents.py",
+    "version:set": "node scripts/version.mjs",
+    "version:check": "node scripts/version.mjs --check",
+    "sync:viet-skill": "node scripts/sync-viet-skill.mjs",
+    "check:viet-skill": "node scripts/sync-viet-skill.mjs --check"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^5.0.5",
+    "prettier": "^3.6.2"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}

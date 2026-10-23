@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><title>PVTA CLI · So sánh 4 bảng màu thanh lịch, dịu mắt</title>
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;padding:24px;background:#0d0e12;
+  font-family:-apple-system,"Segoe UI",system-ui,sans-serif;
+  color:#e2e8f0;display:flex;flex-direction:column;align-items:center;
+}
+.header{text-align:center;margin-bottom:20px}
+.header h1{margin:0 0 6px;font-size:22px;color:#fff}
+.header p{margin:0;font-size:13.5px;color:#94a3b8}
+.grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:18px;width:1200px;
+}
+.theme-card{
+  border-radius:12px;padding:16px;border:1px solid;display:flex;flex-direction:column;gap:10px;
+  box-shadow:0 10px 30px #00000088;
+}
+.theme-head{display:flex;align-items:center;justify-content:space-between}
+.theme-title{font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px}
+.badge{font-size:11px;padding:2px 8px;border-radius:999px;font-weight:600}
+.desc{font-size:12px;line-height:1.5}
+.swatches{display:flex;gap:6px;margin:2px 0}
+.swatch{width:22px;height:22px;border-radius:6px;border:1px solid #ffffff22}
+.mockup{
+  border-radius:8px;padding:12px;font:11.5px/1.6 "SF Mono",Menlo,monospace;
+  border:1px solid;display:flex;flex-direction:column;gap:6px;
+}
+.mock-top{display:flex;justify-content:space-between;padding-bottom:6px;border-bottom:1px solid}
+.mock-row{display:flex;gap:8px}
+.mock-diff-add{padding:2px 6px;border-radius:4px}
+.mock-diff-del{padding:2px 6px;border-radius:4px}
+
+/* Theme 1: Slate Than Chì */
+.t1{background:#151822;border-color:#2b3247;color:#e1e7f0}
+.t1 .theme-title{color:#7aa2f7}
+.t1 .badge{background:#1e293b;color:#93c5fd;border:1px solid #334155}
+.t1 .desc{color:#94a3b8}
+.t1 .mockup{background:#0f1118;border-color:#252b3d;color:#cdd6f4}
+.t1 .mock-top{border-color:#252b3d;color:#7aa2f7}
+.t1 .mock-diff-add{background:#132d29;color:#73daca}
+.t1 .mock-diff-del{background:#3d1a24;color:#f7768e}
+
+/* Theme 2: Giấy ngà / Warm Sepia */
+.t2{background:#1c1917;border-color:#38312b;color:#f5f5f4}
+.t2 .theme-title{color:#eab308}
+.t2 .badge{background:#292524;color:#fde047;border:1px solid #44403c}
+.t2 .desc{color:#a8a29e}
+.t2 .mockup{background:#141210;border-color:#2e2823;color:#e7e5e4}
+.t2 .mock-top{border-color:#2e2823;color:#eab308}
+.t2 .mock-diff-add{background:#22301f;color:#86efac}
+.t2 .mock-diff-del{background:#381d1d;color:#fca5a5}
+
+/* Theme 3: Dark Navy */
+.t3{background:#0e1726;border-color:#1e293b;color:#e2e8f0}
+.t3 .theme-title{color:#38bdf8}
+.t3 .badge{background:#172554;color:#7dd3fc;border:1px solid #1e3a8a}
+.t3 .desc{color:#94a3b8}
+.t3 .mockup{background:#0a0f1d;border-color:#1e293b;color:#cbd5e1}
+.t3 .mock-top{border-color:#1e293b;color:#38bdf8}
+.t3 .mock-diff-add{background:#0f312c;color:#5eead4}
+.t3 .mock-diff-del{background:#381726;color:#f472b6}
+
+/* Theme 4: Bảng đen xám trầm / Muted Blackboard */
+.t4{background:#131a17;border-color:#22302a;color:#e2ece8}
+.t4 .theme-title{color:#4ade80}
+.t4 .badge{background:#1b2a24;color:#86efac;border:1px solid #2d453b}
+.t4 .desc{color:#8ea79d}
+.t4 .mockup{background:#0b110e;border-color:#1c2923;color:#d1e2dc}
+.t4 .mock-top{border-color:#1c2923;color:#4ade80}
+.t4 .mock-diff-add{background:#143324;color:#86efac}
+.t4 .mock-diff-del{background:#3b1a20;color:#f87171}
+
+.footer{margin-top:14px;font-size:12px;color:#64748b;text-align:center}
+</style></head><body>
+<div class="header">
+  <h1>Bộ 4 chủ đề màu sắc thanh lịch cho PVTA CLI</h1>
+  <p>Thiết kế giảm chói mắt, tương phản chuẩn công thái học (Ergonomics) — Chuyển đổi dễ dàng qua lệnh <code>/theme</code></p>
+</div>
+
+<div class="grid">
+  <!-- Theme 1 -->
+  <div class="theme-card t1">
+    <div class="theme-head">
+      <div class="theme-title">1. Slate Than chì (Khuyên dùng)</div>
+      <span class="badge">Đỡ mỏi mắt nhất</span>
+    </div>
+    <div class="desc">Tông xám đen than chì kết hợp xanh lam pastel. Dịu mắt hoàn toàn trong môi trường thiếu sáng, không gây lóa.</div>
+    <div class="swatches">
+      <div class="swatch" style="background:#151822"></div>
+      <div class="swatch" style="background:#7aa2f7"></div>
+      <div class="swatch" style="background:#73daca"></div>
+      <div class="swatch" style="background:#f7768e"></div>
+      <div class="swatch" style="background:#bb9af7"></div>
+    </div>
+    <div class="mockup">
+      <div class="mock-top"><span>PVTA CLI · Lập trình viên</span><span>/theme slate</span></div>
+      <div>› PVTA: Đề xuất sửa hàm pickSkill</div>
+      <div class="mock-diff-del">- const target = name.trim();</div>
+      <div class="mock-diff-add">+ const target = name.trim().toLowerCase();</div>
+    </div>
+  </div>
+
+  <!-- Theme 2 -->
+  <div class="theme-card t2">
+    <div class="theme-head">
+      <div class="theme-title">2. Giấy ngà ấm (Warm Sepia)</div>
+      <span class="badge">Lọc ánh sáng xanh</span>
+    </div>
+    <div class="desc">Tông màu ấm tự nhiên như trang sách cũ, giảm phát xạ ánh sáng xanh. Rất thích hợp khi đọc tài liệu và viết giáo án dài.</div>
+    <div class="swatches">
+      <div class="swatch" style="background:#1c1917"></div>
+      <div class="swatch" style="background:#eab308"></div>
+      <div class="swatch" style="background:#86efac"></div>
+      <div class="swatch" style="background:#fca5a5"></div>
+      <div class="swatch" style="background:#d97706"></div>
+    </div>
+    <div class="mockup">
+      <div class="mock-top"><span>PVTA CLI · Soạn thảo</span><span>/theme sepia</span></div>
+      <div>› PVTA: Soạn mục tiêu bài học KHTN 8</div>
+      <div class="mock-diff-del">- Nêu các tính chất vật lí cơ bản</div>
+      <div class="mock-diff-add">+ Trình bày tính dẻo, dẫn điện, dẫn nhiệt của kim loại</div>
+    </div>
+  </div>
+
+  <!-- Theme 3 -->
+  <div class="theme-card t3">
+    <div class="theme-head">
+      <div class="theme-title">3. Xanh biển sâu (Dark Navy)</div>
+      <span class="badge">Học thuật & Cổ điển</span>
+    </div>
+    <div class="desc">Tông xanh navy sẫm kết hợp xanh lơ dịu mát. Mang vẻ đẹp trang nhã, nghiêm túc, tạo cảm giác tập trung cao độ.</div>
+    <div class="swatches">
+      <div class="swatch" style="background:#0e1726"></div>
+      <div class="swatch" style="background:#38bdf8"></div>
+      <div class="swatch" style="background:#5eead4"></div>
+      <div class="swatch" style="background:#f472b6"></div>
+      <div class="swatch" style="background:#818cf8"></div>
+    </div>
+    <div class="mockup">
+      <div class="mock-top"><span>PVTA CLI · Chỉnh Markdown</span><span>/theme navy</span></div>
+      <div>› PVTA: Xem trước bảng phân phối chương trình</div>
+      <div class="mock-diff-del">- Tiết 12: Kiểm tra giữa kỳ</div>
+      <div class="mock-diff-add">+ Tiết 12: Đánh giá định kỳ giữa học kỳ I</div>
+    </div>
+  </div>
+
+  <!-- Theme 4 -->
+  <div class="theme-card t4">
+    <div class="theme-head">
+      <div class="theme-title">4. Bảng đen phấn xám (Muted Chalk)</div>
+      <span class="badge">Sư phạm truyền thống</span>
+    </div>
+    <div class="desc">Giữ hồn bảng đen nhà trường nhưng hạ thấp độ bão hòa, chuyển sang sắc rêu xám than và phấn trắng đục, không chói lóa.</div>
+    <div class="swatches">
+      <div class="swatch" style="background:#131a17"></div>
+      <div class="swatch" style="background:#4ade80"></div>
+      <div class="swatch" style="background:#86efac"></div>
+      <div class="swatch" style="background:#f87171"></div>
+      <div class="swatch" style="background:#a7f3d0"></div>
+    </div>
+    <div class="mockup">
+      <div class="mock-top"><span>PVTA CLI · Kế hoạch Plan</span><span>/theme chalk</span></div>
+      <div>› PVTA: Phân tích 3 bước tiến trình dạy học</div>
+      <div class="mock-diff-del">- GV thuyết trình lý thuyết</div>
+      <div class="mock-diff-add">+ HS thảo luận nhóm và ghi nhận kết quả thí nghiệm</div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">Mỗi chủ đề đều có thể tùy biến hoặc tự động chuyển theo giao diện sáng/tối của hệ thống máy tính.</div>
+</body></html>

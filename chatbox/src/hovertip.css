@@ -1,0 +1,1 @@
+.github-tip-anchor{display:inline-flex;min-width:0}.github-tip-anchor>button{width:100%}.github-tooltip{position:fixed;z-index:10000;width:max-content;max-width:min(310px,calc(100vw - 32px));box-sizing:border-box;padding:10px 13px;border-radius:9px;background:#172334;color:#fff;box-shadow:0 4px 18px #0004;font-size:13px;line-height:1.5;overflow-wrap:anywhere;pointer-events:none}

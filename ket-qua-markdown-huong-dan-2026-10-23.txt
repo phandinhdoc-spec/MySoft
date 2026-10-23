@@ -1,0 +1,43 @@
+KẾT QUẢ DỰNG QUY TRÌNH TỪ MARKDOWN — 23/10/2026
+
+ĐÃ BỔ SUNG
+- Quy trình và Quy trình mẫu có nút Dựng từ Markdown.
+- Chọn tệp .md/.markdown hoặc dán nội dung tự do, phân tích bằng AI đang cấu hình trong PVTA.
+- Xem và sửa bản nháp trong trình sửa mẫu hiện có; Lưu mẫu hoặc Lưu mẫu và tạo quy trình… để điền tham số, chọn đầu ra rồi tạo.
+- Phân tích không tự lưu hoặc chạy quy trình. Mẫu nhập bắt đầu ở quyền Chỉ đọc.
+- Kiểm tra JSON, giới hạn nội dung, quan hệ chờ, vòng lặp và tham số chưa khai báo. Lỗi AI giữ nội dung nguồn để thử lại.
+- Nâng giới hạn quy trình/mẫu lên 50 nút; từ chối vượt giới hạn thay vì cắt mất nút. Plan vẫn giới hạn 20 bước.
+
+TỆP NGUỒN ĐÃ KIỂM TRA
+/Users/phananh/MySoft/quy-trinh-mau-sinh-3-ma-de.md
+Ban đầu chưa có; sau đó tệp xuất hiện và được đọc để dựng bản đối chiếu.
+Nguồn có 7 khối prompt; triển khai các khối S2/S3 thành 10 cặp tạo ra 25 nút. Tiêu đề nguồn ghi 28 nút không khớp danh sách. Không sửa tệp nguồn.
+
+KẾT QUẢ ĐỂ THẦY CÔ KIỂM THỬ
+1. ket-qua-markdown-quy-trinh-2026-10-23.json
+   Mở Quy trình → Nhập mẫu JSON, dán toàn bộ nội dung tệp rồi nhập.
+   Kiểm tra 25 nút: s1; 10 nút s2; 10 nút s3; s4; s5a; s5b; s6.
+   Mỗi s3 chờ đúng s2 cùng số. s4 chờ đủ 10 nút s3. Các bước kiểm tra, làm lại, xuất Word nối tiếp nhau.
+   Có thể lưu thành quy trình mẫu bằng chức năng hiện có.
+2. ket-qua-markdown-mau-2026-10-23.json
+   Dữ liệu mẫu nội bộ để đối chiếu tên, prompt, tham số và đầu ra; không dùng với nút Nhập mẫu JSON dành cho quy trình.
+3. ket-qua-markdown-doi-chieu-2026-10-23.json
+   SHA-256 nguồn, danh sách quan hệ chờ và cách kiểm thử.
+
+GIỚI HẠN CỦA KẾT QUẢ MẪU
+Đã thử gọi Codex CLI thật nhưng bị lỗi khởi tạo in-process app-server client: Operation not permitted. Không đổi quyền hoặc cấu hình để vượt lỗi này.
+Bản JSON kết quả dùng phản hồi mô phỏng được dựng từ nguyên văn các khối prompt trong tệp, mở rộng k=1..10. Đã đưa nguồn qua draftMarkdownWorkflow, parse/validate, expandTemplate, normalizeWorkflow, xuất JSON rồi nhập lại thành công. Đây là kiểm thử tích hợp với phản hồi model kiểm soát, KHÔNG phải kết quả phân tích AI thật.
+Chưa chạy quy trình sinh đề, chưa tạo Word, chưa có đề gốc để chạy. Chưa kiểm tra trực quan trên ứng dụng desktop hoặc bộ chọn tệp native.
+Muốn thử AI thật: mở phiên bản ứng dụng đã cập nhật, chọn Dựng từ Markdown, chọn tệp nguồn và Phân tích bằng AI. Đối chiếu bản nháp với nguồn trước khi lưu. Khi chạy sinh đề, chọn đầu vào/thư mục và quyền chỉnh sửa phù hợp cho từng nút.
+
+KIỂM CHỨNG MÃ
+- Typecheck core: đạt.
+- Typecheck chatbox: đạt.
+- Build chatbox: đạt; còn cảnh báo kích thước gói và import động.
+- Kiểm thử xác nhận cuối: 57/57 đạt, lưu trong kiem-thu-markdown-xac-nhan-2026-10-23.json.
+- Toàn bộ bộ kiểm thử đã chạy: lượt đầu 2109 test, 2085 đạt, 21 lỗi, 3 bỏ qua. Lượt sau thêm test giới hạn: 2110 test, 2084 đạt, 23 lỗi, 3 bỏ qua. Hai lỗi do kỳ vọng giới hạn cũ 20 đã được sửa theo giới hạn mới và chạy lại đạt trong nhóm 57 test. Chưa chạy lại toàn bộ sau sửa hai kỳ vọng này.
+- Các lỗi còn lại liên quan community, effort của backend, skills, dữ liệu giả lập workflow-step-ui thiếu state.skills, kỳ vọng tự học, tệp answer.txt đã tồn tại và cài Python. Không sửa các phần ngoài phạm vi. Chưa đối chiếu baseline nên không khẳng định lỗi có sẵn từ trước.
+- Báo cáo đầy đủ: kiem-thu-markdown-2026-10-23.json và kiem-thu-markdown-sau-sua-2026-10-23.json (tên test và stack lỗi).
+- git diff --check toàn workspace báo dòng trống cuối chatbox/src/composer-tools.css; tệp này không thuộc phần sửa của lượt này.
+
+Không commit, không push, không tạo bộ cài và không ghi vào thư viện dữ liệu thật của ứng dụng. Các thay đổi đang dở trong workspace được giữ lại.

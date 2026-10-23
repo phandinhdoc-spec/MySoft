@@ -1,0 +1,12 @@
+.running-menu{position:relative;display:inline-flex;align-items:center;margin-left:6px}
+/* Rendered in document.body to escape the topbar's stacking and clipping. */
+.running-trigger{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px}
+.running-trigger[aria-expanded=true]{background:var(--hover)}
+.running-trigger .busy-dots i{background:var(--accent)}
+.running-count{font-size:11px;color:var(--muted)}
+.running-popover{position:fixed;z-index:10000;width:min(320px,85vw);max-height:calc(100vh - 16px);background:var(--surface,#fff);opacity:1;color:var(--text);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:auto}
+.running-popover>header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 8px 8px 14px;border-bottom:1px solid var(--line);font-size:13px}
+.running-popover ul{list-style:none;margin:0;padding:6px;display:flex;flex-direction:column;gap:2px;max-height:240px;overflow:auto}
+.running-popover li{display:flex;align-items:center;gap:6px}
+.running-popover .running-open{flex:1;min-width:0;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.running-popover .running-stop{flex-shrink:0;font-size:12px;padding:5px 9px;color:var(--danger,#c0392b)}

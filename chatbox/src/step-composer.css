@@ -1,0 +1,13 @@
+/* Ô prompt của nút quy trình: dùng lại giao diện ô chat, đặt gọn trong hộp thoại sửa bước. */
+.step-composer{display:flex;flex-direction:column;gap:6px;margin:0 0 18px}
+.step-composer .composer{box-shadow:none;padding:10px 10px 6px}
+.step-composer .composer textarea{min-height:120px;max-height:none;resize:vertical}
+/* Menu gợi ý nằm trong luồng để không bị cắt bởi hộp thoại có thanh cuộn. */
+.step-composer .trigger-menu{position:static;margin:6px 0;max-height:min(300px,45dvh)}
+.step-composer .file-chips{margin:0}
+.wf-language-hint{margin:4px 0;color:var(--text-secondary,currentColor)}
+.wf-language-error{border-left:3px solid var(--danger,#a33333);padding:0 10px;color:var(--danger,#a33333)}
+.wf-language-error p{margin:4px 0}.wf-language-error button{margin:4px 8px 4px 0}
+.wf-language{font-size:13px;display:grid;gap:6px}.wf-language [role=listbox]{display:flex;flex-wrap:wrap;gap:4px}.wf-language [role=option]{text-align:left}.wf-language [role=status]{color:var(--danger,#a33333)}.wf-language-dialog{border:1px solid var(--border,#aaa);border-radius:8px;padding:12px;display:grid;gap:8px}.wf-language-dialog label{display:grid;gap:4px}.wf-language-dialog textarea{width:100%;box-sizing:border-box}
+.step-composer .attachment-chip button{padding:2px 4px}
+.wf-prompt-field{display:flex;flex-direction:column;gap:8px}.wf-prompt-field>.wf-field-label{font-size:13px;font-weight:550}

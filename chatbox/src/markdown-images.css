@@ -1,0 +1,16 @@
+.markdown img{max-width:100%;height:auto;max-height:560px;object-fit:contain;cursor:zoom-in}
+.markdown img[hidden]{display:none}
+.markdown img:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.markdown-image-error{display:block;padding:10px;border:1px solid var(--line);border-radius:8px;overflow-wrap:anywhere;color:var(--text)}
+.markdown-image-dialog{max-width:94vw;max-height:94vh;padding:16px;background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:12px}
+.markdown-image-dialog::backdrop{background:#0009}
+.markdown-image-dialog header{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-bottom:12px}
+.markdown-image-dialog img{display:block;max-width:86vw;max-height:80vh;object-fit:contain}
+.markdown .pvta-rich{margin:10px 0}
+.markdown .pvta-rich audio{width:100%}
+.markdown .pvta-rich video{max-width:100%;max-height:480px;border-radius:8px}
+.pvta-rich-diagram{overflow:auto;padding:8px;border:1px solid var(--line);border-radius:8px;background:#fff}
+.pvta-rich-diagram svg{max-width:100%;height:auto}
+.pvta-rich-bar{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;margin-top:6px;font-size:.9em}
+.pvta-rich-frame{display:block;width:100%;min-height:240px;border:1px solid var(--line);border-radius:8px;background:#fff}
+.pvta-rich details pre{max-height:320px;overflow:auto}

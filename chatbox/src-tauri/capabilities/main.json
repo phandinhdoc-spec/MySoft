@@ -1,0 +1,19 @@
+{
+  "identifier": "main",
+  "description": "PVTA chỉ cho phép IPC và hộp chọn tệp; không cho webview chạy shell.",
+  "windows": [
+    "main",
+    "workflow-*",
+    "chat-*"
+  ],
+  "permissions": [
+    "core:default",
+    "dialog:allow-open",
+    "dialog:allow-save",
+    "process:allow-restart",
+    "process:allow-exit",
+    "core:webview:allow-create-webview-window",
+    "core:window:allow-set-focus",
+    "core:window:allow-set-theme"
+  ]
+}

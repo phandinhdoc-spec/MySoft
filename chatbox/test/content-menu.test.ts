@@ -1,0 +1,124 @@
+// @vitest-environment jsdom
+import React, { act } from "react";
+import { createRoot } from "react-dom/client";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { PromptManager, RuleManager } from "../src/Composer";
+import { ProjectLearning } from "../src/ProjectLearning";
+import { NotebookPanel } from "../src/NotebookPanel";
+import { GroupsPanel } from "../src/GroupsPanel";
+import { rpc } from "../src/ipc";
+vi.mock("../src/ipc", () => ({ rpc: vi.fn(), subscribe: vi.fn(async () => () => {
+}), pickFiles: vi.fn(), savePath: vi.fn() }));
+vi.mock("../src/QuickFile", () => ({ QuickFile: ({ children }) => children }));
+vi.mock("../src/Markdown", () => ({ Markdown: ({ text }) => React.createElement("p", null, text) }));
+let root, host;
+const report = vi.fn(), notice = vi.fn();
+const state = { prompts: { favorites: [], own: [{ id: "a", title: "M\u1ED9t", text: "N\u1ED9i dung m\u1ED9t", own: true, category: "cua-toi" }, { id: "b", title: "Hai", text: "N\u1ED9i dung hai", own: true, category: "cua-toi" }] }, data: { ruleBook: [{ id: "r", key: "rule", title: "Quy t\u1EAFc", text: "C\xE2u ng\u1EAFn", always: true }] } };
+const click = (el) => act(async () => {
+  el.click();
+});
+const command = (name) => [...document.querySelectorAll("[role=menuitem]")].find((x) => x.textContent === name);
+const trigger = (label) => host.querySelector(`[aria-label="${label}"]`);
+const render = (node) => act(async () => root.render(node));
+beforeEach(() => {
+  globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+  Element.prototype.scrollIntoView = vi.fn();
+  vi.clearAllMocks();
+  vi.mocked(rpc).mockResolvedValue(true);
+  host = document.createElement("div");
+  document.body.append(host);
+  root = createRoot(host);
+});
+afterEach(async () => {
+  await act(async () => root.unmount());
+  host.remove();
+  vi.restoreAllMocks();
+});
+it("opens the same prompt menu from both triggers and edits the targeted prompt, preserving save/cancel", async () => {
+  await render(/* @__PURE__ */ React.createElement(PromptManager, { state, report, notice }));
+  const row = trigger("Thao t\xE1c l\u1EDDi nh\u1EAFc Hai").closest("article");
+  await click(trigger("Thao t\xE1c l\u1EDDi nh\u1EAFc Hai"));
+  const labels = [...document.querySelectorAll("[role=menuitem]")].map((x) => x.textContent);
+  await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+  await act(async () => row.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true })));
+  expect([...document.querySelectorAll("[role=menuitem]")].map((x) => x.textContent)).toEqual(labels);
+  expect(rpc).not.toHaveBeenCalled();
+  await click(command("S\u1EEDa"));
+  expect(host.querySelector("input")?.value).toBe("Hai");
+  expect(host.textContent).toContain("L\u01B0u l\u1EDDi nh\u1EAFc");
+  await click([...host.querySelectorAll("button")].find((x) => x.textContent === "H\u1EE7y"));
+  expect(host.querySelector("textarea")).toBeNull();
+});
+it("only duplicates supported builtin prompts and preserves delete confirmation", async () => {
+  await render(/* @__PURE__ */ React.createElement(PromptManager, { state, report, notice }));
+  await click([...host.querySelectorAll(".object-menu-trigger")][2]);
+  expect(command("Nh\xE2n b\u1EA3n")).toBeTruthy();
+  expect(command("X\xF3a")).toBeUndefined();
+  await click(command("Nh\xE2n b\u1EA3n"));
+  expect(host.querySelector("textarea")?.value).toBeTruthy();
+  await click([...host.querySelectorAll("button")].find((x) => x.textContent === "H\u1EE7y"));
+  vi.spyOn(window, "confirm").mockReturnValue(false);
+  await click(trigger("Thao t\xE1c l\u1EDDi nh\u1EAFc Hai"));
+  await click(command("X\xF3a"));
+  expect(rpc).not.toHaveBeenCalled();
+});
+it("keeps rule creation and edits/deletes the selected rule with confirmation", async () => {
+  await render(/* @__PURE__ */ React.createElement(RuleManager, { state, report, notice }));
+  expect(host.textContent).toContain("Quy t\u1EAFc m\u1EDBi");
+  await click(trigger("Thao t\xE1c quy t\u1EAFc Quy t\u1EAFc"));
+  expect(command("Nh\xE2n b\u1EA3n")).toBeUndefined();
+  await click(command("S\u1EEDa"));
+  expect(host.querySelector("textarea")?.value).toBe("C\xE2u ng\u1EAFn");
+  await click([...host.querySelectorAll("button")].find((x) => x.textContent === "H\u1EE7y"));
+  vi.spyOn(window, "confirm").mockReturnValue(true);
+  await click(trigger("Thao t\xE1c quy t\u1EAFc Quy t\u1EAFc"));
+  await click(command("X\xF3a"));
+  expect(rpc).toHaveBeenCalledWith("deleteRule", { id: "r", scope: { kind: "profile" } });
+});
+it("rereads and unlinks only the chosen learning folder, blocks stale menu after project change", async () => {
+  const project = { id: "p", name: "P", learning: { folders: ["/one", "/two"], notes: "", enabled: true } };
+  const node = (p = project) => /* @__PURE__ */ React.createElement(ProjectLearning, { project: p, files: [], report });
+  vi.mocked(rpc).mockResolvedValue({ count: 1, errors: [] });
+  await render(node());
+  await click(trigger("Thao t\xE1c th\u01B0 m\u1EE5c /two"));
+  await click(command("\u0110\u1ECDc l\u1EA1i"));
+  expect(rpc).toHaveBeenLastCalledWith("projectLearningAttach", { projectId: "p", paths: ["/two"] });
+  await click(trigger("Thao t\xE1c th\u01B0 m\u1EE5c /two"));
+  await click(command("B\u1ECF li\xEAn k\u1EBFt"));
+  expect(rpc).toHaveBeenLastCalledWith("removeProjectLearningFolder", { projectId: "p", folder: "/two" });
+  await click(trigger("Thao t\xE1c th\u01B0 m\u1EE5c /two"));
+  const stale = command("B\u1ECF li\xEAn k\u1EBFt");
+  await render(node({ ...project, id: "q" }));
+  await click(stale);
+  expect(rpc).toHaveBeenCalledTimes(2);
+});
+it("shows notebook/source commands without changing data until execution and retains book deletion confirmation", async () => {
+  const book = { id: "book", name: "S\u1ED5", messages: [], sources: [{ id: "s", kind: "web", title: "Ngu\u1ED3n", origin: "https://example.org", state: "san-sang", chars: 3, on: true }] };
+  vi.mocked(rpc).mockImplementation(async (method) => method === "nb.list" ? [{ id: "book", name: "S\u1ED5", sources: 1 }] : method === "nb.sourceText" ? "Ch\u1EEF ngu\u1ED3n" : book);
+  await render(/* @__PURE__ */ React.createElement(NotebookPanel, { report, notice, openUrl: vi.fn() }));
+  await click(trigger("Thao t\xE1c ngu\u1ED3n Ngu\u1ED3n"));
+  await click(command("Xem"));
+  expect(host.querySelector("[role=dialog]")?.textContent).toContain("Ch\u1EEF ngu\u1ED3n");
+  await click(trigger("Thao t\xE1c ngu\u1ED3n Ngu\u1ED3n"));
+  await click(command("X\xF3a ngu\u1ED3n"));
+  expect(rpc).toHaveBeenCalledWith("nb.removeSource", { id: "book", sid: "s" });
+  await click(trigger("Thao t\xE1c s\u1ED5 S\u1ED5"));
+  await click(command("X\xF3a s\u1ED5"));
+  expect(rpc).not.toHaveBeenCalledWith("nb.remove", expect.anything());
+  expect(host.textContent).toContain("X\xF3a h\u1EB3n s\u1ED5");
+});
+it("offers document commands by current state and preserves group/id and deletion confirmation", async () => {
+  const groupState = { groups: { kinds: [{ kind: "chuyen-mon", groups: [{ id: "g", name: "G", enabled: true }] }] } };
+  const doc = { id: "d", title: "V\u0103n b\u1EA3n", agency: "A", url: "https://example.org", state: "chua-tai", status: "con-hieu-luc" };
+  vi.mocked(rpc).mockImplementation(async (method) => method === "groups.docs" ? [doc] : true);
+  await render(/* @__PURE__ */ React.createElement(GroupsPanel, { state: groupState, report, notice, initialTab: "docs" }));
+  await click(trigger("Thao t\xE1c v\u0103n b\u1EA3n V\u0103n b\u1EA3n"));
+  expect(command("T\u1EA3i v\u1EC1")).toBeTruthy();
+  expect(command("T\xF3m t\u1EAFt")).toBeUndefined();
+  await click(command("T\u1EA3i v\u1EC1"));
+  expect(rpc).toHaveBeenCalledWith("groups.download", { group: "g", id: "d" });
+  vi.spyOn(window, "confirm").mockReturnValue(false);
+  await click(trigger("Thao t\xE1c v\u0103n b\u1EA3n V\u0103n b\u1EA3n"));
+  await click(command("X\xF3a"));
+  expect(rpc).not.toHaveBeenCalledWith("groups.remove", expect.anything());
+});

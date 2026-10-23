@@ -1,0 +1,7 @@
+.update-banner{flex-shrink:0;display:flex;flex-direction:column;gap:8px;padding:12px 25px;background:var(--accent-soft);border-bottom:1px solid var(--line);font-size:12px}
+.update-banner p{margin:0}.update-banner .row{gap:8px}.update-banner button{font-size:11px;padding:6px 11px}
+.update-bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden;width:100%;max-width:420px}
+.update-bar i{display:block;height:100%;background:var(--accent);border-radius:3px;transition:width .2s}
+.update-bar i.indeterminate{animation:update-slide 1.2s ease-in-out infinite}
+@keyframes update-slide{0%{margin-left:-35%}100%{margin-left:100%}}
+@media(prefers-reduced-motion:reduce){.update-bar i.indeterminate{animation:none;margin-left:0}}

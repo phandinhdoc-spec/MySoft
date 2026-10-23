@@ -1,0 +1,169 @@
+{
+  "files": 4,
+  "unique_files": 4,
+  "unique_texts": 4,
+  "target_lesson_plans": 50,
+  "note": "Counts include all inputs, including blank official forms. Keyword hits are screening only; do not count them as validated lessons or good designs.",
+  "documents": [
+    {
+      "file": "5512-0.docx",
+      "sha256": "473b88224d57f9bca696943f3ba0e1c363f6ab5b8cb707bdb363469cfbe2edfb",
+      "bytes": 26853,
+      "visual_review": false,
+      "compliance": "not_assessed",
+      "status": "read",
+      "paragraphs": 47,
+      "tables": 1,
+      "paragraph_styles": {},
+      "heading_paragraphs": 0,
+      "repeating_table_headers": 0,
+      "fixed_height_rows": 0,
+      "content_hash": "b219d00118d897454b899b4bc06788c97fb4b43684c15817b8e5960c8f81cdc4",
+      "mentions": {
+        "5512": true,
+        "digital_competence": false,
+        "ai": false
+      },
+      "sections": [
+        {
+          "pgSz": {
+            "w": "11901",
+            "h": "16840"
+          }
+        },
+        {
+          "pgMar": {
+            "top": "1134",
+            "right": "1134",
+            "bottom": "851",
+            "left": "1418",
+            "header": "720",
+            "footer": "720",
+            "gutter": "0"
+          }
+        }
+      ]
+    },
+    {
+      "file": "5512-1.docx",
+      "sha256": "eced25c06f9aaa16516c5f41366142a63941aae2c7fc58f96c63016c00109dac",
+      "bytes": 19000,
+      "visual_review": false,
+      "compliance": "not_assessed",
+      "status": "read",
+      "paragraphs": 92,
+      "tables": 4,
+      "paragraph_styles": {},
+      "heading_paragraphs": 0,
+      "repeating_table_headers": 0,
+      "fixed_height_rows": 0,
+      "content_hash": "51a6f3d9b73ea57bf1c607c79ef40ac1be0b0a3078f83fbf6776eca8bb695dd8",
+      "mentions": {
+        "5512": true,
+        "digital_competence": false,
+        "ai": false
+      },
+      "sections": [
+        {
+          "pgSz": {
+            "w": "16840",
+            "h": "11901",
+            "orient": "landscape"
+          }
+        },
+        {
+          "pgMar": {
+            "top": "1134",
+            "right": "1134",
+            "bottom": "1701",
+            "left": "1134",
+            "header": "720",
+            "footer": "720",
+            "gutter": "0"
+          }
+        }
+      ]
+    },
+    {
+      "file": "5512-2.docx",
+      "sha256": "35de742754e863e6e42d60ff3a86595bd33a5605741c7f93b5818b81acdf0ecc",
+      "bytes": 19479,
+      "visual_review": false,
+      "compliance": "not_assessed",
+      "status": "read",
+      "paragraphs": 118,
+      "tables": 4,
+      "paragraph_styles": {},
+      "heading_paragraphs": 0,
+      "repeating_table_headers": 0,
+      "fixed_height_rows": 0,
+      "content_hash": "6743ef53a07e891e23cb93bcfc269fcfd9e0b789fc37f707bf0e21880e3d4b06",
+      "mentions": {
+        "5512": true,
+        "digital_competence": false,
+        "ai": false
+      },
+      "sections": [
+        {
+          "pgSz": {
+            "w": "16840",
+            "h": "11901",
+            "orient": "landscape"
+          }
+        },
+        {
+          "pgMar": {
+            "top": "1134",
+            "right": "1134",
+            "bottom": "1701",
+            "left": "1134",
+            "header": "720",
+            "footer": "720",
+            "gutter": "0"
+          }
+        }
+      ]
+    },
+    {
+      "file": "5512-3.docx",
+      "sha256": "cecccf95a015035453dbc9a932bee3454c873aaa6a984767f470485e233f6432",
+      "bytes": 26632,
+      "visual_review": false,
+      "compliance": "not_assessed",
+      "status": "read",
+      "paragraphs": 161,
+      "tables": 7,
+      "paragraph_styles": {},
+      "heading_paragraphs": 0,
+      "repeating_table_headers": 0,
+      "fixed_height_rows": 0,
+      "content_hash": "2032197882637c6def7673743edda6f87f2b7d353fb587b7818f40492d0957fc",
+      "mentions": {
+        "5512": true,
+        "digital_competence": false,
+        "ai": false
+      },
+      "sections": [
+        {
+          "pgSz": {
+            "w": "16840",
+            "h": "11901",
+            "orient": "landscape",
+            "code": "9"
+          }
+        },
+        {
+          "pgMar": {
+            "top": "1134",
+            "right": "1134",
+            "bottom": "1134",
+            "left": "1134",
+            "header": "720",
+            "footer": "720",
+            "gutter": "0"
+          }
+        }
+      ]
+    }
+  ]
+}

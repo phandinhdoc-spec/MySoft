@@ -1,0 +1,10 @@
+/* PVTA A+B: shared sizing, typography and accessible controls. */
+:root{--pvta-unit:8px;--pvta-radius:10px;--pvta-control:36px;--pvta-blue:#1769dc;--pvta-focus:#1769dc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font-family:inherit}
+button{min-height:var(--pvta-control);border-radius:var(--pvta-radius)}
+button:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid var(--pvta-focus);outline-offset:3px}
+button .icon,button .studio-glyph{display:inline-flex;align-items:center;justify-content:center;flex:none;width:20px;height:20px}
+button svg{flex:none;vertical-align:middle}
+button:disabled{cursor:not-allowed}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+@media(pointer:coarse){:root{--pvta-control:44px}}

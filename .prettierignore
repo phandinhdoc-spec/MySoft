@@ -1,0 +1,7 @@
+upstream-office
+node_modules
+**/target
+**/dist
+release
+package-lock.json
+chatbox/src-tauri/gen

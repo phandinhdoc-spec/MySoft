@@ -1,0 +1,493 @@
+{
+  "format": "pvta-workflow",
+  "version": 1,
+  "workflow": {
+    "name": "Sinh 3 mã đề từ một đề gốc",
+    "mode": "parallel",
+    "maxConcurrency": 2,
+    "steps": [
+      {
+        "id": "b3d8647a-5957-4ba6-ac5e-a05a0d8358c6",
+        "name": "s1-doc-de",
+        "prompt": "Tất cả tệp trung gian nằm trong de-moi/ thuộc thư mục xuất. Bàn giao bằng tên tệp cố định, không dùng {{prev}}.\n\nĐầu vào: {{input}} (tệp ảnh, PDF hoặc Word chứa đề kiểm tra gốc). Đọc kỹ toàn bộ, kể cả công thức và hình.\n\nLàm lần lượt, ghi mọi tệp vào thư mục de-moi/ (tạo nếu chưa có):\n1. Phân tích phần header của đề (trường, tên bài kiểm tra, môn, lớp, thời gian, họ tên, mã đề...). Nếu có, lưu nguyên văn vào header.md. Nếu không có, ghi \"Không có header\".\n2. Ghi quy tắc trình bày đề quan sát được vào quy-tac-de.md: cách đánh số câu, kiểu câu (trắc nghiệm, đúng/sai, tự luận), thang điểm, phông chữ, bố cục, cách ghi đáp án nếu có.\n3. Đếm số câu. Mỗi câu lưu nguyên văn (kèm phương án, hình mô tả, điểm) vào cau-1.md, cau-2.md, ... theo số thứ tự trong đề.\n4. Ghi danh-sach-cau.md: bảng gồm số câu, tên tệp, loại câu, điểm. Đây là mảng quản lý các tệp câu hỏi.\n5. Không chép nội dung đề vào trả lời; chỉ báo tổng số câu và danh sách tệp đã tạo. Nếu đề quá 10 câu, báo rõ để nhân bản thêm nút.\nPhần nào không đọc chắc chắn thì đánh dấu [CHƯA CHẮC], không đoán.",
+        "choice": "auto",
+        "access": "read",
+        "inputs": [
+          "Bối cảnh và yêu cầu đã ghi trong Plan"
+        ],
+        "outputs": [
+          "s1-doc-de"
+        ],
+        "completion": "Hoàn thành khâu “s1-doc-de” đúng yêu cầu.",
+        "onError": "Dừng, báo lỗi; chỉ bỏ qua khi người dùng chấp nhận.",
+        "continueOnError": false,
+        "dependsOn": []
+      },
+      {
+        "id": "0e32b9c2-6443-452c-81cd-002a00fc61c2",
+        "name": "s2-cau-1",
+        "prompt": "Tất cả tệp trung gian nằm trong de-moi/ thuộc thư mục xuất. Bàn giao bằng tên tệp cố định, không dùng {{prev}}.\n\nĐọc danh-sach-cau.md trong de-moi/. Nếu không có câu 1 thì chỉ trả lời \"Không có câu 1\" và dừng.\nNếu có, đọc cau-1.md và quy-tac-de.md. Phân tích rồi ghi vào learn-cau-1.md:\n- Cấu trúc câu hỏi: loại câu, số ý, dữ kiện cho sẵn, cách đặt vấn đề.\n- Yêu cầu cần đạt của từng ý (nhận biết, thông hiểu, vận dụng; kiến thức, kỹ năng).\n- Cách ra câu hỏi: ngữ cảnh, kiểu số liệu, độ khó, bẫy thường gặp.\n- Đáp án và lời giải gốc nếu đề có; nếu không, tự giải và ghi rõ là tự giải.\n- Quy tắc để sinh câu tương đương: những gì được đổi (số liệu, ngữ cảnh) và những gì phải giữ.\nMọi phép tính dùng công cụ tính, không nhẩm.",
+        "choice": "auto",
+        "access": "read",
+        "inputs": [
+          "Bối cảnh và yêu cầu đã ghi trong Plan"
+        ],
+        "outputs": [
+          "s2-cau-1"
+        ],
+        "completion": "Hoàn thành khâu “s2-cau-1” đúng yêu cầu.",
+        "onError": "Dừng, báo lỗi; chỉ bỏ qua khi người dùng chấp nhận.",
+        "continueOnError": false,
+        "dependsOn": [
+          "b3d8647a-5957-4ba6-ac5e-a05a0d8358c6"
+        ]
+      },
+      {
+        "id": "e9bedc80-3316-4ced-8ae3-e64b03ddd59b",
+        "name": "s2-cau-2",
+        "prompt": "Tất cả tệp trung gian nằm trong de-moi/ thuộc thư mục xuất. Bàn giao bằng tên tệp cố định, không dùng {{prev}}.\n\nĐọc danh-sach-cau.md trong de-moi/. Nếu không có câu 2 thì chỉ trả lời \"Không có câu 2\" và dừng.\nNếu có, đọc cau-2.md và quy-tac-de.md. Phân tích rồi ghi vào learn-cau-2.md:\n- Cấu trúc câu hỏi: loại câu, số ý, dữ kiện cho sẵn, cách đặt vấn đề.\n- Yêu cầu cần đạt của từng ý (nhận biết, thông hiểu, vận dụng; kiến thức, kỹ năng).\n- Cách ra câu hỏi: ngữ cảnh, kiểu số liệu, độ khó, bẫy thường gặp.\n- Đáp án và lời giải gốc nếu đề có; nếu không, tự giải và ghi rõ là tự giải.\n- Quy tắc để sinh câu tương đương: những gì được đổi (số liệu, ngữ cảnh) và những gì phải giữ.\nMọi phép tính dùng công cụ tính, không nhẩm.",
+        "choice": "auto",
+        "access": "read",
+        "inputs": [
+          "Bối cảnh và yêu cầu đã ghi trong Plan"
+        ],
+        "outputs": [
+          "s2-cau-2"
+        ],
+        "completion": "Hoàn thành khâu “s2-cau-2” đúng yêu cầu.",
+        "onError": "Dừng, báo lỗi; chỉ bỏ qua khi người dùng chấp nhận.",
+        "continueOnError": false,
+        "dependsOn": [
+          "b3d8647a-5957-4ba6-ac5e-a05a0d8358c6"
+        ]
+      },
+      {
+        "id": "9d7ae484-8bb2-4af5-9d69-c814d4d9ed21",
+        "name": "s2-cau-3",
+        "prompt": "Tất cả tệp trung gian nằm trong de-moi/ thuộc thư mục xuất. Bàn giao bằng tên tệp cố định, không dùng {{prev}}.\n\nĐọc danh-sach-cau.md trong de-moi/. Nếu không có câu 3 thì chỉ trả lời \"Không có câu 3\" và dừng.\nNếu có, đọc cau-3.md và quy-tac-de.md. Phân tích rồi ghi vào learn-cau-3.md:\n- Cấu trúc câu hỏi: loại câu, số ý, dữ kiện cho sẵn, cách đặt vấn đề.\n- Yêu cầu cần đạt của từng ý (nhận biết, thông hiểu, vận dụng; kiến thức, kỹ năng).\n- Cách ra câu hỏi: ngữ cảnh, kiểu số liệu, độ khó, bẫy thường gặp.\n- Đáp án và lời giải gốc nếu đề có; nếu không, tự giải và ghi rõ là tự giải.\n- Quy tắc để sinh câu tương đương: những gì được đổi (số liệu, ngữ cảnh) và những gì phải giữ.\nMọi phép tính dùng công cụ tính, không nhẩm.",
+        "choice": "auto",
+        "access": "read",
+        "inputs": [
+          "Bối cảnh và yêu cầu đã ghi trong Plan"
+        ],
+        "outputs": [
+          "s2-cau-3"
+        ],
+        "completion": "Hoàn thành khâu “s2-cau-3” đúng yêu cầu.",
+        "onError": "Dừng, báo lỗi; chỉ bỏ qua khi người dùng chấp nhận.",
+        "continueOnError": false,
+        "dependsOn": [
+          "b3d8647a-5957-4ba6-ac5e-a05a0d8358c6"
+        ]
+      },
+      {
+        "id": "a970845b-50fe-483e-8e65-5cc89cbf7d81",
+        "name": "s2-cau-4",
+        "prompt": "Tất cả tệp trung gian nằm trong de-moi/ thuộc thư mục xuất. Bàn giao bằng tên tệp cố định, không dùng {{prev}}.\n\nĐọc danh-sach-cau.md trong de-moi/. Nếu không có câu 4 thì chỉ trả lời \"Không có câu 4\" và dừng.\nNếu có, đọc cau-4.md và quy-tac-de.md. Phân tích rồi ghi vào learn-cau-4.md:\n- Cấu trúc câu hỏi: loại câu, số ý, dữ kiện cho sẵn, cách đặt vấn đề.\n- Yêu cầu cần đạt của từng ý (nhận biết, thông hiểu, vận dụng; kiến thức, kỹ năng).\n- Cách ra câu hỏi: ngữ cảnh, kiểu số liệu, độ khó, bẫy thường gặp.\n- Đáp án và lời giải gốc nếu đề có; nếu không, tự giải và ghi rõ là tự giải.\n- Quy tắc để sinh câu tương đương: những gì được đổi (số liệu, ngữ cảnh) và những gì phải giữ.\nMọi phép tính dùng công cụ tính, không nhẩm.",
+        "choice": "auto",
+        "access": "read",
+        "inputs": [
+          "Bối cảnh và yêu cầu đã ghi trong Plan"
+        ],
+        "outputs": [
+          "s2-cau-4"
+        ],
+        "completion": "Hoàn thành khâu “s2-cau-4” đúng yêu cầu.",
+        "onError": "Dừng, báo lỗi; chỉ bỏ qua khi người dùng chấp nhận.",
+        "continueOnError": false,
+        "dependsOn": [
+          "b3d8647a-5957-4ba6-ac5e-a05a0d8358c6"
+        ]
+      },
+      {
+        "id": "6524ad1f-1326-48bc-af6f-b890a44f5e0e",
+        "name": "s2-cau-5",
+        "prompt": "Tất cả tệp trung gian nằm trong de-moi/ thuộc thư mục xuất. Bàn giao bằng tên tệp cố định, không dùng {{prev}}.\n\nĐọc danh-sach-cau.md trong de-moi/. Nếu không có câu 5 thì chỉ trả lời \"Không có câu 5\" và dừng.\nNếu có, đọc cau-5.md và quy-tac-de.md. Phân tích rồi ghi vào learn-cau-5.md:\n- Cấu trúc câu hỏi: loại câu, số ý, dữ kiện cho sẵn, cách đặt vấn đề.\n- Yêu cầu cần đạt của từng ý (nhận biết, thông hiểu, vận dụng; kiến thức, kỹ năng).\n- Cách ra câu hỏi: ngữ cảnh, kiểu số liệu, độ khó, bẫy thường gặp.\n- Đáp án và lời giải gốc nếu đề có; nếu không, tự giải và ghi rõ là tự giải.\n- Quy tắc để sinh câu tương đương: những gì được đổi (số liệu, ngữ cảnh) và những gì phải giữ.\nMọi phép tính dùng công cụ tính, không nhẩm.",
+        "choice": "auto",
+        "access": "read",
+        "inputs": [
+          "Bối cảnh và yêu cầu đã ghi trong Plan"
+        ],
+        "outputs": [
+          "s2-cau-5"
+        ],
+        "completion": "Hoàn thành khâu “s2-cau-5” đúng yêu cầu.",
+        "onError": "Dừng, báo lỗi; chỉ bỏ qua khi người dùng chấp nhận.",
+        "continueOnError": false,
+        "dependsOn": [
+          "b3d8647a-5957-4ba6-ac5e-a05a0d8358c6"
+        ]
+      },
+      {
+        "id": "af4080af-a289-4b47-90e6-ccd820ccf0f8",
+        "name": "s2-cau-6",
+        "prompt": "Tất cả tệp trung gian nằm trong de-moi/ thuộc thư mục xuất. Bàn giao bằng tên tệp cố định, không dùng {{prev}}.\n\nĐọc danh-sach-cau.md trong de-moi/. Nếu không có câu 6 thì chỉ trả lời \"Không có câu 6\" và dừng.\nNếu có, đọc cau-6.md và quy-tac-de.md. Phân tích rồi ghi vào learn-cau-6.md:\n- Cấu trúc câu hỏi: loại câu, số ý, dữ kiện cho sẵn, cách đặt vấn đề.\n- Yêu cầu cần đạt của từng ý (nhận biết, thông hiểu, vận dụng; kiến thức, kỹ năng).\n- Cách ra câu hỏi: ngữ cảnh, kiểu số liệu, độ khó, bẫy thường gặp.\n- Đáp án và lời giải gốc nếu đề có; nếu không, tự giải và ghi rõ là tự giải.\n- Quy tắc để sinh câu tương đương: những gì được đổi (số liệu, ngữ cảnh) và những gì phải giữ.\nMọi phép tính dùng công cụ tính, không nhẩm.",
+        "choice": "auto",
+        "access": "read",
+        "inputs": [
+          "Bối cảnh và yêu cầu đã ghi trong Plan"
+        ],
+        "outputs": [
+          "s2-cau-6"
+        ],
+        "completion": "Hoàn thành khâu “s2-cau-6” đúng yêu cầu.",
+        "onError": "Dừng, báo lỗi; chỉ bỏ qua khi người dùng chấp nhận.",
+        "continueOnError": false,
+        "dependsOn": [
+          "b3d8647a-5957-4ba6-ac5e-a05a0d8358c6"
+        ]
+      },
+      {
+        "id": "1a898339-8404-4f40-94a5-c27f2145075b",
+        "name": "s2-cau-7",
+        "prompt": "Tất cả tệp trung gian nằm trong de-moi/ thuộc thư mục xuất. Bàn giao bằng tên tệp cố định, không dùng {{prev}}.\n\nĐọc danh-sach-cau.md trong de-moi/. Nếu không có câu 7 thì chỉ trả lời \"Không có câu 7\" và dừng.\nNếu có, đọc cau-7.md và quy-tac-de.md. Phân tích rồi ghi vào learn-cau-7.md:\n- Cấu trúc câu hỏi: loại câu, số ý, dữ kiện cho sẵn, cách đặt vấn đề.\n- Yêu cầu cần đạt của từng ý (nhận biết, thông hiểu, vận dụng; kiến thức, kỹ năng).\n- Cách ra câu hỏi: ngữ cảnh, kiểu số liệu, độ khó, bẫy thường gặp.\n- Đáp án và lời giải gốc nếu đề có; nếu không, tự giải và ghi rõ là tự giải.\n- Quy tắc để sinh câu tương đương: những gì được đổi (số liệu, ngữ cảnh) và những gì phải giữ.\nMọi phép tính dùng công cụ tính, không nhẩm.",
+        "choice": "auto",
+        "access": "read",
+        "inputs": [
+          "Bối cảnh và yêu cầu đã ghi trong Plan"
+        ],
+        "outputs": [
+          "s2-cau-7"
+        ],
+        "completion": "Hoàn thành khâu “s2-cau-7” đúng yêu cầu.",
+        "onError": "Dừng, báo lỗi; chỉ bỏ qua khi người dùng chấp nhận.",
+        "continueOnError": false,
+        "dependsOn": [
+          "b3d8647a-5957-4ba6-ac5e-a05a0d8358c6"
+        ]
+      },
+      {
+        "id": "24060bac-4f7a-424e-b043-ae2a03f2c976",
+        "name": "s2-cau-8",
+        "prompt": "Tất cả tệp trung gian nằm trong de-moi/ thuộc thư mục xuất. Bàn giao bằng tên tệp cố định, không dùng {{prev}}.\n\nĐọc danh-sach-cau.md trong de-moi/. Nếu không có câu 8 thì chỉ trả lời \"Không có câu 8\" và dừng.\nNếu có, đọc cau-8.md và quy-tac-de.md. Phân tích rồi ghi vào learn-cau-8.md:\n- Cấu trúc câu hỏi: loại câu, số ý, dữ kiện cho sẵn, cách đặt vấn đề.\n- Yêu cầu cần đạt của từng ý (nhận biết, thông hiểu, vận dụng; kiến thức, kỹ năng).\n- Cách ra câu hỏi: ngữ cảnh, kiểu số liệu, độ khó, bẫy thường gặp.\n- Đáp án và lời giải gốc nếu đề có; nếu không, tự giải và ghi rõ là tự giải.\n- Quy tắc để sinh câu tương đương: những gì được đổi (số liệu, ngữ cảnh) và những gì phải giữ.\nMọi phép tính dùng công cụ tính, không nhẩm.",
+        "choice": "auto",
+        "access": "read",
+        "inputs": [
+          "Bối cảnh và yêu cầu đã ghi trong Plan"
+        ],
+        "outputs": [
+          "s2-cau-8"
+        ],
+        "completion": "Hoàn thành khâu “s2-cau-8” đúng yêu cầu.",
+        "onError": "Dừng, báo lỗi; chỉ bỏ qua khi người dùng chấp nhận.",
+        "continueOnError": false,
+        "dependsOn": [
+          "b3d8647a-5957-4ba6-ac5e-a05a0d8358c6"
+        ]
+      },
+      {
+        "id": "cce0cad2-a6a9-4f46-b13e-a3fa8332ab4c",
+        "name": "s2-cau-9",
+        "prompt": "Tất cả tệp trung gian nằm trong de-moi/ thuộc thư mục xuất. Bàn giao bằng tên tệp cố định, không dùng {{prev}}.\n\nĐọc danh-sach-cau.md trong de-moi/. Nếu không có câu 9 thì chỉ trả lời \"Không có câu 9\" và dừng.\nNếu có, đọc cau-9.md và quy-tac-de.md. Phân tích rồi ghi vào learn-cau-9.md:\n- Cấu trúc câu hỏi: loại câu, số ý, dữ kiện cho sẵn, cách đặt vấn đề.\n- Yêu cầu cần đạt của từng ý (nhận biết, thông hiểu, vận dụng; kiến thức, kỹ năng).\n- Cách ra câu hỏi: ngữ cảnh, kiểu số liệu, độ khó, bẫy thường gặp.\n- Đáp án và lời giải gốc nếu đề có; nếu không, tự giải và ghi rõ là tự giải.\n- Quy tắc để sinh câu tương đương: những gì được đổi (số liệu, ngữ cảnh) và những gì phải giữ.\nMọi phép tính dùng công cụ tính, không nhẩm.",
+        "choice": "auto",
+        "access": "read",
+        "inputs": [
+          "Bối cảnh và yêu cầu đã ghi trong Plan"
+        ],
+        "outputs": [
+          "s2-cau-9"
+        ],
+        "completion": "Hoàn thành khâu “s2-cau-9” đúng yêu cầu.",
+        "onError": "Dừng, báo lỗi; chỉ bỏ qua khi người dùng chấp nhận.",
+        "continueOnError": false,
+        "dependsOn": [
+          "b3d8647a-5957-4ba6-ac5e-a05a0d8358c6"
+        ]
+      },
+      {
+        "id": "bb51fd26-2b4d-4270-9078-6c960c511269",
+        "name": "s2-cau-10",
+        "prompt": "Tất cả tệp trung gian nằm trong de-moi/ thuộc thư mục xuất. Bàn giao bằng tên tệp cố định, không dùng {{prev}}.\n\nĐọc danh-sach-cau.md trong de-moi/. Nếu không có câu 10 thì chỉ trả lời \"Không có câu 10\" và dừng.\nNếu có, đọc cau-10.md và quy-tac-de.md. Phân tích rồi ghi vào learn-cau-10.md:\n- Cấu trúc câu hỏi: loại câu, số ý, dữ kiện cho sẵn, cách đặt vấn đề.\n- Yêu cầu cần đạt của từng ý (nhận biết, thông hiểu, vận dụng; kiến thức, kỹ năng).\n- Cách ra câu hỏi: ngữ cảnh, kiểu số liệu, độ khó, bẫy thường gặp.\n- Đáp án và lời giải gốc nếu đề có; nếu không, tự giải và ghi rõ là tự giải.\n- Quy tắc để sinh câu tương đương: những gì được đổi (số liệu, ngữ cảnh) và những gì phải giữ.\nMọi phép tính dùng công cụ tính, không nhẩm.",
+        "choice": "auto",
+        "access": "read",
+        "inputs": [
+          "Bối cảnh và yêu cầu đã ghi trong Plan"
+        ],
+        "outputs": [
+          "s2-cau-10"
+        ],
+        "completion": "Hoàn thành khâu “s2-cau-10” đúng yêu cầu.",
+        "onError": "Dừng, báo lỗi; chỉ bỏ qua khi người dùng chấp nhận.",
+        "continueOnError": false,
+        "dependsOn": [
+          "b3d8647a-5957-4ba6-ac5e-a05a0d8358c6"
+        ]
+      },
+      {
+        "id": "f2341673-f9f9-4519-8a1b-187beb1fd41b",
+        "name": "s3-cau-1",
+        "prompt": "Tất cả tệp trung gian nằm trong de-moi/ thuộc thư mục xuất. Bàn giao bằng tên tệp cố định, không dùng {{prev}}.\n\nNếu learn-cau-1.md không có hoặc ghi \"Không có câu 1\" thì trả lời \"Không có câu 1\" và dừng.\nĐọc learn-cau-1.md. Tạo 3 câu mới, cùng số thứ tự 1, cùng loại, cùng yêu cầu cần đạt và độ khó với câu gốc, nhưng khác nhau đôi một và khác câu gốc về số liệu, ngữ cảnh:\n- moi-cau-1-v1.md\n- moi-cau-1-v2.md\n- moi-cau-1-v3.md\nMỗi tệp gồm: đề câu (đúng số thứ tự 1 và điểm như gốc), các phương án nếu trắc nghiệm, đáp án và lời giải ngắn. Câu tự luận phải có đáp án đầy đủ. Dữ kiện phải hợp lý, chính tả chuẩn. Mọi phép tính dùng công cụ tính, không nhẩm.",
+        "choice": "auto",
+        "access": "read",
+        "inputs": [
+          "Bối cảnh và yêu cầu đã ghi trong Plan"
+        ],
+        "outputs": [
+          "s3-cau-1"
+        ],
+        "completion": "Hoàn thành khâu “s3-cau-1” đúng yêu cầu.",
+        "onError": "Dừng, báo lỗi; chỉ bỏ qua khi người dùng chấp nhận.",
+        "continueOnError": false,
+        "dependsOn": [
+          "0e32b9c2-6443-452c-81cd-002a00fc61c2"
+        ]
+      },
+      {
+        "id": "66060190-f2fd-40d3-a779-f5aaadf0b2d4",
+        "name": "s3-cau-2",
+        "prompt": "Tất cả tệp trung gian nằm trong de-moi/ thuộc thư mục xuất. Bàn giao bằng tên tệp cố định, không dùng {{prev}}.\n\nNếu learn-cau-2.md không có hoặc ghi \"Không có câu 2\" thì trả lời \"Không có câu 2\" và dừng.\nĐọc learn-cau-2.md. Tạo 3 câu mới, cùng số thứ tự 2, cùng loại, cùng yêu cầu cần đạt và độ khó với câu gốc, nhưng khác nhau đôi một và khác câu gốc về số liệu, ngữ cảnh:\n- moi-cau-2-v1.md\n- moi-cau-2-v2.md\n- moi-cau-2-v3.md\nMỗi tệp gồm: đề câu (đúng số thứ tự 2 và điểm như gốc), các phương án nếu trắc nghiệm, đáp án và lời giải ngắn. Câu tự luận phải có đáp án đầy đủ. Dữ kiện phải hợp lý, chính tả chuẩn. Mọi phép tính dùng công cụ tính, không nhẩm.",
+        "choice": "auto",
+        "access": "read",
+        "inputs": [
+          "Bối cảnh và yêu cầu đã ghi trong Plan"
+        ],
+        "outputs": [
+          "s3-cau-2"
+        ],
+        "completion": "Hoàn thành khâu “s3-cau-2” đúng yêu cầu.",
+        "onError": "Dừng, báo lỗi; chỉ bỏ qua khi người dùng chấp nhận.",
+        "continueOnError": false,
+        "dependsOn": [
+          "e9bedc80-3316-4ced-8ae3-e64b03ddd59b"
+        ]
+      },
+      {
+        "id": "fc562e1f-badf-4527-afc8-7d55d3e284e4",
+        "name": "s3-cau-3",
+        "prompt": "Tất cả tệp trung gian nằm trong de-moi/ thuộc thư mục xuất. Bàn giao bằng tên tệp cố định, không dùng {{prev}}.\n\nNếu learn-cau-3.md không có hoặc ghi \"Không có câu 3\" thì trả lời \"Không có câu 3\" và dừng.\nĐọc learn-cau-3.md. Tạo 3 câu mới, cùng số thứ tự 3, cùng loại, cùng yêu cầu cần đạt và độ khó với câu gốc, nhưng khác nhau đôi một và khác câu gốc về số liệu, ngữ cảnh:\n- moi-cau-3-v1.md\n- moi-cau-3-v2.md\n- moi-cau-3-v3.md\nMỗi tệp gồm: đề câu (đúng số thứ tự 3 và điểm như gốc), các phương án nếu trắc nghiệm, đáp án và lời giải ngắn. Câu tự luận phải có đáp án đầy đủ. Dữ kiện phải hợp lý, chính tả chuẩn. Mọi phép tính dùng công cụ tính, không nhẩm.",
+        "choice": "auto",
+        "access": "read",
+        "inputs": [
+          "Bối cảnh và yêu cầu đã ghi trong Plan"
+        ],
+        "outputs": [
+          "s3-cau-3"
+        ],
+        "completion": "Hoàn thành khâu “s3-cau-3” đúng yêu cầu.",
+        "onError": "Dừng, báo lỗi; chỉ bỏ qua khi người dùng chấp nhận.",
+        "continueOnError": false,
+        "dependsOn": [
+          "9d7ae484-8bb2-4af5-9d69-c814d4d9ed21"
+        ]
+      },
+      {
+        "id": "0b85b9f8-0c55-4e9d-9bbe-424307a1af49",
+        "name": "s3-cau-4",
+        "prompt": "Tất cả tệp trung gian nằm trong de-moi/ thuộc thư mục xuất. Bàn giao bằng tên tệp cố định, không dùng {{prev}}.\n\nNếu learn-cau-4.md không có hoặc ghi \"Không có câu 4\" thì trả lời \"Không có câu 4\" và dừng.\nĐọc learn-cau-4.md. Tạo 3 câu mới, cùng số thứ tự 4, cùng loại, cùng yêu cầu cần đạt và độ khó với câu gốc, nhưng khác nhau đôi một và khác câu gốc về số liệu, ngữ cảnh:\n- moi-cau-4-v1.md\n- moi-cau-4-v2.md\n- moi-cau-4-v3.md\nMỗi tệp gồm: đề câu (đúng số thứ tự 4 và điểm như gốc), các phương án nếu trắc nghiệm, đáp án và lời giải ngắn. Câu tự luận phải có đáp án đầy đủ. Dữ kiện phải hợp lý, chính tả chuẩn. Mọi phép tính dùng công cụ tính, không nhẩm.",
+        "choice": "auto",
+        "access": "read",
+        "inputs": [
+          "Bối cảnh và yêu cầu đã ghi trong Plan"
+        ],
+        "outputs": [
+          "s3-cau-4"
+        ],
+        "completion": "Hoàn thành khâu “s3-cau-4” đúng yêu cầu.",
+        "onError": "Dừng, báo lỗi; chỉ bỏ qua khi người dùng chấp nhận.",
+        "continueOnError": false,
+        "dependsOn": [
+          "a970845b-50fe-483e-8e65-5cc89cbf7d81"
+        ]
+      },
+      {
+        "id": "a27a0114-b3dd-49b4-b6de-51519664a51c",
+        "name": "s3-cau-5",
+        "prompt": "Tất cả tệp trung gian nằm trong de-moi/ thuộc thư mục xuất. Bàn giao bằng tên tệp cố định, không dùng {{prev}}.\n\nNếu learn-cau-5.md không có hoặc ghi \"Không có câu 5\" thì trả lời \"Không có câu 5\" và dừng.\nĐọc learn-cau-5.md. Tạo 3 câu mới, cùng số thứ tự 5, cùng loại, cùng yêu cầu cần đạt và độ khó với câu gốc, nhưng khác nhau đôi một và khác câu gốc về số liệu, ngữ cảnh:\n- moi-cau-5-v1.md\n- moi-cau-5-v2.md\n- moi-cau-5-v3.md\nMỗi tệp gồm: đề câu (đúng số thứ tự 5 và điểm như gốc), các phương án nếu trắc nghiệm, đáp án và lời giải ngắn. Câu tự luận phải có đáp án đầy đủ. Dữ kiện phải hợp lý, chính tả chuẩn. Mọi phép tính dùng công cụ tính, không nhẩm.",
+        "choice": "auto",
+        "access": "read",
+        "inputs": [
+          "Bối cảnh và yêu cầu đã ghi trong Plan"
+        ],
+        "outputs": [
+          "s3-cau-5"
+        ],
+        "completion": "Hoàn thành khâu “s3-cau-5” đúng yêu cầu.",
+        "onError": "Dừng, báo lỗi; chỉ bỏ qua khi người dùng chấp nhận.",
+        "continueOnError": false,
+        "dependsOn": [
+          "6524ad1f-1326-48bc-af6f-b890a44f5e0e"
+        ]
+      },
+      {
+        "id": "80e535de-1f54-4886-a359-6ed1f40c9b62",
+        "name": "s3-cau-6",
+        "prompt": "Tất cả tệp trung gian nằm trong de-moi/ thuộc thư mục xuất. Bàn giao bằng tên tệp cố định, không dùng {{prev}}.\n\nNếu learn-cau-6.md không có hoặc ghi \"Không có câu 6\" thì trả lời \"Không có câu 6\" và dừng.\nĐọc learn-cau-6.md. Tạo 3 câu mới, cùng số thứ tự 6, cùng loại, cùng yêu cầu cần đạt và độ khó với câu gốc, nhưng khác nhau đôi một và khác câu gốc về số liệu, ngữ cảnh:\n- moi-cau-6-v1.md\n- moi-cau-6-v2.md\n- moi-cau-6-v3.md\nMỗi tệp gồm: đề câu (đúng số thứ tự 6 và điểm như gốc), các phương án nếu trắc nghiệm, đáp án và lời giải ngắn. Câu tự luận phải có đáp án đầy đủ. Dữ kiện phải hợp lý, chính tả chuẩn. Mọi phép tính dùng công cụ tính, không nhẩm.",
+        "choice": "auto",
+        "access": "read",
+        "inputs": [
+          "Bối cảnh và yêu cầu đã ghi trong Plan"
+        ],
+        "outputs": [
+          "s3-cau-6"
+        ],
+        "completion": "Hoàn thành khâu “s3-cau-6” đúng yêu cầu.",
+        "onError": "Dừng, báo lỗi; chỉ bỏ qua khi người dùng chấp nhận.",
+        "continueOnError": false,
+        "dependsOn": [
+          "af4080af-a289-4b47-90e6-ccd820ccf0f8"
+        ]
+      },
+      {
+        "id": "a122e6f8-f2db-4cde-a4f5-0b2e3564cfe4",
+        "name": "s3-cau-7",
+        "prompt": "Tất cả tệp trung gian nằm trong de-moi/ thuộc thư mục xuất. Bàn giao bằng tên tệp cố định, không dùng {{prev}}.\n\nNếu learn-cau-7.md không có hoặc ghi \"Không có câu 7\" thì trả lời \"Không có câu 7\" và dừng.\nĐọc learn-cau-7.md. Tạo 3 câu mới, cùng số thứ tự 7, cùng loại, cùng yêu cầu cần đạt và độ khó với câu gốc, nhưng khác nhau đôi một và khác câu gốc về số liệu, ngữ cảnh:\n- moi-cau-7-v1.md\n- moi-cau-7-v2.md\n- moi-cau-7-v3.md\nMỗi tệp gồm: đề câu (đúng số thứ tự 7 và điểm như gốc), các phương án nếu trắc nghiệm, đáp án và lời giải ngắn. Câu tự luận phải có đáp án đầy đủ. Dữ kiện phải hợp lý, chính tả chuẩn. Mọi phép tính dùng công cụ tính, không nhẩm.",
+        "choice": "auto",
+        "access": "read",
+        "inputs": [
+          "Bối cảnh và yêu cầu đã ghi trong Plan"
+        ],
+        "outputs": [
+          "s3-cau-7"
+        ],
+        "completion": "Hoàn thành khâu “s3-cau-7” đúng yêu cầu.",
+        "onError": "Dừng, báo lỗi; chỉ bỏ qua khi người dùng chấp nhận.",
+        "continueOnError": false,
+        "dependsOn": [
+          "1a898339-8404-4f40-94a5-c27f2145075b"
+        ]
+      },
+      {
+        "id": "fdea50ea-c656-4d1b-baeb-7f9139e00f5d",
+        "name": "s3-cau-8",
+        "prompt": "Tất cả tệp trung gian nằm trong de-moi/ thuộc thư mục xuất. Bàn giao bằng tên tệp cố định, không dùng {{prev}}.\n\nNếu learn-cau-8.md không có hoặc ghi \"Không có câu 8\" thì trả lời \"Không có câu 8\" và dừng.\nĐọc learn-cau-8.md. Tạo 3 câu mới, cùng số thứ tự 8, cùng loại, cùng yêu cầu cần đạt và độ khó với câu gốc, nhưng khác nhau đôi một và khác câu gốc về số liệu, ngữ cảnh:\n- moi-cau-8-v1.md\n- moi-cau-8-v2.md\n- moi-cau-8-v3.md\nMỗi tệp gồm: đề câu (đúng số thứ tự 8 và điểm như gốc), các phương án nếu trắc nghiệm, đáp án và lời giải ngắn. Câu tự luận phải có đáp án đầy đủ. Dữ kiện phải hợp lý, chính tả chuẩn. Mọi phép tính dùng công cụ tính, không nhẩm.",
+        "choice": "auto",
+        "access": "read",
+        "inputs": [
+          "Bối cảnh và yêu cầu đã ghi trong Plan"
+        ],
+        "outputs": [
+          "s3-cau-8"
+        ],
+        "completion": "Hoàn thành khâu “s3-cau-8” đúng yêu cầu.",
+        "onError": "Dừng, báo lỗi; chỉ bỏ qua khi người dùng chấp nhận.",
+        "continueOnError": false,
+        "dependsOn": [
+          "24060bac-4f7a-424e-b043-ae2a03f2c976"
+        ]
+      },
+      {
+        "id": "471241b0-cf01-444e-9b19-c399e0ca8479",
+        "name": "s3-cau-9",
+        "prompt": "Tất cả tệp trung gian nằm trong de-moi/ thuộc thư mục xuất. Bàn giao bằng tên tệp cố định, không dùng {{prev}}.\n\nNếu learn-cau-9.md không có hoặc ghi \"Không có câu 9\" thì trả lời \"Không có câu 9\" và dừng.\nĐọc learn-cau-9.md. Tạo 3 câu mới, cùng số thứ tự 9, cùng loại, cùng yêu cầu cần đạt và độ khó với câu gốc, nhưng khác nhau đôi một và khác câu gốc về số liệu, ngữ cảnh:\n- moi-cau-9-v1.md\n- moi-cau-9-v2.md\n- moi-cau-9-v3.md\nMỗi tệp gồm: đề câu (đúng số thứ tự 9 và điểm như gốc), các phương án nếu trắc nghiệm, đáp án và lời giải ngắn. Câu tự luận phải có đáp án đầy đủ. Dữ kiện phải hợp lý, chính tả chuẩn. Mọi phép tính dùng công cụ tính, không nhẩm.",
+        "choice": "auto",
+        "access": "read",
+        "inputs": [
+          "Bối cảnh và yêu cầu đã ghi trong Plan"
+        ],
+        "outputs": [
+          "s3-cau-9"
+        ],
+        "completion": "Hoàn thành khâu “s3-cau-9” đúng yêu cầu.",
+        "onError": "Dừng, báo lỗi; chỉ bỏ qua khi người dùng chấp nhận.",
+        "continueOnError": false,
+        "dependsOn": [
+          "cce0cad2-a6a9-4f46-b13e-a3fa8332ab4c"
+        ]
+      },
+      {
+        "id": "cbbe4d86-1fc6-43ba-8e3a-03feb3d4e840",
+        "name": "s3-cau-10",
+        "prompt": "Tất cả tệp trung gian nằm trong de-moi/ thuộc thư mục xuất. Bàn giao bằng tên tệp cố định, không dùng {{prev}}.\n\nNếu learn-cau-10.md không có hoặc ghi \"Không có câu 10\" thì trả lời \"Không có câu 10\" và dừng.\nĐọc learn-cau-10.md. Tạo 3 câu mới, cùng số thứ tự 10, cùng loại, cùng yêu cầu cần đạt và độ khó với câu gốc, nhưng khác nhau đôi một và khác câu gốc về số liệu, ngữ cảnh:\n- moi-cau-10-v1.md\n- moi-cau-10-v2.md\n- moi-cau-10-v3.md\nMỗi tệp gồm: đề câu (đúng số thứ tự 10 và điểm như gốc), các phương án nếu trắc nghiệm, đáp án và lời giải ngắn. Câu tự luận phải có đáp án đầy đủ. Dữ kiện phải hợp lý, chính tả chuẩn. Mọi phép tính dùng công cụ tính, không nhẩm.",
+        "choice": "auto",
+        "access": "read",
+        "inputs": [
+          "Bối cảnh và yêu cầu đã ghi trong Plan"
+        ],
+        "outputs": [
+          "s3-cau-10"
+        ],
+        "completion": "Hoàn thành khâu “s3-cau-10” đúng yêu cầu.",
+        "onError": "Dừng, báo lỗi; chỉ bỏ qua khi người dùng chấp nhận.",
+        "continueOnError": false,
+        "dependsOn": [
+          "bb51fd26-2b4d-4270-9078-6c960c511269"
+        ]
+      },
+      {
+        "id": "f5285b76-9231-458d-863c-004fa74986d5",
+        "name": "s4-gom",
+        "prompt": "Tất cả tệp trung gian nằm trong de-moi/ thuộc thư mục xuất. Bàn giao bằng tên tệp cố định, không dùng {{prev}}.\n\nTrong de-moi/, gom các tệp moi-cau-k-v1.md (k tăng dần, bỏ qua tệp không tồn tại) vào v1.md. Làm tương tự cho v2.md và v3.md.\nMỗi tệp bắt đầu bằng header.md (nếu có), rồi các câu theo số thứ tự tăng dần, giữ đúng số câu và điểm như đề gốc. Phần đáp án để ở cuối tệp theo từng câu.\nBáo số câu của mỗi tệp và câu nào bị thiếu.",
+        "choice": "auto",
+        "access": "read",
+        "inputs": [
+          "Bối cảnh và yêu cầu đã ghi trong Plan"
+        ],
+        "outputs": [
+          "s4-gom"
+        ],
+        "completion": "Hoàn thành khâu “s4-gom” đúng yêu cầu.",
+        "onError": "Dừng, báo lỗi; chỉ bỏ qua khi người dùng chấp nhận.",
+        "continueOnError": false,
+        "dependsOn": [
+          "f2341673-f9f9-4519-8a1b-187beb1fd41b",
+          "66060190-f2fd-40d3-a779-f5aaadf0b2d4",
+          "fc562e1f-badf-4527-afc8-7d55d3e284e4",
+          "0b85b9f8-0c55-4e9d-9bbe-424307a1af49",
+          "a27a0114-b3dd-49b4-b6de-51519664a51c",
+          "80e535de-1f54-4886-a359-6ed1f40c9b62",
+          "a122e6f8-f2db-4cde-a4f5-0b2e3564cfe4",
+          "fdea50ea-c656-4d1b-baeb-7f9139e00f5d",
+          "471241b0-cf01-444e-9b19-c399e0ca8479",
+          "cbbe4d86-1fc6-43ba-8e3a-03feb3d4e840"
+        ]
+      },
+      {
+        "id": "db16f003-795f-49fb-a6eb-60b716d6587a",
+        "name": "s5a-kiem-tra",
+        "prompt": "Tất cả tệp trung gian nằm trong de-moi/ thuộc thư mục xuất. Bàn giao bằng tên tệp cố định, không dùng {{prev}}.\n\nĐọc v1.md, v2.md, v3.md trong de-moi/. Kiểm tra từng câu:\n- Sai chính tả, sai dấu, sai đơn vị, sai ký hiệu.\n- Dữ kiện bất hợp lý (số liệu phi thực tế, mâu thuẫn, thiếu dữ kiện).\n- Câu trắc nghiệm có hơn một hoặc không có đáp án đúng.\n- Câu tự luận sai đáp án: tự giải lại, mọi phép tính dùng công cụ tính, không nhẩm.\nGhi bao-cao-kiem-tra.md gồm bảng: mã đề, câu số, loại lỗi, mô tả, hướng sửa. Cuối tệp ghi danh sách \"CẦN LÀM LẠI\" dạng: v1: 3, 5; v2: (không); v3: 7. Nếu không lỗi, ghi \"CẦN LÀM LẠI: không\".",
+        "choice": "auto",
+        "access": "read",
+        "inputs": [
+          "Bối cảnh và yêu cầu đã ghi trong Plan"
+        ],
+        "outputs": [
+          "s5a-kiem-tra"
+        ],
+        "completion": "Hoàn thành khâu “s5a-kiem-tra” đúng yêu cầu.",
+        "onError": "Dừng, báo lỗi; chỉ bỏ qua khi người dùng chấp nhận.",
+        "continueOnError": false,
+        "dependsOn": [
+          "f5285b76-9231-458d-863c-004fa74986d5"
+        ]
+      },
+      {
+        "id": "32c901a9-1f72-47c7-aff6-eb56b6c07bd6",
+        "name": "s5b-lam-lai",
+        "prompt": "Tất cả tệp trung gian nằm trong de-moi/ thuộc thư mục xuất. Bàn giao bằng tên tệp cố định, không dùng {{prev}}.\n\nĐọc bao-cao-kiem-tra.md. Với mỗi (mã đề, câu số) trong danh sách CẦN LÀM LẠI:\n1. Đọc learn-cau-k.md của câu đó.\n2. Tạo lại câu theo cách của Section 3 (cùng yêu cầu cần đạt, số liệu mới, tránh lỗi đã nêu), ghi đè moi-cau-k-vX.md.\n3. Chèn câu mới đúng vị trí số k trong vX.md, giữ nguyên các câu khác.\nTự kiểm tra lại các câu vừa làm; mọi phép tính dùng công cụ tính. Câu nào vẫn chưa ổn thì ghi vào cuối bao-cao-kiem-tra.md mục \"CHƯA SỬA ĐƯỢC\" kèm lý do. Chỉ làm lại một lượt. Nếu không có câu cần làm lại, trả lời \"Không có câu cần làm lại\".",
+        "choice": "auto",
+        "access": "read",
+        "inputs": [
+          "Bối cảnh và yêu cầu đã ghi trong Plan"
+        ],
+        "outputs": [
+          "s5b-lam-lai"
+        ],
+        "completion": "Hoàn thành khâu “s5b-lam-lai” đúng yêu cầu.",
+        "onError": "Dừng, báo lỗi; chỉ bỏ qua khi người dùng chấp nhận.",
+        "continueOnError": false,
+        "dependsOn": [
+          "db16f003-795f-49fb-a6eb-60b716d6587a"
+        ]
+      },
+      {
+        "id": "44417607-9812-4640-ab5c-5d0f7f98b51b",
+        "name": "s6-xuat-word",
+        "prompt": "Tất cả tệp trung gian nằm trong de-moi/ thuộc thư mục xuất. Bàn giao bằng tên tệp cố định, không dùng {{prev}}.\n\nDùng kỹ năng Word (soạn đề) và quy tắc trình bày trong quy-tac-de.md cùng header.md để tạo 3 tệp Word từ v1.md, v2.md, v3.md:\n- v1.docx, v2.docx, v3.docx trong thư mục xuất.\n- Mã đề ghi rõ trên từng tệp (đề 1, 2, 3). Công thức dùng LaTeX/Equation. Đáp án để ở trang riêng cuối tệp.\n- Tên tệp đã tồn tại thì dùng tên mới, không ghi đè.\nChỉ đưa liên kết khi công cụ xác nhận đã tạo xong từng tệp; tệp nào lỗi thì nói rõ. Nếu có mục \"CHƯA SỬA ĐƯỢC\" trong bao-cao-kiem-tra.md, nhắc người dùng kiểm tra các câu đó.\nCuối cùng hỏi: \"Thầy cô muốn xem, sửa, hay lưu như (tên/thư mục khác)?\"",
+        "choice": "auto",
+        "access": "read",
+        "inputs": [
+          "Bối cảnh và yêu cầu đã ghi trong Plan"
+        ],
+        "outputs": [
+          "s6-xuat-word"
+        ],
+        "completion": "Hoàn thành khâu “s6-xuat-word” đúng yêu cầu.",
+        "onError": "Dừng, báo lỗi; chỉ bỏ qua khi người dùng chấp nhận.",
+        "continueOnError": false,
+        "dependsOn": [
+          "32c901a9-1f72-47c7-aff6-eb56b6c07bd6"
+        ]
+      }
+    ]
+  }
+}

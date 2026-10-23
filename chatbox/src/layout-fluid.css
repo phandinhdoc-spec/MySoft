@@ -1,0 +1,24 @@
+/* Khung chat và khung trả lời: rộng tối đa theo cửa sổ, co giãn theo chiều ngang để không bị che hay tràn. Nạp sau cùng. */
+.conversation,.main{min-width:0}
+.composer-area,.messages{max-width:none;width:100%;margin-inline:auto;box-sizing:border-box;min-width:0;padding-inline:clamp(12px,2.5vw,44px)}
+.message,.message-content,.markdown{min-width:0;max-width:100%}
+.markdown img,.markdown pre,.markdown table,.plan-card,.action-card{max-width:100%}
+.source-context{max-width:100%;min-width:0}
+.source-body.source-split{height:clamp(200px,40dvh,540px);max-height:45dvh}
+@media(max-width:900px){.source-body.source-split{grid-template-columns:minmax(0,1fr)}.source-body.source-split .context-preview{display:none}}
+/* Khung «Xem nguồn»: tìm kiếm, bộ lọc, sắp xếp và nút trên cùng một hàng. style.css đặt input/select rộng 100% nên phải gỡ ở đây. */
+.source-tools .source-row-main{flex-wrap:nowrap;gap:6px;overflow-x:auto;scrollbar-width:thin}
+.source-tools .source-row-main>*{flex:none;width:auto;min-width:0;margin:0}
+.source-tools .source-row-main input[type=search]{flex:1 1 180px;min-width:140px;width:auto;padding:5px 9px}
+.source-tools .source-row-main select{width:auto;max-width:170px;padding:4px 6px}
+.source-tools .source-check{white-space:nowrap}
+.source-tools .source-check input[type=checkbox]{width:auto;padding:0;margin:0}
+.source-tools .source-count{white-space:nowrap}
+@media(max-width:700px){.source-tools .source-row-main{flex-wrap:wrap}}
+.project-preview-pane.context-drop-active{outline:2px dashed var(--accent);outline-offset:-4px}
+
+/* Xem nguồn: trạng thái chỉ mục, nhóm theo thư mục */
+.source-tools .source-index{font-size:11px;color:var(--muted);padding:0 2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.source-list .source-group{position:sticky;top:0;z-index:1;padding:6px 10px;margin:4px 0 2px;font-size:11px;font-weight:600;color:var(--muted);background:var(--surface);border-bottom:1px solid var(--line);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.source-list .source-group small{font-weight:400}
+.source-tools .source-refresh.on{background:var(--hover);border-color:var(--accent)}

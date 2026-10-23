@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><title>PVTA CLI · Lập trình viên (mẫu thiết kế)</title>
+<style>
+body{margin:0;background:#0b1f1c;font:14px/1.5 "SF Mono",Menlo,Consolas,monospace;color:#d8efe9;display:flex;justify-content:center;padding:32px}
+.t{width:1120px;border:2px solid #2fb59b;border-radius:12px;background:#0f2a26;box-shadow:0 8px 30px #0008;overflow:hidden}
+.h{padding:10px 18px;border-bottom:1px solid #2fb59b55;color:#6fe3c9;font-weight:bold}
+.s{padding:6px 18px;border-bottom:1px solid #2fb59b55;color:#9fc9bf;font-size:13px}
+.s b{color:#ffd479}
+.cols{display:flex;height:430px;border-bottom:1px solid #2fb59b55}
+.left{width:44%;border-right:1px solid #2fb59b55;padding:12px 16px;overflow:hidden}
+.right{width:56%;padding:0;background:#0a211e;overflow:hidden}
+.u{color:#ffd479}.a{color:#6fe3c9}.d{color:#7fa59c}
+.p{margin:8px 0}
+.fp{padding:8px 14px;border-bottom:1px solid #2fb59b33;color:#9fc9bf;font-size:12px;background:#0f2a26}
+.fp b{color:#6fe3c9}
+pre{margin:0;padding:12px 14px;font-size:13px;line-height:1.55;color:#d8efe9}
+.kw{color:#c792ea}.fn{color:#82aaff}.st{color:#c3e88d}.cm{color:#637777}.ty{color:#ffcb6b}
+.add{background:#1d4a4366;color:#9af5df;display:block}
+.del{background:#5a22224d;color:#ffb3b3;display:block;text-decoration:line-through}
+.ln{color:#4f7a71;display:inline-block;width:34px;text-align:right;margin-right:12px;user-select:none}
+.res{padding:8px 18px;font-size:13px;border-bottom:1px solid #2fb59b33}
+.ok{color:#6fe3c9}.bad{color:#ff8a8a}
+.in{padding:12px 18px;color:#fff}
+.k{padding:6px 18px 12px;color:#7fa59c;font-size:13px}
+.note{max-width:1120px;margin-top:14px;color:#7fa59c;font:13px sans-serif}
+</style></head><body><div>
+<div class="t">
+<div class="h">╭─ PVTA · Lập trình viên</div>
+<div class="s">Dự án: <b>MySoft</b> · Quyền: <b>Hỏi duyệt</b> · Chế độ: <b>Lập trình viên</b> · Brain: <span class="a">đã nạp chỉ mục</span></div>
+<div class="cols">
+<div class="left">
+<div class="p"><span class="u">Thầy cô ›</span> Sửa hàm chọn bản ghi trong skills.</div>
+<div class="p"><span class="a">PVTA ›</span> Đã đọc phạm vi bên phải. Đề xuất thay đổi ở dòng 132–141.</div>
+<div class="p d">▸ Đọc <b>core/src/skills.ts:120–168</b></div>
+<div class="p d">▸ Chạy <b>tsc --noEmit</b> … <span class="ok">không lỗi</span></div>
+<div class="p d">▸ Chờ duyệt trước khi ghi tệp</div>
+<div class="p"><span class="a">Gợi ý tiếp theo</span><br>- Thêm test cho nhánh rỗng.<br>- Chạy lại test của mô-đun skills.</div>
+</div>
+<div class="right">
+<div class="fp">📄 <b>core/src/skills.ts</b> · dòng 120–168 · diff chờ duyệt</div>
+<pre><span class="ln">130</span><span class="kw">export function</span> <span class="fn">pickSkill</span>(list: <span class="ty">Skill</span>[], name: <span class="ty">string</span>) {
+<span class="ln">131</span>  <span class="cm">// tìm theo tên, bỏ qua hoa thường</span>
+<span class="del"><span class="ln">132</span>  <span class="kw">return</span> list.find(s =&gt; s.name === name) ?? <span class="kw">null</span>;</span>
+<span class="add"><span class="ln">132</span>  <span class="kw">const</span> key = name.trim().toLowerCase();</span>
+<span class="add"><span class="ln">133</span>  <span class="kw">return</span> list.find(s =&gt; s.name.toLowerCase() === key) ?? <span class="kw">null</span>;</span>
+<span class="ln">134</span>}</pre>
+</div>
+</div>
+<div class="res"><span class="ok">✔ tsc</span> &nbsp; <span class="ok">✔ 12/12 test skills</span> &nbsp; <span class="bad">✘ 1 test cũ khẳng định hoa/thường</span></div>
+<div class="in">› Nhập yêu cầu…▌</div>
+<div class="k">📎 Tệp/thư mục &nbsp; /tinh &nbsp; #quy-tắc &nbsp; /kỹ-năng &nbsp; /diff &nbsp; /test &nbsp; /brain</div>
+</div>
+<div class="note">Mẫu thiết kế tĩnh (HTML) — chưa phải CLI đã chạy. Nội dung là minh họa, số liệu không phải kết quả thật.</div>
+</div></body></html>

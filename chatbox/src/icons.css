@@ -1,0 +1,14 @@
+.icon{zoom:var(--ui-icon-scale,1)}
+/* The composer already sizes glyphs and their buttons in pixels. */
+.composer .composer-toolbar .icon,.toolbar-size-preview .icon{zoom:1}
+.icon[data-icon-tone]{color:var(--icon-tone-light)}
+:root[data-theme=dark] .icon[data-icon-tone]{color:var(--icon-tone-dark)}
+.icon[data-icon-tone=blue]{--icon-tone-light:#2563b8;--icon-tone-dark:#83b9ff}
+.icon[data-icon-tone=violet]{--icon-tone-light:#7c3db5;--icon-tone-dark:#c7a0f3}
+.icon[data-icon-tone=green]{--icon-tone-light:#287a45;--icon-tone-dark:#83d69b}
+.icon[data-icon-tone=amber]{--icon-tone-light:#956009;--icon-tone-dark:#edc36b}
+.icon[data-icon-tone=rose]{--icon-tone-light:#b43862;--icon-tone-dark:#f49bb6}
+.icon[data-icon-tone=teal]{--icon-tone-light:#147c80;--icon-tone-dark:#75d5d4}
+/* Filled action buttons need their foreground color for contrast. */
+:root .send-button .icon[data-icon-tone],:root .access-full .icon[data-icon-tone],:root .primary .icon[data-icon-tone]{color:inherit}
+@media(forced-colors:active){.icon[data-icon-tone]{color:inherit!important}}

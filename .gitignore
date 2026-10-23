@@ -1,0 +1,22 @@
+node_modules/
+dist/
+release/
+**/target/
+chatbox/src-tauri/binaries/
+upstream-office/
+.codebase-memory/
+.DS_Store
+.env
+.build-cache/
+.build-target/
+**/__pycache__/
+
+# Native document runtimes are generated per release target
+chatbox/src-tauri/runtime/
+
+# khóa bí mật giấy phép (không bao giờ commit)
+*.pem
+
+# Brain generated index and atomic write scratch files
+.code_index.jsonl
+.brain-*.tmp

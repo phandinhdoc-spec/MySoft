@@ -1,0 +1,60 @@
+.app.with-activity-bar{--activity-width:56px;grid-template-columns:var(--activity-width) var(--sidebar-w,216px) minmax(0,1fr)}
+.app.with-activity-bar.sidebar-collapsed{grid-template-columns:var(--activity-width) 0 minmax(0,1fr)}
+.app.with-activity-bar>.activity-bar{grid-column:1;grid-row:1}.app.with-activity-bar>.sidebar{grid-column:2;grid-row:1;display:flex;padding:12px 10px 0;min-width:0}.app.with-activity-bar>.main{grid-column:3;grid-row:1;min-width:0}
+.app.with-activity-bar.sidebar-collapsed>.sidebar{visibility:hidden;padding:0;overflow:hidden}
+.app.with-activity-bar>.sidebar-resizer{left:calc(var(--activity-width) + var(--sidebar-w,216px) - 4px)}
+.activity-bar{display:flex;flex-direction:column;align-items:center;gap:8px;background:var(--sidebar);border-right:1px solid var(--line);padding:10px 0;min-height:0;z-index:9}
+.activity-bar button{position:relative;display:grid;place-items:center;flex:none;width:44px;height:44px;padding:8px;border-radius:7px;color:var(--muted);border:1px solid transparent}
+.activity-bar button:hover{background:var(--hover);color:var(--text)}.activity-bar button.active{color:var(--text);background:var(--surface)}.activity-bar button.active:before{content:'';position:absolute;left:-6px;top:8px;bottom:8px;width:3px;background:var(--accent);border-radius:2px}
+.activity-bar .activity-home{color:var(--accent);font-size:21px;font-weight:800;height:36px}.activity-items{display:flex;flex-direction:column;gap:3px;flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;width:100%;align-items:center}.activity-bar .activity-urgency{margin-top:auto}.activity-bar .activity-urgency+.activity-brain{margin-top:0}.activity-bar .activity-brain{margin-top:auto}.activity-bar .activity-brain+.activity-settings{margin-top:0}.activity-bar .activity-settings{margin-top:auto}
+.activity-tooltip{display:none;position:fixed;left:58px;z-index:1000;white-space:nowrap;font-size:12px;background:var(--surface);border:1px solid var(--line);padding:6px 10px;border-radius:6px;box-shadow:var(--shadow);color:var(--text);pointer-events:none}
+.activity-bar button:hover .activity-tooltip,.activity-bar button:focus-visible .activity-tooltip{display:block}
+.sidebar-panel-heading{display:flex;align-items:center;justify-content:space-between;padding:2px 3px 12px;gap:8px}.sidebar-panel-heading strong{font-size:13px}.sidebar-panel-heading button{padding:2px 9px;font-size:22px}
+.sidebar-panel-nav{flex:1}.with-activity-bar .sidebar-nav{margin-top:8px}.with-activity-bar .side-menu-heading[hidden]{display:none}.with-activity-bar .side-submenu{margin:0;border:0;padding:0}.with-activity-bar .side-menu-items{max-height:none}.with-activity-bar .sidebar-bottom{grid-template-columns:28px minmax(0,1fr)}.with-activity-bar .sidebar-bottom .sidebar-disclaimer{white-space:normal;overflow:visible;text-overflow:clip}
+@media(max-width:980px){.app.with-activity-bar.project-tools-docked>.sidebar{display:flex}.app.with-activity-bar.project-tools-docked>.main{grid-column:3}}
+@media(max-width:600px){.app.with-activity-bar{--activity-width:48px;grid-template-columns:var(--activity-width) minmax(0,1fr)}.app.with-activity-bar>.main{grid-column:2}.app.with-activity-bar>.sidebar{position:absolute;left:var(--activity-width);top:0;bottom:0;width:min(var(--sidebar-w,216px),calc(100vw - var(--activity-width)));z-index:8;box-shadow:var(--shadow)}.app.with-activity-bar.sidebar-collapsed>.sidebar{display:none}.activity-bar button{width:40px;height:40px}.activity-tooltip{left:50px}.app.with-activity-bar.project-tools-docked>.main{grid-column:2}}
+.activity-bar .icon svg{width:23px;height:23px}.app.with-activity-bar:not(.sidebar-collapsed).project-tools-docked>.sidebar-resizer{display:block}
+@media(max-width:600px){.app.with-activity-bar.project-tools-docked>.sidebar-resizer{display:none}}
+/* Contextual panels use compact explorer rows instead of empty landing cards. */
+.with-activity-bar .workspace-sidebar{display:flex;flex-direction:column;flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;margin:0 -4px;padding:0 2px 12px;gap:4px}
+.workspace-sidebar details{flex:none;border:0;margin:0;padding:0}
+.workspace-sidebar summary{color:var(--muted);font-size:11px;font-weight:650;letter-spacing:.2px;margin:0;padding:9px 5px;cursor:pointer;overflow-wrap:anywhere}
+.workspace-sidebar summary small{font-size:10px;margin-left:5px;font-weight:400}
+.sidebar .workspace-sidebar .workspace-side-row{display:flex;align-items:center;gap:8px;width:100%;min-height:32px;padding:6px 9px;text-align:left;border:1px solid transparent;border-radius:5px;background:transparent;color:var(--text);font-size:12px}
+.workspace-side-row>.icon{flex:none;color:var(--muted)}
+.workspace-side-row>span:last-child{min-width:0;flex:1}
+.workspace-side-row strong{display:block;font-size:12px;font-weight:450;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.5}
+.workspace-side-row small{display:block;color:var(--muted);font-size:10px;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sidebar .workspace-sidebar .workspace-side-row:hover{background:var(--hover)}
+.sidebar .workspace-sidebar .workspace-side-row.selected{background:var(--surface);border-color:var(--line)}
+.workspace-side-actions{padding-bottom:7px;border-bottom:1px solid var(--line)}
+.workspace-sidebar .workspace-side-search{display:flex;flex-direction:row;align-items:center;gap:6px;padding:6px 8px;margin:8px 3px 2px;border:1px solid var(--line);border-radius:5px;color:var(--muted)}
+.workspace-sidebar .workspace-side-search input{width:100%;min-width:0;background:transparent;border:0;padding:0;font-size:12px;color:var(--text);outline:none}
+.workspace-side-search:focus-within{outline:2px solid var(--accent);outline-offset:1px}
+.workspace-sidebar .workspace-side-empty{margin:2px 9px 10px;font-size:11px;line-height:1.6;color:var(--muted)}
+.app.with-activity-bar>.sidebar{visibility:visible;overflow:hidden}
+.app.with-activity-bar.sidebar-collapsed>.sidebar{visibility:hidden}
+/* Tên bảng chức năng là lối vào trang quản lí đầy đủ */
+.sidebar-panel-heading .panel-home{display:inline-flex;align-items:center;gap:6px;flex:1;min-width:0;justify-content:flex-start;padding:4px 8px;font-size:13px;border-radius:8px;background:transparent;border:0;color:inherit;cursor:pointer}
+.sidebar-panel-heading .panel-home strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sidebar-panel-heading .panel-home span{font-size:13px;color:var(--muted);transition:color .15s,transform .15s}
+.sidebar-panel-heading .panel-home:hover{background:var(--hover)}.sidebar-panel-heading .panel-home:hover span{color:var(--accent);transform:translate(1px,-1px)}
+.sidebar-panel-heading .panel-home:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.sidebar-project-head>button.sidebar-project-open{display:flex;align-items:center;gap:6px;flex:1;min-width:0;justify-content:flex-start;padding:3px 6px;font-size:13px;color:inherit;border:0;background:transparent}
+.sidebar-project-head>button.sidebar-project-open:hover{background:var(--hover)}
+/* Sổ nguồn: quản lí nguồn ở thanh bên trái */
+.sidebar-notebook{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:2px 2px 10px}
+.sidebar-notebook .nb-sources{border:0;background:transparent;padding:0;border-radius:0}
+
+/* Nút Não bộ: chỉ đổi màu biểu tượng, không khung/nền. Mặc định theo giao diện (--brain-ink: xanh/xám/đen); bật thì vàng bóng. */
+.activity-bar .activity-brain{color:var(--brain-ink,var(--accent));background:transparent;border-color:transparent;box-shadow:none}
+.activity-bar .activity-brain:hover{background:transparent;color:var(--brain-ink,var(--accent));opacity:.8}
+.activity-bar .activity-brain.lit,.activity-bar .activity-brain.lit:hover{color:#facc15;background:transparent;border-color:transparent;box-shadow:none;opacity:1}
+.activity-bar .activity-brain.lit svg{filter:drop-shadow(0 0 3px rgba(250,204,21,.9)) drop-shadow(0 0 8px rgba(250,204,21,.55))}
+.activity-bar .activity-brain.thinking svg{animation:brain-pulse 1.2s ease-in-out infinite}
+@keyframes brain-pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.55;transform:scale(.9)}}
+@media(prefers-reduced-motion:reduce){.activity-bar .activity-brain.thinking svg{animation:none}}
+/* Cờ việc gấp: chỉ đổi màu biểu tượng; không khung, không nền, không quầng sáng. */
+.activity-bar .activity-urgency,.activity-bar .activity-urgency:hover,.activity-bar .activity-urgency[aria-pressed=true]{background:transparent;border-color:transparent;box-shadow:none;outline-offset:2px}
+.activity-bar .activity-urgency.calm{color:#16a34a}.activity-bar .activity-urgency.urgent{color:#dc2626}
+.activity-bar .activity-urgency:hover{opacity:.8}

@@ -1,0 +1,8 @@
+import {it,expect} from 'vitest';
+import fs from 'node:fs';import path from 'node:path';import {fileURLToPath} from 'node:url';
+import {SkillStore,skillsPrompt,findUnsafe} from '../src/skills';
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
+const store=new SkillStore(path.join(root,'skills'));
+it('loads the full lesson workflow for Word, without unrelated legal material',()=>{const prompt=skillsPrompt(store.list(),'Soạn giáo án 5512 tích hợp năng lực số','word');expect(prompt).toContain('### Skill: pvta-giao-an');expect(prompt).toContain('Chỉ nói đã kiểm tra trực quan');expect(prompt).not.toContain('### Skill: pvta-phap-ly');});
+it('loads the appropriate legal and administrative workflow and respects off/manual',()=>{expect(skillsPrompt(store.list(),'Rà soát điều khoản hợp đồng','word')).toContain('### Skill: pvta-phap-ly');expect(skillsPrompt(store.list(),'Làm đẹp công văn','word')).toContain('### Skill: pvta-hanh-chinh');for(const load of ['off','manual'] as const){const list=store.list().map(s=>s.name==='pvta-giao-an'?{...s,load}:s);expect(skillsPrompt(list,'Soạn giáo án','word')).not.toContain('### Skill: pvta-giao-an');}});
+it('ships matching standalone desktop skills with safe bodies and provenance',()=>{for(const name of ['giao-an','hanh-chinh','phap-ly']){const a=store.read('pvta-'+name)!;const b=new SkillStore(path.join(root,'desktop-skills')).read('office-'+name)!;expect(b.body.replaceAll('office-phap-ly','pvta-phap-ly').replaceAll('office-hanh-chinh','pvta-hanh-chinh')).toBe(a.body);expect(a.body.length).toBeLessThan(6000);expect(findUnsafe(a.body)).toBeNull();expect(fs.existsSync(path.join(a.dir,'references/sources.md'))).toBe(true);}});

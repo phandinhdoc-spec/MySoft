@@ -1,0 +1,25 @@
+.prompt-review-layout{display:flex;flex:1;min-height:0;min-width:0;container-type:inline-size}
+.prompt-review-work{display:flex;flex-direction:column;flex:1;min-width:0;min-height:0;overflow:hidden}
+.prompt-review-pane{display:flex;flex-direction:column;flex:0 0 42%;max-width:620px;min-width:280px;min-height:0;border-left:1px solid var(--line);background:var(--surface);overflow:hidden}
+.prompt-review-pane>header{display:flex;justify-content:space-between;align-items:center;padding:14px;border-bottom:1px solid var(--line);gap:10px}
+.prompt-review-pane>p,.prompt-review-body{padding:14px;overflow:auto;min-height:0;flex:1}
+.prompt-review-body h3{font-size:14px;margin:16px 0 8px}
+.prompt-review-body pre,.prompt-review-body textarea{font:12px/1.6 ui-monospace,Menlo,monospace;white-space:pre-wrap;overflow-wrap:anywhere;background:var(--bg);color:var(--text);padding:12px;border:1px solid var(--line);border-radius:8px;width:100%;box-sizing:border-box}
+.prompt-review-pane footer{padding:14px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:10px;flex-shrink:0;max-height:45%;overflow:auto}
+.prompt-review-pane footer label{display:flex;align-items:flex-start;gap:8px;font-size:12px}
+.prompt-review-pane footer input{width:auto}
+.prompt-review-pane footer>div{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
+.prompt-review-switch{display:none}
+.prompt-review-stale,.prompt-review-error{margin:0 0 10px;padding:10px 12px;border:1px solid;border-radius:8px;font-size:13px;line-height:1.5}
+.prompt-review-stale{border-color:#f0d9a0;background:#fff6e0;color:#8a5a00}
+.prompt-review-error{border-color:#f1b9b9;background:#fdeaea;color:#a02020}
+.prompt-review-pane footer small[role=alert]{color:#a02020;font-size:12px;line-height:1.5}
+.workflow-review-window{height:100vh;display:flex;min-width:0;min-height:0}
+.workflow-review-window .workflow-window{height:100%;box-sizing:border-box}
+@container(max-width:850px){
+ .has-review>.prompt-review-work{display:none}
+ .has-review>.prompt-review-pane{flex:1;max-width:none;min-width:0;border-left:0}
+ .has-review>.prompt-review-switch{display:block;writing-mode:vertical-rl;padding:10px;flex:0 0 38px;border-right:1px solid var(--line)}
+ .has-review.show-work>.prompt-review-work{display:flex}
+ .has-review.show-work>.prompt-review-pane{display:none}
+}

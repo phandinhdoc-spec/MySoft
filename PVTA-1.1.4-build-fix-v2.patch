@@ -1,0 +1,450 @@
+From 6e93f8dc95a00403ff76c5356598dafe85359055 Mon Sep 17 00:00:00 2001
+From: Codex <codex@users.noreply.github.com>
+Date: Sun, 18 Oct 2026 05:54:22 +0700
+Subject: [PATCH] Fix native runtime extraction, pin downloads and resolve
+ AppImage libraries
+
+---
+ .github/workflows/studio-release.yml |  11 ++-
+ scripts/runtime/README.md            |  15 ++++
+ scripts/runtime/build.mjs            |  29 +++----
+ scripts/runtime/bundle-env.mjs       |   5 ++
+ scripts/runtime/native-tools.mjs     |  66 ++++++++++++++++
+ scripts/runtime/tools.lock.json      | 111 +++++++++++++++++++++++++++
+ scripts/test/runtime.test.mjs        |  96 +++++++++++++++++++++++
+ 7 files changed, 313 insertions(+), 20 deletions(-)
+ create mode 100644 scripts/runtime/bundle-env.mjs
+ create mode 100644 scripts/runtime/native-tools.mjs
+ create mode 100644 scripts/runtime/tools.lock.json
+ create mode 100644 scripts/test/runtime.test.mjs
+
+diff --git a/.github/workflows/studio-release.yml b/.github/workflows/studio-release.yml
+index 946dd75..128f43c 100644
+--- a/.github/workflows/studio-release.yml
++++ b/.github/workflows/studio-release.yml
+@@ -47,7 +47,7 @@ jobs:
+       - if: runner.os == 'Linux'
+         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev librsvg2-dev libayatana-appindicator3-dev
+       - run: npm ci
+-      - run: node --test scripts/test/version.test.mjs
++      - run: node --test scripts/test/version.test.mjs scripts/test/runtime.test.mjs
+       - run: npm run version:check
+       - run: npm run typecheck
+       - name: Build desktop packages
+@@ -58,8 +58,15 @@ jobs:
+           if [[ "$RUNNER_OS" == "Linux" ]]; then
+             # linuxdeploy's bundled strip can reject modern ELF .relr.dyn sections.
+             export NO_STRIP=true
++            npm run desktop:build -w chatbox -- --verbose --no-bundle 2>&1 | tee desktop-build.log
++            # The runtime is created by beforeBuildCommand above. Its private shared
++            # libraries must be discoverable by ldd when linuxdeploy scans AppDir.
++            PVTA_LIBRARY_PATH="$(node scripts/runtime/bundle-env.mjs)"
++            export LD_LIBRARY_PATH="$PVTA_LIBRARY_PATH"
++            npm exec -w chatbox -- tauri bundle --verbose --bundles '${{ matrix.bundles }}' 2>&1 | tee -a desktop-build.log
++          else
++            npm run desktop:build -w chatbox -- --verbose --bundles '${{ matrix.bundles }}' 2>&1 | tee desktop-build.log
+           fi
+-          npm run desktop:build -w chatbox -- --verbose --bundles '${{ matrix.bundles }}' 2>&1 | tee desktop-build.log
+         env:
+           PVTA_TARGET: ${{ matrix.target }}
+           APPIMAGE_EXTRACT_AND_RUN: "1"
+diff --git a/scripts/runtime/README.md b/scripts/runtime/README.md
+index 7bdaa19..a531509 100644
+--- a/scripts/runtime/README.md
++++ b/scripts/runtime/README.md
+@@ -13,6 +13,21 @@ runtime under its resources, so end users need neither Python nor pip nor a sepa
+ Typst installation. Package metadata/licenses and upstream archive notices are retained.
+ `manifest.json` records the platform and upstream binary archive checksums.
+ 
++`tools.lock.json` pins direct release URLs and SHA-256 checksums for each native
++platform. Builds do not query the GitHub releases API or require an API token.
++When upgrading uv, Typst or Tinymist, update the lock entries from the corresponding
++upstream release asset digests. A checksum mismatch fails the build.
++
++Windows extraction calls `%SystemRoot%\System32\tar.exe` explicitly, so Git Bash's
++GNU tar cannot mistake a drive letter for a remote host or mishandle ZIP archives.
++Linux CI builds with `--no-bundle`, then runs `tauri bundle` with the private runtime
++library directories in `LD_LIBRARY_PATH` (printed by `bundle-env.mjs`). This lets
++linuxdeploy resolve Python/Tcl and wheel libraries while scanning its copied AppDir.
++The existing runtime and its Tcl/Tk libraries are retained.
++
++Build-helper regression tests: `node --test scripts/test/version.test.mjs scripts/test/runtime.test.mjs`.
++The Windows ZIP test runs on Windows; the private-library loader test runs on Linux.
++
+ Included functionality: Word (python-docx), Excel (openpyxl), PowerPoint (python-pptx),
+ PDF reading (pypdf), PDF typesetting (typst), and their dependencies including Pillow.
+ Exact decimal calculations use Python's standard-library Decimal; a large data-science
+diff --git a/scripts/runtime/build.mjs b/scripts/runtime/build.mjs
+index 54fab35..73d845a 100644
+--- a/scripts/runtime/build.mjs
++++ b/scripts/runtime/build.mjs
+@@ -4,7 +4,7 @@ import path from 'node:path';
+ import os from 'node:os';
+ import {fileURLToPath} from 'node:url';
+ import {execFileSync} from 'node:child_process';
+-import {createHash} from 'node:crypto';
++import {lockedAsset,downloadVerified,archiveCommand} from './native-tools.mjs';
+ const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
+ const output=path.join(root,'chatbox/src-tauri/runtime');
+ const work=await fs.mkdtemp(path.join(os.tmpdir(),'pvta-runtime-'));
+@@ -14,36 +14,29 @@ const platform={darwin:'apple-darwin',win32:'pc-windows-msvc',linux:'unknown-lin
+ if(!arch||!platform)throw Error('Unsupported runtime target');
+ const suffix=process.platform==='win32'?'.exe':'';
+ const run=(bin,args,env={})=>execFileSync(bin,args,{stdio:'inherit',env:{...process.env,...env},timeout:600000});
+-async function download(url){
+- const response=await fetch(url,{signal:AbortSignal.timeout(180000)});
+- if(!response.ok)throw Error(`Download failed (${response.status}): ${url}`);
+- return Buffer.from(await response.arrayBuffer());
+-}
++const lock=JSON.parse(await fs.readFile(new URL('./tools.lock.json',import.meta.url),'utf8'));
+ async function files(dir){
+  const out=[];for(const entry of await fs.readdir(dir,{withFileTypes:true})){
+  const p=path.join(dir,entry.name);if(entry.isDirectory())out.push(...await files(p));else out.push(p);
+  }return out;
+ }
+ const sources=[];
+-async function tool(repo,tag,name,dest){
+- console.log(`Preparing ${name} ${tag} for ${process.platform}/${process.arch}`);
+- const release=JSON.parse((await download(`https://api.github.com/repos/${repo}/releases/tags/${tag}`)).toString());
+- const asset=release.assets.find(a=>a.name.startsWith(`${name}-${arch}-${platform}`)&&/\.(zip|tar\.gz|tar\.xz)$/.test(a.name));
+- if(!asset||!/^sha256:[a-f0-9]{64}$/.test(asset.digest??''))throw Error(`Missing verified ${name} asset for ${arch}-${platform}`);
+- const bytes=await download(asset.browser_download_url);
+- if(`sha256:${createHash('sha256').update(bytes).digest('hex')}`!==asset.digest)throw Error(`Checksum mismatch: ${name}`);
++async function tool(name,dest){
++ const asset=lockedAsset(lock,name);
++ console.log(`Preparing ${name} ${asset.tag} for ${process.platform}/${process.arch}`);
++ const bytes=await downloadVerified(asset);
+  const dir=path.join(work,name);await fs.mkdir(dir);const archive=path.join(work,asset.name);await fs.writeFile(archive,bytes);
+- run('tar',['--no-same-owner','-xf',archive,'-C',dir]);
++ const command=archiveCommand(archive,dir);run(command.bin,command.args);
+  const executable=(await files(dir)).find(p=>path.basename(p)===name+suffix);
+  if(!executable)throw Error(`Missing executable: ${name}`);
+  await fs.mkdir(dest,{recursive:true});const bin=path.join(dest,name+suffix);await fs.copyFile(executable,bin);await fs.chmod(bin,0o755);
+  // Preserve licenses/readmes included in upstream distributions.
+  for(const p of await files(dir))if(/^(license|copying|notice|readme)/i.test(path.basename(p)))await fs.copyFile(p,path.join(dest,`${name}-${path.basename(p)}`));
+- sources.push({name,tag,url:asset.browser_download_url,sha256:asset.digest.slice(7)});return bin;
++ sources.push({name,tag:asset.tag,url:asset.url,sha256:asset.sha256});return bin;
+ }
+ try{
+  await fs.mkdir(payload);
+- const uv=await tool('astral-sh/uv','0.13.1','uv',path.join(work,'builder'));
++ const uv=await tool('uv',path.join(work,'builder'));
+  const env={UV_PYTHON_INSTALL_DIR:path.join(payload,'python'),UV_PYTHON_BIN_DIR:path.join(work,'bin'),UV_NO_CACHE:'1',UV_NO_PROGRESS:'1',UV_PYTHON_NO_REGISTRY:'1'};
+  run(uv,['python','install','--no-bin','3.12.12'],env);
+  const python=(await files(env.UV_PYTHON_INSTALL_DIR)).find(p=>process.platform==='win32'?path.basename(p)==='python.exe':p.endsWith('/bin/python3.12'));
+@@ -54,8 +47,8 @@ try{
+   if(entry.isSymbolicLink())await fs.unlink(path.join(env.UV_PYTHON_INSTALL_DIR,entry.name));
+  const requirements=path.join(root,'scripts/runtime/requirements.txt');
+  run(uv,['pip','install','--python',python,'--target',path.join(payload,'packages'),'--only-binary',':all:','--index-url','https://pypi.org/simple','-r',requirements],env);
+- const typst=await tool('typst/typst','v0.15.0','typst',path.join(payload,'bin'));
+- const tinymist=await tool('Myriad-Dreamin/tinymist','v0.15.8','tinymist',path.join(payload,'bin'));
++ const typst=await tool('typst',path.join(payload,'bin'));
++ const tinymist=await tool('tinymist',path.join(payload,'bin'));
+  const relative=p=>path.relative(payload,p).split(path.sep).join('/');
+  const manifest={schema:1,platform:process.platform,arch:process.arch,python:relative(python),packages:'packages',typst:relative(typst),tinymist:relative(tinymist),sources};
+  await fs.writeFile(path.join(payload,'manifest.json'),JSON.stringify(manifest,null,2)+'\n');
+diff --git a/scripts/runtime/bundle-env.mjs b/scripts/runtime/bundle-env.mjs
+new file mode 100644
+index 0000000..bfc6480
+--- /dev/null
++++ b/scripts/runtime/bundle-env.mjs
+@@ -0,0 +1,5 @@
++import path from 'node:path';
++import {fileURLToPath} from 'node:url';
++import {sharedLibraryPath} from './native-tools.mjs';
++const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
++console.log(await sharedLibraryPath(path.join(root,'chatbox/src-tauri/runtime'),process.env.LD_LIBRARY_PATH));
+diff --git a/scripts/runtime/native-tools.mjs b/scripts/runtime/native-tools.mjs
+new file mode 100644
+index 0000000..76d820d
+--- /dev/null
++++ b/scripts/runtime/native-tools.mjs
+@@ -0,0 +1,66 @@
++import fs from 'node:fs/promises';
++import path from 'node:path';
++import {createHash} from 'node:crypto';
++import {setTimeout as delay} from 'node:timers/promises';
++
++export function lockedAsset(lock,name,platform=process.platform,arch=process.arch){
++ const tool=lock.schema===1?lock.tools?.[name]:undefined;
++ const asset=tool?.assets?.[`${platform}-${arch}`];
++ if(!asset||!/^https:\/\/github\.com\//.test(asset.url)||!/^[a-f0-9]{64}$/.test(asset.sha256))
++  throw Error(`Missing verified ${name} asset for ${platform}/${arch}; update tools.lock.json`);
++ return {...asset,tag:tool.tag};
++}
++
++// Download pinned public release assets directly: CI does not need GitHub's metadata API.
++export async function downloadVerified(asset,{fetchImpl=fetch,wait=delay}={}){
++ let bytes;
++ for(let attempt=0;attempt<3;attempt++){
++  let response;
++  try{
++   response=await fetchImpl(asset.url,{signal:AbortSignal.timeout(180000)});
++   if(!response.ok){
++    const error=Error(`Download failed (${response.status}): ${asset.url}`);
++    error.retryable=response.status===408||response.status===429||response.status>=500;
++    throw error;
++   }
++   bytes=Buffer.from(await response.arrayBuffer());
++   break;
++  }catch(error){
++   await response?.body?.cancel().catch(()=>{});
++   if(error.retryable===false||attempt===2)throw error;
++   const seconds=Number(response?.headers?.get('retry-after'));
++   const ms=seconds>0?Math.min(seconds*1000,30000):1000*2**attempt;
++   console.warn(`Retrying download of ${asset.name} (${attempt+1}/2)`);
++   await wait(ms);
++  }
++ }
++ if(createHash('sha256').update(bytes).digest('hex')!==asset.sha256)
++  throw Error(`Checksum mismatch: ${asset.name}`);
++ return bytes;
++}
++
++export function archiveCommand(archive,destination,{
++ platform=process.platform,systemRoot=process.env.SystemRoot??process.env.WINDIR,
++}={}){
++ if(platform==='win32'){
++  if(!systemRoot||!path.win32.isAbsolute(systemRoot))throw Error('Missing Windows SystemRoot for native tar.exe');
++  // Git Bash prepends GNU tar to PATH. It treats C: as a remote host and cannot read ZIP.
++  return {bin:path.win32.join(systemRoot,'System32','tar.exe'),args:['-xf',archive,'-C',destination]};
++ }
++ return {bin:'tar',args:['--no-same-owner','-xf',archive,'-C',destination]};
++}
++
++export async function sharedLibraryPath(runtime,existing=''){
++ const dirs=new Set();
++ async function visit(dir){
++  for(const entry of await fs.readdir(dir,{withFileTypes:true})){
++   const file=path.join(dir,entry.name);
++   if(entry.isDirectory())await visit(file);
++   else if(/\.so(?:\.|$)/.test(entry.name))dirs.add(path.resolve(dir));
++  }
++ }
++ await visit(runtime);
++ // Include private Python/Tcl libraries and wheel .libs folders before linuxdeploy runs.
++ // Keep the caller's search path, without an empty entry (which would mean cwd).
++ return [...dirs].sort().concat(existing.split(':').filter(Boolean)).join(':');
++}
+diff --git a/scripts/runtime/tools.lock.json b/scripts/runtime/tools.lock.json
+new file mode 100644
+index 0000000..3eeecae
+--- /dev/null
++++ b/scripts/runtime/tools.lock.json
+@@ -0,0 +1,111 @@
++{
++  "schema": 1,
++  "tools": {
++    "uv": {
++      "tag": "0.13.1",
++      "assets": {
++        "darwin-x64": {
++          "name": "uv-x86_64-apple-darwin.tar.gz",
++          "url": "https://github.com/astral-sh/uv/releases/download/0.13.1/uv-x86_64-apple-darwin.tar.gz",
++          "sha256": "bb7b805bdcf3d0bc8c74ceb94569e6b3e8aa35bd492acdbb9d46bf46d9d4ff6b"
++        },
++        "darwin-arm64": {
++          "name": "uv-aarch64-apple-darwin.tar.gz",
++          "url": "https://github.com/astral-sh/uv/releases/download/0.13.1/uv-aarch64-apple-darwin.tar.gz",
++          "sha256": "cfe454573412ff7380d15fc7dae5997ab53ffce72fce0a78e91ddbc84001acd2"
++        },
++        "win32-x64": {
++          "name": "uv-x86_64-pc-windows-msvc.zip",
++          "url": "https://github.com/astral-sh/uv/releases/download/0.13.1/uv-x86_64-pc-windows-msvc.zip",
++          "sha256": "3b2661a463a5baea7f5076ea2b25ab71d77f36a6c0d809e5350651792f80a672"
++        },
++        "win32-arm64": {
++          "name": "uv-aarch64-pc-windows-msvc.zip",
++          "url": "https://github.com/astral-sh/uv/releases/download/0.13.1/uv-aarch64-pc-windows-msvc.zip",
++          "sha256": "ec7846a5939b4654afee24f2d82bf6fde71bd7a6952d7748f1135ab301dd0a49"
++        },
++        "linux-x64": {
++          "name": "uv-x86_64-unknown-linux-gnu.tar.gz",
++          "url": "https://github.com/astral-sh/uv/releases/download/0.13.1/uv-x86_64-unknown-linux-gnu.tar.gz",
++          "sha256": "eadd9d27c134ab5ac1ffd4473b97a741407f3ea238288f03121fc4deddf90220"
++        },
++        "linux-arm64": {
++          "name": "uv-aarch64-unknown-linux-gnu.tar.gz",
++          "url": "https://github.com/astral-sh/uv/releases/download/0.13.1/uv-aarch64-unknown-linux-gnu.tar.gz",
++          "sha256": "9041c73c99fdc5892cf128140beb354eca9231d502068cc36e6cb53a8e59ad14"
++        }
++      }
++    },
++    "typst": {
++      "tag": "v0.15.0",
++      "assets": {
++        "darwin-x64": {
++          "name": "typst-x86_64-apple-darwin.tar.xz",
++          "url": "https://github.com/typst/typst/releases/download/v0.15.0/typst-x86_64-apple-darwin.tar.xz",
++          "sha256": "30210c7c539c7954db94c063cd98b43fd0a0cad285d656dbbce2a40aee2e79be"
++        },
++        "darwin-arm64": {
++          "name": "typst-aarch64-apple-darwin.tar.xz",
++          "url": "https://github.com/typst/typst/releases/download/v0.15.0/typst-aarch64-apple-darwin.tar.xz",
++          "sha256": "fe53838737abf93a774495952a1a797b4686e9c4a21c2d99b9fdf77f46cc3572"
++        },
++        "win32-x64": {
++          "name": "typst-x86_64-pc-windows-msvc.zip",
++          "url": "https://github.com/typst/typst/releases/download/v0.15.0/typst-x86_64-pc-windows-msvc.zip",
++          "sha256": "66ae7f0907b4b9afed5c7d6cb9b21e07f0f3c3d4e293ba3e0026a54d88202fe9"
++        },
++        "win32-arm64": {
++          "name": "typst-aarch64-pc-windows-msvc.zip",
++          "url": "https://github.com/typst/typst/releases/download/v0.15.0/typst-aarch64-pc-windows-msvc.zip",
++          "sha256": "6085084db3e3aa025c3c8dfc1adf1c758e2febd08e574182fa4189ad79124293"
++        },
++        "linux-x64": {
++          "name": "typst-x86_64-unknown-linux-musl.tar.xz",
++          "url": "https://github.com/typst/typst/releases/download/v0.15.0/typst-x86_64-unknown-linux-musl.tar.xz",
++          "sha256": "59b207df01be2dab9f13e80f73d04d7ff8273ffd46b3dd1b9eef5c60f3eeabea"
++        },
++        "linux-arm64": {
++          "name": "typst-aarch64-unknown-linux-musl.tar.xz",
++          "url": "https://github.com/typst/typst/releases/download/v0.15.0/typst-aarch64-unknown-linux-musl.tar.xz",
++          "sha256": "cdf50ffc7b8ba759ed02200632eda3d78eb8b99aacb6611f4f75684990647620"
++        }
++      }
++    },
++    "tinymist": {
++      "tag": "v0.15.8",
++      "assets": {
++        "darwin-x64": {
++          "name": "tinymist-x86_64-apple-darwin.tar.gz",
++          "url": "https://github.com/Myriad-Dreamin/tinymist/releases/download/v0.15.8/tinymist-x86_64-apple-darwin.tar.gz",
++          "sha256": "0ca702f40c5028d5937e081799a2c07d30c3f8f2ce3e40ce469471856cd6cef1"
++        },
++        "darwin-arm64": {
++          "name": "tinymist-aarch64-apple-darwin.tar.gz",
++          "url": "https://github.com/Myriad-Dreamin/tinymist/releases/download/v0.15.8/tinymist-aarch64-apple-darwin.tar.gz",
++          "sha256": "c3e8673fe4b7d8d21ad6d90e3c0684317191e1350758f7eaa02b5bde84339885"
++        },
++        "win32-x64": {
++          "name": "tinymist-x86_64-pc-windows-msvc.zip",
++          "url": "https://github.com/Myriad-Dreamin/tinymist/releases/download/v0.15.8/tinymist-x86_64-pc-windows-msvc.zip",
++          "sha256": "b36c3e2926b2fe870e377b27aeebcb6265dd6a19fdca148a9a3ac4fdf57ee8a5"
++        },
++        "win32-arm64": {
++          "name": "tinymist-aarch64-pc-windows-msvc.zip",
++          "url": "https://github.com/Myriad-Dreamin/tinymist/releases/download/v0.15.8/tinymist-aarch64-pc-windows-msvc.zip",
++          "sha256": "9c9a48bc73a4ead1260c202ea0d590d16ffac1465ea9e1a4f0a1c1850638351f"
++        },
++        "linux-x64": {
++          "name": "tinymist-x86_64-unknown-linux-gnu.tar.gz",
++          "url": "https://github.com/Myriad-Dreamin/tinymist/releases/download/v0.15.8/tinymist-x86_64-unknown-linux-gnu.tar.gz",
++          "sha256": "2428932e8d8b593ebc1ac4eed41fb9d3584166e1044bbcdef740b7296c348295"
++        },
++        "linux-arm64": {
++          "name": "tinymist-aarch64-unknown-linux-gnu.tar.gz",
++          "url": "https://github.com/Myriad-Dreamin/tinymist/releases/download/v0.15.8/tinymist-aarch64-unknown-linux-gnu.tar.gz",
++          "sha256": "ec78300e89b34e0958b615b1d42c275fd11bf91d2d27401bbef07150e477f199"
++        }
++      }
++    }
++  }
++}
++
+diff --git a/scripts/test/runtime.test.mjs b/scripts/test/runtime.test.mjs
+new file mode 100644
+index 0000000..34b887e
+--- /dev/null
++++ b/scripts/test/runtime.test.mjs
+@@ -0,0 +1,96 @@
++import assert from 'node:assert/strict';
++import fs from 'node:fs/promises';
++import path from 'node:path';
++import os from 'node:os';
++import {execFileSync} from 'node:child_process';
++import {createHash} from 'node:crypto';
++import test from 'node:test';
++import {lockedAsset,downloadVerified,archiveCommand,sharedLibraryPath} from '../runtime/native-tools.mjs';
++
++const lock=JSON.parse(await fs.readFile(new URL('../runtime/tools.lock.json',import.meta.url),'utf8'));
++async function temporary(t){
++ const root=await fs.mkdtemp(path.join(os.tmpdir(),'pvta runtime test '));
++ t.after(()=>fs.rm(root,{recursive:true,force:true}));
++ return root;
++}
++const bytes=Buffer.from('verified runtime archive');
++const asset={name:'runtime.tar.gz',url:'https://github.com/example/tool/releases/download/v1/runtime.tar.gz',
++ sha256:createHash('sha256').update(bytes).digest('hex')};
++
++test('every supported native platform has pinned release assets and checksums',()=>{
++ for(const name of ['uv','typst','tinymist'])for(const platform of ['darwin','win32','linux'])for(const arch of ['x64','arm64']){
++  const a=lockedAsset(lock,name,platform,arch);
++  assert.match(a.url,/\/releases\/download\//);
++  assert.equal(new URL(a.url).pathname.split('/').at(-1),a.name);
++  assert.match(a.name,new RegExp(`^${name}-`));
++  assert.match(a.name,platform==='win32'?/\.zip$/:/\.tar\.(gz|xz)$/);
++ }
++ assert.throws(()=>lockedAsset(lock,'uv','linux','riscv64'),/Missing verified/);
++});
++
++test('downloads the asset directly, without GitHub API or authentication',async()=>{
++ const calls=[];
++ const result=await downloadVerified(asset,{fetchImpl:async(url,options)=>{
++  calls.push(url);assert.equal(options.headers,undefined);return new Response(bytes);
++ }});
++ assert.deepEqual(calls,[asset.url]);assert.deepEqual(result,bytes);
++});
++
++test('rejects an archive with an incorrect checksum',async()=>{
++ await assert.rejects(downloadVerified(asset,{fetchImpl:async()=>new Response('corrupted')}),/Checksum mismatch/);
++});
++
++test('retries temporary network/server failures, then checks the archive',async()=>{
++ let calls=0;const waits=[];
++ const result=await downloadVerified(asset,{fetchImpl:async()=>{
++  calls++;if(calls===1)throw Error('connection reset');
++  return calls===2?new Response('busy',{status:503}):new Response(bytes);
++ },wait:async ms=>waits.push(ms)});
++ assert.equal(calls,3);assert.deepEqual(waits,[1000,2000]);assert.deepEqual(result,bytes);
++});
++
++test('does not retry permanent download errors',async()=>{
++ let calls=0;
++ await assert.rejects(downloadVerified(asset,{fetchImpl:async()=>{calls++;return new Response('missing',{status:404});}}),/404/);
++ assert.equal(calls,1);
++});
++
++test('Windows always uses native tar.exe even with Git Bash first in PATH',()=>{
++ const archive='C:\\Users\\Runner Name\\Temp\\uv.zip';const dest='C:\\Temp\\runtime files';
++ const command=archiveCommand(archive,dest,{platform:'win32',systemRoot:'D:\\Windows'});
++ assert.equal(command.bin,'D:\\Windows\\System32\\tar.exe');
++ assert.deepEqual(command.args,['-xf',archive,'-C',dest]);
++ assert.throws(()=>archiveCommand(archive,dest,{platform:'win32',systemRoot:''}),/SystemRoot/);
++});
++
++test('native Windows tar extracts a ZIP using an absolute drive path', {skip:process.platform!=='win32'},async t=>{
++ const root=await temporary(t);const archive=path.join(root,'tool.zip');const dest=path.join(root,'unpacked');
++ await fs.mkdir(dest);
++ await fs.writeFile(archive,Buffer.from('UEsDBBQAAAAAAAAAIVxmNb+UGwAAABsAAAAGAAAAdXYuZXhlYXJjaGl2ZSByZWdyZXNzaW9uIGZpeHR1cmUKUEsBAhQDFAAAAAAAAAAhXGY1v5QbAAAAGwAAAAYAAAAAAAAAAAAAAIABAAAAAHV2LmV4ZVBLBQYAAAAAAQABADQAAAA/AAAAAAA=','base64'));
++ const command=archiveCommand(archive,dest);execFileSync(command.bin,command.args);
++ assert.equal(await fs.readFile(path.join(dest,'uv.exe'),'utf8'),'archive regression fixture\n');
++});
++
++test('Linux loader resolves a private Tcl dependency after setting bundle library paths', {skip:process.platform!=='linux'},async t=>{
++ const root=await temporary(t);const runtime=path.join(root,'runtime');
++ const lib=path.join(runtime,'python','cpython','lib');const dyn=path.join(lib,'python3.12','lib-dynload');
++ const wheels=path.join(runtime,'packages','example.libs');
++ await fs.mkdir(dyn,{recursive:true});await fs.mkdir(wheels,{recursive:true});
++ await fs.writeFile(path.join(root,'tcl.c'),'int pvta_tcl(void){return 42;}\n');
++ await fs.writeFile(path.join(root,'tk.c'),'extern int pvta_tcl(void); int pvta_tk(void){return pvta_tcl();}\n');
++ execFileSync('cc',['-shared','-fPIC','-Wl,-soname,libtcl9.0.so','-o',path.join(lib,'libtcl9.0.so'),path.join(root,'tcl.c')]);
++ const tkinter=path.join(dyn,'_tkinter.so');
++ execFileSync('cc',['-shared','-fPIC','-o',tkinter,path.join(root,'tk.c'),`-L${lib}`,'-l:libtcl9.0.so']);
++ await fs.writeFile(path.join(wheels,'libexample.so'),'fixture');
++ const unresolved=execFileSync('ldd',[tkinter],{encoding:'utf8',env:{...process.env,LD_LIBRARY_PATH:''}});
++ assert.match(unresolved,/libtcl9\.0\.so => not found/);
++ const search=await sharedLibraryPath(runtime,'/existing/path');
++ assert.ok(search.split(':').includes(lib));assert.ok(search.split(':').includes(wheels));
++ assert.ok(search.endsWith(':/existing/path'));assert.ok(!search.split(':').includes(''));
++ // linuxdeploy inspects a copied AppDir; resolution must still work there.
++ const copied=path.join(root,'AppDir');await fs.cp(runtime,copied,{recursive:true});
++ const resolved=execFileSync('ldd',[path.join(copied,path.relative(runtime,tkinter))],{
++  encoding:'utf8',env:{...process.env,LD_LIBRARY_PATH:search},
++ });
++ assert.doesNotMatch(resolved,/not found/);assert.ok(resolved.includes(lib));
++});
+-- 
+2.51.1
+

@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><title>PVTA CLI · Chỉnh Markdown (Pro)</title>
+<style>
+:root{--panel:#0d2521;--panel2:#0a1f1b;--line:#1f4a42;--ink:#e3f5ef;--mute:#86b3a8;--dim:#557a71;--acc:#3fd3b1;--warn:#f5c469;--ok:#5fe0b5;--bad:#ff8f8f;--add:#1b4d40;--del:#56202a;--kw:#c39bff;--hd:#8fe9d2}
+*{box-sizing:border-box}
+body{margin:0;padding:36px;background:radial-gradient(1200px 600px at 20% -10%,#14403a 0,#071715 60%);font-family:-apple-system,"Segoe UI",system-ui,sans-serif;color:var(--ink);display:flex;justify-content:center}
+.win{width:1180px;height:720px;border-radius:14px;background:var(--panel);border:1px solid var(--line);box-shadow:0 30px 70px #0009,inset 0 1px 0 #ffffff12;display:flex;flex-direction:column;overflow:hidden}
+.top{display:flex;align-items:center;gap:14px;padding:11px 16px;border-bottom:1px solid var(--line);background:var(--panel2)}
+.dots{display:flex;gap:7px}.dots i{width:11px;height:11px;border-radius:50%;background:#2b5a50}.dots i:first-child{background:#e0695c}.dots i:nth-child(2){background:#e6b84a}.dots i:nth-child(3){background:#4fc08d}
+.brand{font-weight:700;color:var(--acc)}
+.modes{display:flex;gap:4px;margin-left:18px;background:#06150f;border:1px solid var(--line);border-radius:9px;padding:3px}
+.modes span{padding:5px 11px;border-radius:6px;font-size:12.5px;color:var(--mute)}
+.modes .on{background:var(--acc);color:#04201a;font-weight:650}
+.chips{margin-left:auto;display:flex;gap:6px}
+.chip{font-size:11.5px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--mute);background:#0a1f1b}
+.chip b{color:var(--ink);font-weight:600}
+.chip.warn{border-color:#6b5524;color:var(--warn)}
+.main{flex:1;display:grid;grid-template-columns:50% 50%;min-height:0}
+.pane{display:flex;flex-direction:column;min-height:0}
+.pane+.pane{border-left:1px solid var(--line)}
+.ph{display:flex;align-items:center;justify-content:space-between;padding:9px 16px;font-size:11.5px;letter-spacing:.6px;text-transform:uppercase;color:var(--dim);border-bottom:1px solid var(--line);background:#0b221e}
+.ph code{text-transform:none;letter-spacing:0;color:var(--mute);font:12px "SF Mono",Menlo,monospace}
+/* mã nguồn */
+.src{flex:1;font:12.5px/1.7 "SF Mono",Menlo,Consolas,monospace;background:#081a16;padding:6px 0;overflow:hidden;color:#cfe9e2}
+.ln{display:inline-block;width:40px;text-align:right;padding-right:12px;color:#3f6a61;user-select:none}
+.r{display:block;white-space:pre;padding-right:14px}
+.r.hl{background:#1b3a36;box-shadow:inset 3px 0 0 var(--acc)}
+.r.add{background:var(--add);box-shadow:inset 3px 0 0 var(--ok)}
+.r.del{background:var(--del);text-decoration:line-through;text-decoration-color:#ff8f8f88;color:#f2b7b7;box-shadow:inset 3px 0 0 var(--bad)}
+.h1{color:var(--hd);font-weight:700}.h2{color:#7fd6bf;font-weight:650}
+.mk{color:var(--kw)}.bold{color:#ffd08a;font-weight:600}.cm{color:#5f7f78;font-style:italic}
+/* xem trước */
+.prev{flex:1;padding:16px 26px;overflow:hidden;font:14.5px/1.65 Charter,Georgia,"Times New Roman",serif;color:#e6f2ee;background:#0c2420}
+.prev h1{font:600 22px -apple-system,"Segoe UI",system-ui,sans-serif;margin:0 0 6px;color:var(--hd)}
+.prev h2{font:600 16px -apple-system,"Segoe UI",system-ui,sans-serif;margin:16px 0 6px;color:#7fd6bf;padding-bottom:4px;border-bottom:1px solid #1f4a42}
+.prev p{margin:0 0 8px}
+.prev .new{background:#1b4d4066;border-left:3px solid var(--ok);padding:4px 10px;margin:0 -10px 8px -13px;border-radius:0 6px 6px 0}
+.prev table{width:100%;border-collapse:collapse;font:12.5px -apple-system,"Segoe UI",system-ui,sans-serif;margin:8px 0}
+.prev th{background:#14463d;color:var(--hd);text-align:left;padding:5px 8px;font-weight:600}
+.prev td{padding:5px 8px;border-bottom:1px solid #1f4a42}
+.prev td.n{text-align:right;font-variant-numeric:tabular-nums}
+.callout{font:13px -apple-system,"Segoe UI",system-ui,sans-serif;background:#10332c;border:1px solid #2c6b5e;border-radius:8px;padding:8px 12px;margin:10px 0;color:#cfe9e2}
+.callout b{color:var(--warn)}
+/* thẻ đề xuất */
+.card{margin:0 14px;border:1px solid #2c6b5e;border-radius:10px;background:linear-gradient(180deg,#0f2c27,#0b231f);padding:10px 12px;display:flex;align-items:center;gap:10px;font-size:12.5px}
+.card small{display:block;color:var(--mute);font-size:11.5px;margin-top:1px}
+.btns{margin-left:auto;display:flex;gap:6px}
+.btn{font-size:12px;padding:5px 10px;border-radius:7px;border:1px solid #2c6b5e;background:#0a1f1b}
+.btn.pri{background:var(--acc);border-color:var(--acc);color:#04201a;font-weight:650}
+/* đáy */
+.bottom{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--line);background:#0b221e}
+.outline{padding:10px 16px;font-size:12px;color:var(--mute);border-right:1px solid var(--line)}
+.outline .lbl{font-size:11px;letter-spacing:.6px;text-transform:uppercase;color:var(--dim);margin-bottom:6px}
+.oi{display:flex;gap:6px;padding:2px 0}
+.oi.l2{padding-left:14px}
+.oi .n{font:11px "SF Mono",Menlo,monospace;color:var(--dim);width:24px}
+.oi.cur{color:var(--ink)}.oi.cur .n{color:var(--acc)}
+.cmds{padding:10px 16px;font-size:12px;color:var(--mute);display:flex;flex-direction:column;gap:7px}
+.cmds .row{display:flex;gap:8px;align-items:center}
+kbd{font:11px "SF Mono",Menlo,monospace;background:#0a1f1b;border:1px solid #2c6158;border-bottom-width:2px;border-radius:5px;padding:1px 6px;color:var(--ink)}
+.input{padding:10px 16px;border-top:1px solid var(--line);display:flex;align-items:center;gap:10px}
+.prompt{font:700 14px "SF Mono",Menlo,monospace;color:var(--acc)}
+.field{flex:1;font-size:13.5px;color:var(--dim);padding:8px 10px;border-radius:8px;background:#06150f;border:1px solid var(--line)}
+.caret{display:inline-block;width:7px;height:14px;background:var(--acc);vertical-align:-2px;margin-left:2px}
+.foot{font-size:11.5px;color:var(--dim);margin:10px 2px 0;max-width:1180px}
+</style></head><body><div>
+<div class="win">
+  <div class="top">
+    <div class="dots"><i></i><i></i><i></i></div>
+    <div class="brand">PVTA</div>
+    <div class="modes"><span>Hội thoại</span><span>Lập trình viên</span><span class="on">Chỉnh Markdown</span><span>Chế độ viết</span><span>Plan Pro</span></div>
+    <div class="chips">
+      <span class="chip">Tệp <b>HOW-TO-RELEASE.md</b></span>
+      <span class="chip warn">Quyền <b>Hỏi duyệt</b></span>
+      <span class="chip">Dòng <b>3 / 27</b></span>
+    </div>
+  </div>
+
+  <div class="main">
+    <section class="pane">
+      <div class="ph">Mã nguồn <code>HOW-TO-RELEASE.md</code></div>
+      <div class="src">
+<span class="r"><span class="ln">1</span><span class="h1"># Phát hành PVTA Studio</span></span>
+<span class="r"><span class="ln">2</span></span>
+<span class="r"><span class="ln">3</span><span class="h2">## Các bước</span></span>
+<span class="r hl"><span class="ln">4</span>1. Giải nén ZIP, tải nội dung lên gốc repository.</span>
+<span class="r"><span class="ln">5</span>2. Xóa hai workflow cũ nếu còn trên GitHub.</span>
+<span class="r"><span class="ln">6</span>3. Xác nhận <span class="bold">package.json</span> là 1.5.1.</span>
+<span class="r"><span class="ln">7</span></span>
+<span class="r"><span class="ln">8</span><span class="h2">## Gói phát hành</span></span>
+<span class="r"><span class="ln">9</span>- Windows: <span class="mk">PVTA-Studio-Setup-&lt;v&gt;.exe</span></span>
+<span class="r"><span class="ln">10</span>- macOS: <span class="mk">PVTA-Studio-&lt;v&gt;-arm64.dmg</span></span>
+<span class="r"><span class="ln">11</span><span class="cm">&lt;!-- dòng cũ, sẽ thay --&gt;</span></span>
+      </div>
+    </section>
+
+    <section class="pane">
+      <div class="ph">Xem trước <code>đề xuất 1 đoạn</code></div>
+      <div class="prev">
+        <h1>Phát hành PVTA Studio</h1>
+        <h2>Các bước</h2>
+        <div class="new">1. Giải nén ZIP, tải nội dung lên gốc repository <b>(đã làm rõ)</b>.</div>
+        <p>2. Xóa hai workflow cũ nếu còn trên GitHub.</p>
+        <p>3. Xác nhận <b>package.json</b> là 1.5.1.</p>
+        <h2>Gói phát hành</h2>
+        <table>
+          <tr><th>Hệ điều hành</th><th>Tệp</th><th class="n">Ghi chú</th></tr>
+          <tr><td>Windows</td><td>Setup .exe</td><td class="n">x64 + ARM64</td></tr>
+          <tr><td>macOS</td><td>.dmg</td><td class="n">Apple Silicon</td></tr>
+        </table>
+        <div class="callout"><b>Lưu ý:</b> Không ghi đè bản đã công bố. Tăng phiên bản trước khi tạo tag.</div>
+      </div>
+    </section>
+  </div>
+
+  <div class="card" style="margin:10px 14px 0">
+    <div>Ghi đoạn đã sửa vào <b>HOW-TO-RELEASE.md</b> (dòng 4)?<small>Chỉ ghi sau khi duyệt. Bản gốc được sao lưu để hoàn tác.</small></div>
+    <div class="btns"><span class="btn">Bỏ qua</span><span class="btn">Xem diff</span><span class="btn pri">Duyệt</span></div>
+  </div>
+
+  <div class="bottom">
+    <div class="outline">
+      <div class="lbl">Mục lục</div>
+      <div class="oi cur"><span class="n">1</span>Phát hành PVTA Studio</div>
+      <div class="oi l2"><span class="n">3</span>Các bước</div>
+      <div class="oi l2"><span class="n">8</span>Gói phát hành</div>
+    </div>
+    <div class="cmds">
+      <div class="row"><kbd>/xem-trước</kbd> bật/tắt bản xem trước</div>
+      <div class="row"><kbd>/hoàn-tác</kbd> quay lại bản trước đề xuất</div>
+      <div class="row"><kbd>/diff</kbd> so sánh với bản đã ghi</div>
+    </div>
+  </div>
+
+  <div class="input"><span class="prompt">›</span><span class="field">Nhập yêu cầu sửa, ví dụ: "rút gọn mục 2" <span class="caret"></span></span></div>
+</div>
+<div class="foot">Mẫu thiết kế tĩnh (HTML) — chưa phải CLI đã chạy. Nội dung là minh họa, không phải tệp thật.</div>
+</div></body></html>

@@ -1,0 +1,9 @@
+CÀI PVTA CHO MAC
+
+1. Bấm CHUỘT PHẢI vào "Cai-PVTA.command" → chọn "Mở" (Open) → chọn "Mở" lần nữa.
+   (Làm vậy vì tệp chưa được Apple ký. Bấm đúp thường sẽ bị macOS chặn ở lần đầu.)
+2. Chờ 1–2 phút, nhập mật khẩu đăng nhập Mac nếu máy hỏi.
+3. Mở lại Word / Excel / PowerPoint → Chèn → Phần bổ trợ → PVTA.
+
+Gỡ PVTA: chuột phải "Go-PVTA.command" → Mở.
+Sau khi cài, PVTA tự kiểm tra bản mới; có bản mới sẽ hiện nút "Cập nhật ngay" trong khung PVTA.

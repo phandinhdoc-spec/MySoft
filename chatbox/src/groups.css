@@ -1,0 +1,24 @@
+.groups-body{display:flex;flex-direction:column;gap:12px}
+.groups-table{width:100%;border-collapse:collapse;font-size:14px}
+.groups-table th,.groups-table td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--border,#ddd);vertical-align:top}
+.groups-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.groups-packs{display:flex;flex-wrap:wrap;gap:8px}
+.groups-packs .selected{outline:2px solid var(--accent,#4a6cf7)}
+.groups-url{flex:1;min-width:240px}
+.groups-text{min-height:200px;width:100%}
+.groups-note{opacity:.75;font-size:13px;margin:0}
+.groups-new{color:var(--accent,#c2410c);font-weight:600}
+.groups-warn{color:#b45309}
+.groups-first{padding:12px;border:1px dashed var(--accent,#4a6cf7);border-radius:8px}
+.groups-actions{white-space:nowrap}.groups-actions button{margin-right:4px}
+.groups-summary{border:1px solid var(--border,#ddd);border-radius:8px;padding:8px}.groups-summary pre{white-space:pre-wrap}
+.briefing-strip{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:8px 16px;background:var(--surface-2,#f3f4f6);font-size:14px}
+.briefing-close{margin-left:auto}
+
+.discovery-settings{border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:20px;background:var(--surface)}
+.discovery-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:12px 0}
+.discovery-fields label{display:flex;flex-direction:column;gap:6px}.discovery-fields input,.discovery-fields select{width:100%;min-width:0}
+.discovery-sources{max-height:340px;overflow:auto;display:grid;gap:8px}.discovery-sources article{border:1px solid var(--line);padding:12px;border-radius:8px;display:flex;flex-direction:column;gap:6px;overflow-wrap:anywhere}
+.discovery-toggle{display:flex!important;flex-direction:row!important;gap:8px;align-items:center}.discovery-toggle input{width:16px;height:16px;margin:0}
+.discovery-sources small{color:var(--muted)}.discovery-sources button{align-self:flex-start}.discovery-source-form{margin-top:16px}.discovery-report{max-height:300px;overflow:auto;border:1px solid var(--line);padding:12px;border-radius:8px}.discovery-report small{display:block;margin-top:5px}
+.groups-row>label:has(input[type=checkbox]){display:flex;flex-direction:row;align-items:center;gap:8px}.groups-row input[type=checkbox]{width:16px;height:16px;margin:0;flex:none}

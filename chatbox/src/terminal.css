@@ -1,0 +1,13 @@
+.embedded-terminal{display:flex;flex-direction:column;flex:0 0 auto;min-height:160px;max-height:55%;min-width:0;background:#111827;color:#e5e7eb;border-top:1px solid #475569;overflow:hidden}
+.embedded-terminal[hidden]{display:none}
+.embedded-terminal.terminal-large{height:65%!important;max-height:65%}
+.embedded-terminal>header{display:flex;align-items:center;gap:10px;padding:4px 12px;border-bottom:1px solid #334155;flex-shrink:0;font-size:12px}
+.embedded-terminal>header>span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#94a3b8}
+.embedded-terminal button{color:#e5e7eb;padding:4px 9px}
+.embedded-terminal button:hover{background:#334155}
+.terminal-host{flex:1;min-height:0;min-width:0;padding:6px 10px;overflow:hidden}
+.terminal-host .xterm{height:100%}
+.terminal-resizer{height:6px;flex-shrink:0;cursor:row-resize;touch-action:none;background:#1e293b}
+.terminal-resizer:hover,.terminal-resizer:focus-visible{background:#3b82f6}
+.terminal-error{padding:6px 12px;color:#fecaca;font-size:12px;overflow:auto;max-height:80px}
+.main:has(>.embedded-terminal:not([hidden]))>.chat-stack{overflow:auto}

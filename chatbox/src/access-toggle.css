@@ -1,0 +1,6 @@
+.access-picker{display:inline-flex;align-items:center;gap:2px;padding:2px;border:1px solid var(--line);border-radius:9px;background:var(--bg);flex:none}
+.composer-toolbar .access-picker .access-option{display:inline-flex;align-items:center;justify-content:center;gap:4px;min-height:28px;padding:3px 5px;border:1px solid transparent;border-radius:6px;background:transparent;color:var(--muted);font-size:11px;white-space:nowrap}
+.composer-toolbar .access-picker .access-option:hover{background:var(--hover);color:var(--text)}
+.composer-toolbar .access-picker .access-option[aria-checked=true]{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
+.access-option:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+@media(max-width:600px){.access-option>span:last-child{display:none}.composer-toolbar .access-picker .access-option{padding:4px 6px}}

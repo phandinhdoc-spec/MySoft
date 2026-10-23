@@ -1,0 +1,7 @@
+.breadcrumb .self-tip{position:relative;flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:4px}
+.self-tip-text{max-width:100%;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:4px 10px;border-radius:6px;border:1px solid transparent;background:transparent;color:var(--accent,var(--text));font-size:12.5px;text-decoration:underline;text-underline-offset:3px}
+.self-tip-text:hover,.self-tip-text:focus-visible{background:color-mix(in srgb,var(--accent,#364e78) 10%,transparent);border-color:color-mix(in srgb,var(--accent,#364e78) 35%,transparent)}
+.self-tip-x{padding:2px 7px;border-radius:6px;color:var(--muted);line-height:1}
+.self-tip-more{position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%);z-index:40;width:min(360px,80vw);padding:12px 14px;border:1px solid var(--line);border-radius:8px;background:var(--surface,var(--bg));box-shadow:0 6px 24px #0002;color:var(--text);font-size:13px;white-space:normal}
+.self-tip-more p{margin:0 0 10px}.self-tip-more div{display:flex;gap:8px;flex-wrap:wrap}
+@media(max-width:1100px){.breadcrumb .self-tip{display:none}}

@@ -1,0 +1,12 @@
+.object-menu{position:fixed;z-index:10000;box-sizing:border-box;width:max-content;min-width:min(230px,calc(100vw - 8px));max-width:calc(100vw - 8px);max-height:calc(100dvh - 8px);overflow:auto;padding:5px;border:1px solid var(--line,#aaa);border-radius:10px;background:var(--surface,#fff);color:var(--text,#222);font:inherit;box-shadow:0 10px 32px #0004}
+.object-menu [role=menuitem]{display:flex;align-items:center;gap:10px;width:100%;min-height:38px;padding:9px;text-align:left;border:0;border-radius:6px;background:transparent;color:inherit;font:inherit;white-space:normal;overflow-wrap:anywhere}
+.object-menu [role=menuitem]>span:nth-child(2){flex:1;min-width:0}.object-menu small{display:block;color:var(--muted,#666);font-size:.8em}.object-menu kbd{font-size:.8em;color:var(--muted,#666)}
+.object-menu [role=menuitem]:hover,.object-menu [role=menuitem]:focus-visible{background:var(--accent-soft,#eee);outline:2px solid var(--accent,#5265a2);outline-offset:-2px}.object-menu [aria-disabled=true]{opacity:.65;cursor:not-allowed}.object-menu [role=menuitem].danger{color:var(--danger,#b42318);background:transparent}.object-menu [role=separator]{border-top:1px solid var(--line,#aaa);margin:4px}
+.object-menu-trigger{min-width:36px;min-height:36px;padding:4px 8px;font-size:1.2em;line-height:1;flex-shrink:0}
+.chat-project-picker{z-index:10001;max-width:min(360px,calc(100vw - 8px))}
+.object-submenu-arrow{width:6px;height:6px;border-right:1.5px solid currentColor;border-top:1.5px solid currentColor;transform:rotate(45deg);margin:0 4px 0 12px}
+.object-menu{font-size:13px;line-height:1.5}
+.chat-project-picker [role=menuitemradio]{display:flex;align-items:center;gap:10px;width:100%;min-height:38px;padding:9px;text-align:left;border:0;border-radius:6px;background:transparent;color:inherit;font:inherit;overflow-wrap:anywhere}
+.chat-project-picker [role=menuitemradio]>span:first-child{width:16px;flex-shrink:0}
+.chat-project-picker [role=menuitemradio]:hover,.chat-project-picker [role=menuitemradio]:focus-visible{background:var(--accent-soft,#eee);outline:2px solid var(--accent,#5265a2);outline-offset:-2px}
+@media(any-pointer:coarse){.object-menu-trigger,.object-menu [role=menuitem]{min-width:44px;min-height:44px}}

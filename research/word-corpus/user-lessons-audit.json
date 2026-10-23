@@ -1,0 +1,20 @@
+[
+  {
+    "file": "01-B-i-18.-T-NH-CH-T-CHUNG-C-A-KIM-LO-I_NLS.docx",
+    "sha256": "ded0790ad84468fea669bcaac7b2f977552d2f814419dea5cbcce8a49cdceb26",
+    "tables": 17,
+    "heading_paragraphs": 0
+  },
+  {
+    "file": "02-B-i-19.-D-Y-HO-T-NG-HO-H-C-C-A-KIM-L-AI_NLS.docx",
+    "sha256": "d528986d9feb3b5c367b7a3b53aba508e983f337330901d4c33f3687373ebc86",
+    "tables": 17,
+    "heading_paragraphs": 0
+  },
+  {
+    "file": "03-B-i-20.-T-CH-KIM-LO-I.-S-D-NG-H-P-KIM_NLS.docx",
+    "sha256": "22ad5bee5b2d7fcc2bf6e8acf1bba3c879f03c4774bbb5babfd0c62b54843572",
+    "tables": 11,
+    "heading_paragraphs": 2
+  }
+]

@@ -1,0 +1,86 @@
+.source-body.source-split{display:grid;grid-template-columns:minmax(130px,1fr) minmax(0,2fr);height:320px;max-height:45vh;padding:0;overflow:hidden}
+.source-list{overflow:auto;border-right:1px solid var(--line);padding:10px}.source-list .source-item{width:100%;text-align:left;padding:10px}.source-item.selected{background:var(--hover);color:var(--accent)}
+.context-preview{padding:16px;overflow:auto;min-height:0;min-width:0}.context-preview>strong,.context-preview small{display:block;overflow-wrap:anywhere;margin-bottom:8px}.context-preview small{color:var(--muted);font-size:11px}.context-preview pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;line-height:1.6}.context-preview img{display:block;max-width:100%;max-height:350px;object-fit:contain;margin:auto}
+.source-context .context-drop-help{font-size:11px;color:var(--muted);margin:0;padding:0 12px 10px}.context-drop-active{outline:2px dashed var(--accent);background:var(--hover)}
+
+.project-tools-window{position:fixed;inset:0 0 0 auto;width:420px;max-width:100vw;height:100dvh;z-index:35;background:var(--surface);border-left:1px solid var(--line);box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden}
+.project-tools-window.expanded{width:min(850px,100vw)}
+/* Reserve the same width as the pinned panel, including its expanded state. */
+.app.project-tools-docked{--project-dock-width:min(420px,35vw);padding-right:var(--project-dock-width)}
+.app.project-tools-docked.project-tools-wide{--project-dock-width:min(850px,45vw)}
+.app.project-tools-docked>.project-tools-window{width:var(--project-dock-width)}
+.app.project-tools-docked>.main{grid-column:2;grid-row:1;container-type:inline-size;min-width:0}
+.project-tools-docked .breadcrumb{min-width:0}
+.project-tools-docked .composer-footer{flex-wrap:wrap;gap:8px}
+@container(max-width:700px){
+ .project-tools-docked .topbar{height:auto;min-height:56px;flex-wrap:wrap;padding:8px 12px;gap:8px}
+ .project-tools-docked .top-actions{flex-wrap:wrap;gap:8px}
+ .project-tools-docked .composer-area{padding:8px 12px 12px}
+ .project-tools-docked .messages{padding:20px 12px}
+ .project-tools-docked .document-workspace{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(0,1fr)}
+}
+@media(min-width:701px) and (max-width:1100px){
+ .app.project-tools-docked{grid-template-columns:0 minmax(0,1fr)}
+ .app.project-tools-docked>.sidebar,.app.project-tools-docked>.sidebar-resizer{display:none}
+}
+/* On narrow windows keep both regions visible instead of covering the chat. */
+@media(max-width:700px){
+ .app.project-tools-docked{padding-right:0;padding-bottom:40dvh;grid-template-columns:0 minmax(0,1fr)}
+ .app.project-tools-docked.project-tools-wide{padding-bottom:55dvh}
+ .app.project-tools-docked>.sidebar,.app.project-tools-docked>.sidebar-resizer{display:none}
+ .app.project-tools-docked>.project-tools-window{inset:auto 0 0;width:100%;height:40dvh;border-left:0;border-top:1px solid var(--line)}
+ .app.project-tools-docked.project-tools-wide>.project-tools-window{height:55dvh}
+ .app.project-tools-docked .project-preview-pane{min-height:100px}
+}
+.project-tools-window>header{display:flex;align-items:center;padding:16px 12px;gap:6px;flex-shrink:0;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--accent) 12%,var(--surface))}
+.project-tools-window>header>div{flex:1;min-width:0}.project-tools-window>header strong{display:block}.project-tools-window>header small{display:block;color:var(--muted);overflow-wrap:anywhere;margin-top:4px}
+.project-tools-window .project-pin{display:flex;align-items:center;gap:4px;font-size:12px;white-space:nowrap}.project-pin[aria-pressed=true]{background:var(--accent);color:var(--surface);border-radius:8px}
+.project-tools-groups{overflow:auto;min-height:0;flex:0 1 auto;padding:12px;display:flex;flex-direction:column;gap:12px}
+.project-tools-actions{padding:12px;display:flex;flex-direction:column;gap:5px;border:1px solid var(--line);border-left:4px solid var(--group-color);border-radius:10px;background:color-mix(in srgb,var(--group-color) 9%,var(--surface))}
+.project-group-chat{--group-color:#5684df}.project-group-files{--group-color:#319b8a}.project-group-activity{--group-color:#b68a37}
+.project-tools-actions h3{display:flex;align-items:center;gap:8px;margin:0 0 6px;font-size:13px;color:var(--text)}
+.project-tools-actions>button{text-align:left;overflow-wrap:anywhere}.project-tools-actions label{margin:8px 0;display:flex;flex-direction:column;gap:6px}.project-tools-actions select{width:100%;min-width:0}.project-tools-actions small{color:var(--muted);line-height:1.6}
+.project-preview-pane{display:flex;flex-direction:column;flex:1 0 30%;min-height:170px;overflow:hidden;margin:0 12px 12px;border:2px solid var(--accent);border-radius:12px;background:color-mix(in srgb,var(--accent) 6%,var(--surface));box-shadow:0 4px 18px color-mix(in srgb,var(--accent) 12%,transparent)}
+.project-preview-pane>header{display:flex;align-items:center;gap:8px;padding:12px;background:var(--accent);color:var(--surface);flex-shrink:0}.project-preview-pane>.context-preview{flex:1}.project-preview-empty{padding:16px;color:var(--muted);line-height:1.6}
+.project-tools-window button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.project-group-learning{--group-color:#8270b8}
+.project-learning{display:flex;flex-direction:column;gap:16px;line-height:1.6}.project-learning p{margin:4px 0}.project-learning fieldset{min-width:0;border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px}.project-learning small{display:block;color:var(--muted);overflow-wrap:anywhere}.project-learning-example{border-left:3px solid var(--accent);background:var(--hover);padding:12px;border-radius:8px}.project-learning-folder{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.project-learning-folder>span{flex:1 1 200px;overflow-wrap:anywhere;font-size:12px}.project-learning .project-learning-toggle{display:flex;flex-direction:row;align-items:center;gap:8px}.project-learning-toggle input{width:auto}.project-learning-source{padding:8px;border-bottom:1px solid var(--line)}.project-learning-source pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;max-height:240px;overflow:auto}.project-learning textarea{min-height:200px}
+.file-chips{display:flex;flex-wrap:nowrap!important;overflow-x:auto}.file-chips>span{flex-shrink:0}.file-chips>span[draggable]{cursor:grab}
+@media(max-height:500px){.project-preview-pane{min-height:100px}.project-tools-window>header{padding:8px}.project-tools-groups{padding:8px}}
+.message-attachments .message-label time{margin-left:12px}
+.chat-attachment-grid{display:flex;flex-wrap:wrap;gap:12px}
+.chat-attachment-item{margin:0;display:flex;flex-direction:column;gap:6px;max-width:100%}
+.chat-attachment-image{display:block;max-width:min(360px,100%);max-height:240px;object-fit:contain;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.chat-attachment-loading{display:grid;place-items:center;width:200px;height:120px;font-size:12px;color:var(--muted)}
+.chat-attachment-item .attachment-chip{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border:1px solid var(--line);background:var(--surface);border-radius:6px;font-size:11px;padding:3px 8px;line-height:1.4}
+
+.project-group-rules{--group-color:#9353d3}
+.project-tools-toolbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:4px 0}
+.project-tools-toolbar button{font-size:12px;padding:4px 8px;display:inline-flex;align-items:center;gap:4px}
+.project-rule-add-form{display:flex;flex-direction:column;gap:8px;padding:10px;border:1px dashed var(--accent);border-radius:8px;background:color-mix(in srgb,var(--accent) 5%,var(--surface));margin-top:6px}
+.project-rule-add-form strong{font-size:12px;color:var(--text)}
+.project-rule-add-form label{margin:2px 0;display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:500}
+.project-rule-add-form input,.project-rule-add-form textarea{width:100%;box-sizing:border-box;font:inherit}
+.project-rule-add-form textarea{min-height:75px;resize:vertical}
+.project-rule-add-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:4px}
+.project-rule-add-actions button{font-size:12px;padding:4px 10px}
+
+/* Sổ nguồn liên kết và không gian làm việc nhiều thư mục */
+.linked-notebooks,.project-workspace{display:grid;gap:6px;margin:8px 0;padding:8px 10px;border:1px solid var(--line,#d0d7de);border-radius:8px;min-width:0}
+.linked-notebooks legend,.project-workspace legend{padding:0 6px;font-weight:600}
+.linked-notebooks label{display:flex;gap:6px;align-items:center}
+.linked-notebooks.compact{padding:4px 8px;margin:4px 0}
+.project-workspace ul{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.project-workspace li{display:flex;gap:8px;align-items:center;min-width:0}
+.project-workspace li code{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Tiện ích của chat độc lập */
+.chat-tools-window .project-tools-actions{--group-color:var(--accent)}
+.chat-tools-window .chat-tools-skills{--group-color:#7c5cc4}.chat-tools-window .chat-tools-prompts{--group-color:#2f8f83}.chat-tools-window .chat-tools-files{--group-color:#c98a1b}
+.chat-tool-sub{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:6px 0 2px}
+.chat-tool-item{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;width:100%;min-width:0}
+.chat-tool-item>span{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.chat-tool-item>small{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.chat-tool-item.selected{outline:2px solid var(--group-color);background:color-mix(in srgb,var(--group-color) 14%,var(--surface))}
+.chat-tool-manage{align-self:flex-start;margin-top:6px}
+.chat-tool-count{font-style:normal;font-size:11px;color:var(--muted);font-weight:400}
+.chat-tool-filter{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px}.chat-tool-filter button{font-size:12px;padding:2px 8px}.chat-tool-filter button[aria-pressed=true]{background:var(--group-color);color:var(--surface)}

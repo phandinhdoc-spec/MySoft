@@ -1,0 +1,126 @@
+[
+  {
+    "id": "5512-0",
+    "url": "https://filethcs.hcm.shieldix.app/data/hcmedu/thcsanphucuchi/2021_7/phuluc4maukehoachbaiday2020_287202115.docx",
+    "accessed": "2026-10-17",
+    "status": "downloaded",
+    "file": "raw/5512-0.docx",
+    "bytes": 26853,
+    "sha256": "473b88224d57f9bca696943f3ba0e1c363f6ab5b8cb707bdb363469cfbe2edfb"
+  },
+  {
+    "id": "5512-1",
+    "url": "https://filethcs.hcm.shieldix.app/data/hcmedu/thcsanphucuchi/2021_7/phuluc3maukehoachgiaoduccuagiaovien2020_287202115.docx",
+    "accessed": "2026-10-17",
+    "status": "downloaded",
+    "file": "raw/5512-1.docx",
+    "bytes": 19000,
+    "sha256": "eced25c06f9aaa16516c5f41366142a63941aae2c7fc58f96c63016c00109dac"
+  },
+  {
+    "id": "5512-2",
+    "url": "https://filethcs.hcm.shieldix.app/data/hcmedu/thcsanphucuchi/2021_7/phuluc2maukehoachtochuchoatdonggiaoduc2020_287202115.docx",
+    "accessed": "2026-10-17",
+    "status": "downloaded",
+    "file": "raw/5512-2.docx",
+    "bytes": 19479,
+    "sha256": "35de742754e863e6e42d60ff3a86595bd33a5605741c7f93b5818b81acdf0ecc"
+  },
+  {
+    "id": "5512-3",
+    "url": "https://filethcs.hcm.shieldix.app/data/hcmedu/thcsanphucuchi/2021_7/phuluc1maukehoachdayhocmonhoccuato2020_287202115.docx",
+    "accessed": "2026-10-17",
+    "status": "downloaded",
+    "file": "raw/5512-3.docx",
+    "bytes": 26632,
+    "sha256": "cecccf95a015035453dbc9a932bee3454c873aaa6a984767f470485e233f6432"
+  },
+  {
+    "id": "5512-4",
+    "url": "https://filethcs.hcm.shieldix.app/data/hcmedu/thcsanphucuchi/2021_7/cv5512cuabo_287202115.pdf",
+    "accessed": "2026-10-17",
+    "status": "downloaded",
+    "file": "raw/5512-4.pdf",
+    "bytes": 1292303,
+    "sha256": "256e9e405ccc4ec1bfec4d9fcec170a033ab5b6438b0213306c6701fb8f42d83"
+  },
+  {
+    "id": "nls-0",
+    "url": "https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/01/02-bgddt.pdf",
+    "accessed": "2026-10-17",
+    "status": "downloaded",
+    "file": "raw/nls-0.pdf",
+    "bytes": 15597891,
+    "sha256": "6909d8f4efab118844a5eb02192448b27ece1c73c82e67bdb965e7e262e066b2"
+  },
+  {
+    "id": "legal-0",
+    "url": "https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/4/78ndcp-1.signed.pdf",
+    "accessed": "2026-10-17",
+    "status": "downloaded",
+    "file": "raw/legal-0.pdf",
+    "bytes": 2747877,
+    "sha256": "bf9133d5c6b8f771535e56111b20e994a1b2981bfeb5087500eaa020f1842b5a"
+  },
+  {
+    "id": "legal-1",
+    "url": "https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/4/78-pl1.pdf",
+    "accessed": "2026-10-17",
+    "status": "downloaded",
+    "file": "raw/legal-1.pdf",
+    "bytes": 526890,
+    "sha256": "9bbee4fbf63a5b837e75ed3babb7ade6787f955a2434bc452869dab7c4a69475"
+  },
+  {
+    "id": "legal-2",
+    "url": "https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/4/pl2.pdf",
+    "accessed": "2026-10-17",
+    "status": "downloaded",
+    "file": "raw/legal-2.pdf",
+    "bytes": 361916,
+    "sha256": "a5644bef0d0da6b1deac75fd33ff8288af01ba3f7a8f1962c82c570ef4a41ed0"
+  },
+  {
+    "id": "legal-3",
+    "url": "https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/4/pl3.pdf",
+    "accessed": "2026-10-17",
+    "status": "downloaded",
+    "file": "raw/legal-3.pdf",
+    "bytes": 1337475,
+    "sha256": "b3c2a636442bc9191aa52cf9641660f65727439bc242a24306404894696292d8"
+  },
+  {
+    "id": "legal-4",
+    "url": "https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/4/pl4.pdf",
+    "accessed": "2026-10-17",
+    "status": "downloaded",
+    "file": "raw/legal-4.pdf",
+    "bytes": 388833,
+    "sha256": "158a468b325163de0c4232b4406dcf8bfe1cb8922f805db3cd0635d559dbe7dd"
+  },
+  {
+    "id": "amend-0",
+    "url": "https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/7/187-ndcp.signed.pdf",
+    "accessed": "2026-10-17",
+    "status": "downloaded",
+    "file": "raw/amend-0.pdf",
+    "bytes": 4030959,
+    "sha256": "60fd1511d55fc4da36bde8a579e52e330afe3adec3d493b9a5f3a3579b08f6ed"
+  },
+  {
+    "id": "nd30",
+    "url": "https://datafiles.chinhphu.vn/cpp/files/vbpq/2020/03/30.signed.pdf",
+    "accessed": "2026-10-17",
+    "status": "downloaded",
+    "file": "raw/nd30.pdf",
+    "bytes": 3027818,
+    "sha256": "be2514460c953141923579e4a0ddd0249c611643a59514976790dc1d90589178"
+  },
+  {
+    "id": "ai-thcs",
+    "url": "https://c2dinhbolinh-draybhang.daklak.edu.vn/wp-content/uploads/2026/03/260204-T%C3%A0i-li%E1%BB%87u-THCS.pdf",
+    "accessed": "2026-10-17",
+    "status": "failed",
+    "error": "HTTP Error 503: Service Unavailable"
+  }
+]

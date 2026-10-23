@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><title>PVTA CLI · Lập trình viên (Pro)</title>
+<style>
+:root{--bg:#07171500;--panel:#0d2521;--panel2:#0a1f1b;--line:#1f4a42;--ink:#e3f5ef;--mute:#86b3a8;--dim:#557a71;--acc:#3fd3b1;--acc2:#2aa88c;--warn:#f5c469;--ok:#5fe0b5;--bad:#ff8f8f;--add:#1b4d40;--del:#56202a;--kw:#c39bff;--fn:#8fb4ff;--st:#b7e88f;--ty:#ffd08a}
+*{box-sizing:border-box}
+body{margin:0;padding:36px;background:radial-gradient(1200px 600px at 20% -10%,#14403a 0,#071715 60%);font-family:-apple-system,"Segoe UI",system-ui,sans-serif;color:var(--ink);display:flex;justify-content:center}
+.win{width:1180px;height:720px;border-radius:14px;background:var(--panel);border:1px solid var(--line);box-shadow:0 30px 70px #0009,inset 0 1px 0 #ffffff12;display:flex;flex-direction:column;overflow:hidden}
+/* thanh tiêu đề */
+.top{display:flex;align-items:center;gap:14px;padding:11px 16px;border-bottom:1px solid var(--line);background:var(--panel2)}
+.dots{display:flex;gap:7px}.dots i{width:11px;height:11px;border-radius:50%;background:#2b5a50}.dots i:first-child{background:#e0695c}.dots i:nth-child(2){background:#e6b84a}.dots i:nth-child(3){background:#4fc08d}
+.brand{font-weight:700;letter-spacing:.2px;color:var(--acc)}
+.modes{display:flex;gap:4px;margin-left:18px;background:#06150f;border:1px solid var(--line);border-radius:9px;padding:3px}
+.modes span{padding:5px 11px;border-radius:6px;font-size:12.5px;color:var(--mute)}
+.modes .on{background:var(--acc);color:#04201a;font-weight:650}
+.chips{margin-left:auto;display:flex;gap:6px}
+.chip{font-size:11.5px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--mute);background:#0a1f1b}
+.chip b{color:var(--ink);font-weight:600}
+.chip.warn{border-color:#6b5524;color:var(--warn)}
+.chip.ok{border-color:#1f6150;color:var(--ok)}
+/* vùng chính */
+.main{flex:1;display:grid;grid-template-columns:44% 56%;min-height:0}
+.pane{display:flex;flex-direction:column;min-height:0}
+.pane+.pane{border-left:1px solid var(--line)}
+.ph{display:flex;align-items:center;justify-content:space-between;padding:9px 16px;font-size:11.5px;letter-spacing:.6px;text-transform:uppercase;color:var(--dim);border-bottom:1px solid var(--line);background:#0b221e}
+.ph code{text-transform:none;letter-spacing:0;color:var(--mute);font-family:"SF Mono",Menlo,monospace;font-size:12px}
+.chat{padding:14px 18px;overflow:hidden;flex:1;font-size:13.5px;line-height:1.6}
+.msg{margin-bottom:12px}
+.who{font-size:11.5px;font-weight:650;letter-spacing:.3px;margin-bottom:2px}
+.who.u{color:var(--warn)}.who.a{color:var(--acc)}
+.step{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--mute);padding:4px 0}
+.step .ic{width:16px;text-align:center}
+.done{color:var(--ok)}.wait{color:var(--warn)}
+.bar{height:4px;width:120px;background:#16403a;border-radius:4px;overflow:hidden}.bar i{display:block;height:100%;width:66%;background:var(--acc)}
+.tip{margin-top:12px;padding:10px 12px;border-radius:10px;background:#0a1f1b;border:1px dashed #2c6158;font-size:12.5px;color:var(--mute)}
+.tip b{color:var(--acc)}
+/* diff */
+.diffhead{display:flex;gap:10px;align-items:center;padding:10px 16px;font-size:12.5px;border-bottom:1px solid var(--line)}
+.diffhead .file{font-family:"SF Mono",Menlo,monospace;color:var(--ink)}
+.stat{margin-left:auto;font-family:"SF Mono",Menlo,monospace;font-size:12px}
+.stat .p{color:var(--ok)}.stat .m{color:var(--bad)}
+pre{margin:0;padding:6px 0;font:12.5px/1.65 "SF Mono",Menlo,Consolas,monospace;color:#cfe9e2;overflow:hidden;flex:1;background:#081a16}
+.ln{display:inline-block;width:46px;text-align:right;padding-right:12px;color:#3f6a61;user-select:none}
+.row{display:block;padding-right:16px;white-space:pre}
+.row.add{background:var(--add);box-shadow:inset 3px 0 0 var(--ok)}
+.row.del{background:var(--del);box-shadow:inset 3px 0 0 var(--bad)}
+.row.add .ln,.row.del .ln{color:#8fbfb2}
+.sg{content:"";}
+.mk{display:inline-block;width:14px;color:var(--ok)}
+.row.del .mk{color:var(--bad)}
+.kw{color:var(--kw)}.fn{color:var(--fn)}.st{color:var(--st)}.cm{color:#5f7f78;font-style:italic}.ty{color:var(--ty)}
+/* thẻ đề xuất */
+.card{margin:10px 14px;border:1px solid #2c6b5e;border-radius:10px;background:linear-gradient(180deg,#0f2c27,#0b231f);padding:10px 12px;display:flex;align-items:center;gap:10px}
+.card .t{font-size:12.5px;color:var(--ink)}
+.card .t small{display:block;color:var(--mute);font-size:11.5px;margin-top:1px}
+.btns{margin-left:auto;display:flex;gap:6px}
+.btn{font-size:12px;padding:5px 10px;border-radius:7px;border:1px solid #2c6b5e;color:var(--ink);background:#0a1f1b}
+.btn.pri{background:var(--acc);border-color:var(--acc);color:#04201a;font-weight:650}
+/* kết quả kiểm tra */
+.checks{display:flex;gap:8px;padding:10px 16px;border-top:1px solid var(--line);background:#0b221e;align-items:center;font-size:12px}
+.checks .lbl{color:var(--dim);text-transform:uppercase;letter-spacing:.6px;font-size:11px;margin-right:4px}
+.pass{color:var(--ok);background:#0f3a31;border:1px solid #1f6150;border-radius:6px;padding:3px 8px}
+.fail{color:var(--bad);background:#3e1d22;border:1px solid #6b2d36;border-radius:6px;padding:3px 8px}
+.pend{color:var(--warn);background:#3a2f15;border:1px solid #6b5524;border-radius:6px;padding:3px 8px}
+/* ô nhập */
+.input{padding:12px 16px 6px;border-top:1px solid var(--line);display:flex;align-items:center;gap:10px}
+.prompt{font-family:"SF Mono",Menlo,monospace;color:var(--acc);font-weight:700}
+.field{flex:1;font-size:13.5px;color:var(--dim);padding:8px 10px;border-radius:8px;background:#06150f;border:1px solid var(--line)}
+.caret{display:inline-block;width:7px;height:14px;background:var(--acc);vertical-align:-2px;margin-left:2px}
+.hints{padding:4px 16px 12px;display:flex;gap:14px;font-size:12px;color:var(--mute);align-items:center;flex-wrap:wrap}
+kbd{font:11px "SF Mono",Menlo,monospace;background:#0a1f1b;border:1px solid #2c6158;border-bottom-width:2px;border-radius:5px;padding:1px 6px;color:var(--ink)}
+.foot{font-size:11.5px;color:var(--dim);margin:10px 2px 0;max-width:1180px}
+</style></head><body><div>
+<div class="win">
+  <div class="top">
+    <div class="dots"><i></i><i></i><i></i></div>
+    <div class="brand">PVTA</div>
+    <div class="modes"><span>Hội thoại</span><span class="on">Lập trình viên</span><span>Chỉnh Markdown</span><span>Chế độ viết</span><span>Plan Pro</span></div>
+    <div class="chips">
+      <span class="chip">Dự án <b>MySoft</b></span>
+      <span class="chip warn">Quyền <b>Hỏi duyệt</b></span>
+      <span class="chip ok">Brain <b>đã nạp</b></span>
+    </div>
+  </div>
+
+  <div class="main">
+    <section class="pane">
+      <div class="ph">Hội thoại <code>skills.ts</code></div>
+      <div class="chat">
+        <div class="msg"><div class="who u">Thầy cô</div>Sửa hàm chọn kỹ năng để không phân biệt hoa thường.</div>
+        <div class="msg"><div class="who a">PVTA</div>Đã định vị hàm <b>pickSkill</b> tại dòng 130. Đề xuất đổi so sánh tên về chữ thường.</div>
+        <div class="step"><span class="ic done">✓</span>Đọc <span style="color:var(--ink);font-family:'SF Mono',monospace">core/src/skills.ts:120–168</span></div>
+        <div class="step"><span class="ic done">✓</span>Tìm ca gọi liên quan: 3 chỗ</div>
+        <div class="step"><span class="ic wait">◷</span>Chờ duyệt trước khi ghi tệp <span class="bar"><i></i></span></div>
+        <div class="tip"><b>Gợi ý:</b> thêm test cho tên rỗng và tên có khoảng trắng đầu/cuối.</div>
+      </div>
+    </section>
+
+    <section class="pane">
+      <div class="ph">Thay đổi đề xuất <code>core/src/skills.ts</code></div>
+      <div class="diffhead">
+        <span class="file">pickSkill()</span>
+        <span style="color:var(--mute)">· 2 dòng đổi, 1 dòng thêm</span>
+        <span class="stat"><span class="p">+3</span> <span class="m">−1</span></span>
+      </div>
+      <pre><span class="row"><span class="ln">129</span><span class="cm">// tìm kỹ năng theo tên</span></span><span class="row"><span class="ln">130</span><span class="kw">export function</span> <span class="fn">pickSkill</span>(list: <span class="ty">Skill</span>[], name: <span class="ty">string</span>) {</span><span class="row"><span class="ln">131</span>  <span class="cm">// bỏ qua hoa thường và khoảng trắng</span></span><span class="row del"><span class="ln">132</span><span class="mk">−</span>  <span class="kw">return</span> list.find(s =&gt; s.name === name) ?? <span class="kw">null</span>;</span><span class="row add"><span class="ln">132</span><span class="mk">+</span>  <span class="kw">const</span> key = name.trim().toLowerCase();</span><span class="row add"><span class="ln">133</span><span class="mk">+</span>  <span class="kw">return</span> list.find(s =&gt; s.name.toLowerCase() === key) ?? <span class="kw">null</span>;</span><span class="row"><span class="ln">134</span>}</span></pre>
+      <div class="card">
+        <div class="t">Áp dụng thay đổi này vào <b>skills.ts</b>?<small>Chỉ ghi sau khi bạn duyệt. Hoàn tác bằng /hoàn-tác.</small></div>
+        <div class="btns"><span class="btn">Xem đầy đủ</span><span class="btn">Bỏ qua</span><span class="btn pri">Duyệt</span></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="checks">
+    <span class="lbl">Kiểm tra</span>
+    <span class="pass">✓ tsc</span>
+    <span class="pass">✓ 12/12 test skills</span>
+    <span class="fail">✗ 1 test cũ: hoa/thường</span>
+    <span class="pend">◷ lint</span>
+  </div>
+
+  <div class="input"><span class="prompt">›</span><span class="field">Nhập yêu cầu hoặc gõ / để chọn lệnh<span class="caret"></span></span></div>
+  <div class="hints">
+    <span><kbd>/diff</kbd> xem thay đổi</span>
+    <span><kbd>/test</kbd> chạy kiểm tra</span>
+    <span><kbd>/hoàn-tác</kbd> quay lại</span>
+    <span><kbd>#</kbd> quy tắc</span>
+    <span><kbd>/</kbd> kỹ năng</span>
+    <span><kbd>⌘ .</kbd> dừng</span>
+  </div>
+</div>
+<div class="foot">Mẫu thiết kế tĩnh (HTML) — chưa phải CLI đã chạy. Số liệu và tệp là minh họa, không phải kết quả thật.</div>
+</div></body></html>
