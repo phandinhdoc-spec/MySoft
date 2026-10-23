@@ -38,7 +38,13 @@ export async function resolveGithubLink(link:string,ref:string,run:GithubRunner)
   }
  }
  if(remotePath)safeGithubPath(remotePath);
- const commit=await api(`${base}/commits/${enc(branch)}`);
+ let commit:any;
+ try{commit=await api(`${base}/commits/${enc(branch)}`);}
+ catch(e){
+  const text=e instanceof Error?e.message:String(e);
+  if(/No commit found|HTTP (404|422)/.test(text))throw Error(`Nhánh "${branch}" chưa có trên GitHub. Hãy tạo nhánh trước (mục Nhánh) hoặc chọn nhánh đã có, ví dụ main.`);
+  throw e;
+ }
  return {repository:parsed.repository,branch,remotePath,head:commit.sha as string,tree:commit.commit.tree.sha as string};
 }
 export type RemoteTarget=Awaited<ReturnType<typeof resolveGithubLink>>;
