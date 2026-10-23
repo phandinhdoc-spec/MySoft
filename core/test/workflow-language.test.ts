@@ -161,3 +161,30 @@ describe('bộ chạy chỉ thị',()=>{
   expect(evaluate(parseExpression('$r[0].v'),()=>[{v:3}])).toBe(3);
  });
 });
+describe('hàm không có đầu ra',()=>{
+ const approve=(w:ReturnType<typeof make>,expression:string)=>{const c=compileWorkflow(w).symbols.find(x=>x.command.kind==='ham')!.command;w.functions=[{signature:functionSignature(c),expression,approvedAt:1}];};
+ const runner=(w:ReturnType<typeof make>)=>new WorkflowRunner({list:()=>[w],changed:()=>{},model:async()=>''});
+ it('gọi không gán và gọi có gán đều hợp lệ khi biên dịch',()=>{
+  expect(()=>compileWorkflow(make([step('a','!ham f() [Không làm gì]\n!goi f()')]))).not.toThrow();
+  expect(()=>compileWorkflow(make([step('a','!ham f() [Không làm gì]\n!goi kq = f()\n!dau-ra = $kq')]))).not.toThrow();
+ });
+ it('gán kết quả của hàm không đầu ra thì biến là null',async()=>{
+  const w=make([step('a','!ham f() [Không làm gì]\n!goi kq = f()\n!dau-ra = $kq')]);approve(w,'null');
+  const r=await runner(w).run(w.id);expect(r.status).toBe('success');expect(r.steps[0]!.transfer).toBeNull();
+ });
+ it('biểu thức trả giá trị khác null không chặn quy trình, ghi cảnh báo và dùng null',async()=>{
+  const w=make([step('a','!ham f() [Không làm gì]\n!goi kq = f()\n!dau-ra = $kq')]);approve(w,'5');
+  const r=await runner(w).run(w.id);expect(r.status).toBe('success');expect(r.steps[0]!.transfer).toBeNull();
+  expect(r.steps[0]!.logs!.some(l=>l.text.includes('Cảnh báo')&&l.text.includes('“f”'))).toBe(true);
+ });
+ it('hàm có đầu ra trả sai khóa vẫn báo lỗi và gợi ý đúng',async()=>{
+  const w=make([step('a','!ham g(x) [Lấy] {v: giá trị}\n!goi r = g(1)\n!dau-ra = $r.v')]);approve(w,'{sai: 1}');
+  const r=await runner(w).run(w.id);expect(r.status).toBe('error');expect(r.steps[0]!.error).toContain('trả sai các trường đầu ra');
+  expect(languageSuggestions(w,'a').diagnostic).toBeUndefined();
+ });
+ it('hàm có đầu ra chạy như trước',async()=>{
+  const w=make([step('a','!ham g(x) [Gấp đôi] {v: giá trị}\n!goi r = g(4)\n!dau-ra = $r.v')]);approve(w,'{v: $x * 2}');
+  const r=await runner(w).run(w.id);expect(r.status).toBe('success');expect(r.steps[0]!.transfer).toBe(8);
+ });
+});
+

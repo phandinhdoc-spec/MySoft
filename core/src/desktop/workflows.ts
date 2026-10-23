@@ -359,8 +359,11 @@ export class WorkflowRunner{
        }
        const expr=validateImplementation(c,impl.expression);
        const value=evaluate(expr,name=>structuredClone(args[c.params!.indexOf(name)]!));
-       if(c.outputs?.length){if(value===null||Array.isArray(value)||typeof value!=='object'||Object.keys(value).sort().join('|')!==[...c.outputs].sort().join('|'))throw Error(`Hàm “${c.name}” trả sai các trường đầu ra.`);}
-       else if(value!==null)throw Error(`Hàm “${c.name}” không khai báo đầu ra phải trả null.`);
+       if(c.outputs?.length){if(value===null||Array.isArray(value)||typeof value!=='object'||Object.keys(value).sort().join('|')!==[...c.outputs].sort().join('|'))throw Error(`Hàm “${c.name}” trả sai các trường đầu ra. Sửa danh sách {tên: mô tả} sau phần [mô tả] của !ham cho khớp, hoặc đổi mô tả hàm để được duyệt lại.`);}
+       else if(value!==null){
+        sr.logs=[...(sr.logs??[]),{at:Date.now(),text:`Cảnh báo: hàm “${c.name}” chưa khai báo đầu ra nên giá trị trả về bị bỏ và dùng null. Muốn dùng giá trị này, thêm {tên: mô tả} sau phần [mô tả] của !ham.`}];this.d.changed();
+        return null;
+       }
        return value;
       });
      }
