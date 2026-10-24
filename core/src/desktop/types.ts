@@ -8,7 +8,7 @@ export interface TemplateOrigin {templateId:string;group:string}
 /** Nguồn gốc bền vững của bản sao chèn; không dùng màu insertGroup để quyết định quyền biên tập. */
 export interface WorkflowStep {templateCopy?:true;origin?:TemplateOrigin;promptFormat?:'yaml-v1';/** Dấu nội bộ khi trải phẳng nút gốc của Plan. */planPrompt?:true}
 export interface PlanStep {templateCopy?:true;origin?:TemplateOrigin;promptFormat?:'yaml-v1'}
-export interface Chat { planningDraft?:Plan; planningSession?:'plan'|'pro' }
+export interface Chat { planningDraft?:Plan; planningSession?:'plan'|'pro'; pendingPrompts?:import('./prompt-queue.js').PendingPrompt[]; promptQueuePaused?:boolean }
 export interface WorkflowRun {approvedPrompts?:import('./workflow-prompts.js').ApprovedPrompts}
 export interface Workflow {functions?:import('./workflow-language.js').FunctionImplementation[];/** Hội thoại được tạo khi mở chat của quy trình độc lập. */chatId?:string}
 export interface WorkflowStepRun {transfer?:import('./workflow-expression.js').Value}
@@ -49,7 +49,7 @@ export interface WorkflowStep extends PlanStepContract {/** Mã nhóm bước v�
 /** Mã AI sinh trong khung có biến/hàm: cảnh báo của phản biện và quyết định của giáo viên. */
 export interface CodeReview {lang:string;code:string;file?:string;findings:{level:'high'|'medium'|'low';text:string;source:'scan'|'ai'}[];canRun:boolean;/** waiting = đang chờ giáo viên duyệt. */ decision:'waiting'|'approved'|'forced'|'rejected'|'not-run';exitCode?:number|null}
 export interface WorkflowStepRun {code?:CodeReview;fingerprint?:string;handoff?:string;checkpoint?:import('./plan-recovery.js').PlanCheckpoint;outputFiles?:string[];stepId:string;name:string;status:'waiting'|'running'|'success'|'error'|'skipped'|'blocked'; logs?:{at:number;text:string}[];startedAt?:number;endedAt?:number;output?:string;error?:string}
-export interface WorkflowRun { /** Thư mục con của lượt chạy mã (nơi làm việc) và số tệp đính kèm đã chép. */ workdir?:string;copied?:number;approvedPlan?:PlanVersion;signature?:string;id:string;startedAt:number;endedAt?:number;status:'running'|'success'|'error'|'cancelled'|'paused';steps:WorkflowStepRun[]}
+export interface WorkflowRun { generatedFiles?:string[];resetBackup?:{from:string;to:string}[]; /** Thư mục con của lượt chạy mã (nơi làm việc) và số tệp đính kèm đã chép. */ workdir?:string;copied?:number;approvedPlan?:PlanVersion;signature?:string;id:string;startedAt:number;endedAt?:number;status:'running'|'success'|'error'|'cancelled'|'paused';steps:WorkflowStepRun[]}
 export interface WorkflowInput {kind:'folder'|'file'|'chat'|'prompt';value:string}
 /** Liên kết nét đứt do PVTA gợi ý: chưa có hiệu lực khi chạy cho đến khi người dùng chấp nhận (thành phụ thuộc thật). */
 export interface SuggestedLink {id:string;from:string;to:string;reason?:string}

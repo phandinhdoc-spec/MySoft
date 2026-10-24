@@ -1,0 +1,83 @@
+{
+  "format": "pvta-workflow",
+  "version": 1,
+  "workflow": {
+    "name": "Viết lại Xuất mẫu và bổ sung Xuất quy trình",
+    "mode": "parallel",
+    "maxConcurrency": 1,
+    "steps": [
+      {
+        "id": "doi-chieu-hien-trang",
+        "name": "Đối chiếu hiện trạng",
+        "prompt": "Đọc kế hoạch tại /Users/phananh/MySoft/ke-hoach-viet-lai-xuat-mau-va-xuat-quy-trinh.json và các thay đổi chưa commit. Đối chiếu luồng Xuất mẫu, định dạng mẫu, nhập JSON, bộ chọn thư mục và mọi trường Workflow/WorkflowTemplate. Viết bảng ánh xạ giữ nguyên, tham số hóa, đóng gói, bỏ hoặc gán lại vào docs/workflow-export-field-map.md. Chỉ sửa mã trong /Users/phananh/MySoft; không ghi đè thay đổi đang dở. Báo các trường chưa xác minh trước khi kết thúc bước.",
+        "choice": "auto",
+        "access": "read",
+        "dependsOn": [],
+        "inputs": ["Kế hoạch đã chốt", "Cây làm việc hiện tại"],
+        "outputs": ["docs/workflow-export-field-map.md"],
+        "completion": "Bảng ánh xạ có đủ trường Workflow/WorkflowTemplate, đường dẫn nguồn và quyết định cho từng trường.",
+        "onError": "Dừng và ghi rõ trường chưa xác minh; giữ nguyên thay đổi đang dở."
+      },
+      {
+        "id": "dac-ta-chuyen-doi",
+        "name": "Đặc tả chuyển đổi mẫu",
+        "prompt": "Đọc docs/workflow-export-field-map.md. Viết docs/workflow-template-conversion.md: phân loại ưu tiên cú pháp thực thi, liên kết nguồn, trường có kiểu, nội dung tự do; AI chỉ đề xuất cho nội dung tự do. Định danh tham số theo nguồn, vai trò và phạm vi; phân biệt với {{input}}, {{prev}}, biến, biểu thức. Giữ hằng số nghiệp vụ; mục chưa rõ phải có cờ chặn. Đặc tả đầu vào rỗng/tệp/thư mục, đầu ra dự kiến, phụ thuộc ngoài và định dạng có phiên bản.",
+        "choice": "auto",
+        "access": "read",
+        "dependsOn": ["doi-chieu-hien-trang"],
+        "inputs": ["docs/workflow-export-field-map.md"],
+        "outputs": ["docs/workflow-template-conversion.md"],
+        "completion": "Từng loại trường có quy tắc chuyển đổi và điều kiện chặn xuất kiểm chứng được.",
+        "onError": "Giữ mục chưa rõ để người dùng phân loại; không suy đoán."
+      },
+      {
+        "id": "viet-lai-xuat-mau",
+        "name": "Viết lại Xuất mẫu",
+        "prompt": "Theo docs/workflow-template-conversion.md, viết lại Xuất mẫu trên bản sao quy trình. Tách cú pháp khỏi văn bản tự do; dùng AI đã cấu hình để đề xuất phân loại có vị trí và lý do, sau đó kiểm tra xác định. Bao phủ tên, mô tả, prompt, hợp đồng bước, khung và tài nguyên theo phạm vi. Giữ nhánh, vòng lặp và biểu thức. Hiển thị so sánh trước–sau, tham số, mục chưa phân loại; chỉ xuất khi người dùng duyệt và mọi kiểm tra đạt. Nếu AI lỗi, giữ nháp để sửa thủ công.",
+        "choice": "auto",
+        "access": "read",
+        "dependsOn": ["dac-ta-chuyen-doi"],
+        "inputs": ["docs/workflow-template-conversion.md", "Quy trình nguồn"],
+        "outputs": ["Thuật toán Xuất mẫu", "Giao diện rà soát"],
+        "completion": "Mẫu không còn dữ liệu riêng đã đánh dấu; cấu trúc và hợp đồng được giữ; lỗi hoặc mục chưa phân loại chặn xuất.",
+        "onError": "Giữ nháp và lỗi theo vị trí; không xuất mẫu lỗi."
+      },
+      {
+        "id": "xu-ly-phu-thuoc",
+        "name": "Xử lý phụ thuộc khi nhập",
+        "prompt": "Đóng gói nội dung prompt, skill và rule đang có hiệu lực theo phạm vi, không dùng ngầm ID thư viện máy nguồn. Bỏ liên kết Plan nguồn, ánh xạ ID nội bộ. Đánh dấu sổ nguồn, tệp, thư mục và model cần gán lại; không đóng gói bí mật hoặc nội dung nguồn. Cho nhập nháp khi thiếu phụ thuộc ngoài nhưng chặn chạy; từ chối JSON sai cấu trúc hoặc tham chiếu nội bộ hỏng. Thêm báo cáo phụ thuộc rõ ràng.",
+        "choice": "auto",
+        "access": "read",
+        "dependsOn": ["viet-lai-xuat-mau"],
+        "inputs": ["docs/workflow-template-conversion.md", "Mẫu đã chuyển đổi"],
+        "outputs": ["Bộ kiểm tra phụ thuộc", "Báo cáo gán lại"],
+        "completion": "Bản nhập thiếu phụ thuộc ngoài hiện rõ và không chạy được; JSON hỏng bị từ chối.",
+        "onError": "Từ chối tham chiếu nội bộ hỏng; giữ nháp và danh sách phụ thuộc ngoài còn thiếu."
+      },
+      {
+        "id": "them-xuat-quy-trinh",
+        "name": "Thêm Xuất quy trình",
+        "prompt": "Thêm công cụ Xuất quy trình cạnh Xuất mẫu. Xuất JSON có loại và phiên bản; giữ đầu vào cụ thể, nút, liên kết, tài nguyên, hợp đồng và cấu hình chạy theo bảng ánh xạ. Không xuất lịch sử chạy, khóa bí mật hoặc nội dung tệp đính kèm. Mỗi lần xuất bắt buộc chọn thư mục; hủy thì không ghi. Không ghi đè tên trùng; chỉ báo đường dẫn sau khi ghi thành công. Khi nhập lại, ánh xạ ID và báo phụ thuộc cần gán lại.",
+        "choice": "auto",
+        "access": "read",
+        "dependsOn": ["xu-ly-phu-thuoc"],
+        "inputs": ["docs/workflow-export-field-map.md", "Bộ kiểm tra phụ thuộc"],
+        "outputs": ["Công cụ Xuất quy trình", "JSON quy trình có phiên bản"],
+        "completion": "Hủy chọn thư mục không tạo tệp; xuất–nhập giữ cấu hình cam kết; lỗi ghi không báo thành công.",
+        "onError": "Không ghi đè; giữ nguyên quy trình nguồn và báo lỗi cụ thể."
+      },
+      {
+        "id": "kiem-thu-ban-giao",
+        "name": "Kiểm thử và bàn giao",
+        "prompt": "Dùng harness trong kế hoạch JSON để kiểm thử 6 bộ dữ liệu: đầu vào rỗng, DOCX chứa dữ liệu riêng, thư mục có nhánh/vòng lặp, giá trị trùng khác vai trò, cú pháp và tài nguyên nhiều phạm vi, thiếu phụ thuộc ở máy nhập. Kiểm thử xuất–nhập, hủy chọn thư mục, lỗi ghi và tên trùng. Chạy typecheck, build và toàn bộ test; chẩn đoán từng lỗi. Thử desktop và AI thật nếu môi trường cho phép, cập nhật tài liệu, nêu rõ phần chưa kiểm chứng. Không commit hoặc đẩy mã.",
+        "choice": "auto",
+        "access": "read",
+        "dependsOn": ["them-xuat-quy-trinh"],
+        "inputs": ["Mã nguồn sau các bước trước", "Harness trong kế hoạch JSON"],
+        "outputs": ["Kiểm thử", "Tài liệu", "Báo cáo kiểm chứng"],
+        "completion": "Có kết quả từng ca harness, typecheck, build, toàn bộ test và phạm vi desktop/AI đã hoặc chưa xác minh.",
+        "onError": "Chẩn đoán trước khi sửa; dừng bàn giao khi tiêu chí chính chưa đạt."
+      }
+    ]
+  }
+}

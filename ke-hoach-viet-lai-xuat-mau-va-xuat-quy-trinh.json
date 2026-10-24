@@ -1,0 +1,122 @@
+{
+  "title": "Viết lại Xuất mẫu và bổ sung Xuất quy trình",
+  "brief": {
+    "objective": "Chuyển quy trình cụ thể thành mẫu tái sử dụng đúng ngữ nghĩa và bổ sung xuất quy trình cụ thể thành JSON sau khi người dùng chọn thư mục lưu.",
+    "topic": "Bộ quản lý quy trình PVTA",
+    "documentType": "Kế hoạch chỉnh sửa phần mềm",
+    "subject": "Không áp dụng",
+    "grade": "Không áp dụng",
+    "output": "Mã nguồn, kiểm thử và hướng dẫn cho hai công cụ Xuất mẫu và Xuất quy trình; xuất và nhập lại giữ đúng cấu hình đã cam kết; không tự chạy quy trình nghiệp vụ.",
+    "facts": [
+      "Plan/Plan Pro đã được điều chỉnh trong cây làm việc nhưng chưa kiểm chứng trên desktop thật.",
+      "Mã hiện tại có nút Xuất mẫu và hàm exportWorkflow; JSON mẫu hiện bỏ đường dẫn đầu vào và lịch sử nhưng chưa tham số hóa prompt.",
+      "Bộ quản lý hiện có Nhập mẫu JSON; khi nhập, model về Tự động và quyền về Chỉ đọc.",
+      "Cây làm việc có nhiều thay đổi chưa commit; phải giữ nguyên và chỉ sửa phần liên quan."
+    ],
+    "proposals": [
+      "Phân loại bằng AI chỉ đối với nội dung tự do; bộ kiểm tra xác định chặn cấu trúc, tham chiếu hoặc dữ liệu chưa phân loại.",
+      "Mỗi lần Xuất quy trình đều yêu cầu chọn thư mục, hủy chọn thì không ghi, tên trùng thì không ghi đè.",
+      "Bản nhập thiếu phụ thuộc ngoài được giữ làm nháp nhưng không được chạy cho đến khi gán lại."
+    ],
+    "assumptions": [],
+    "questions": [],
+    "sources": [],
+    "limitations": [
+      "Chưa xác minh thao tác trên desktop và AI thật.",
+      "Tệp kế hoạch này là hiện vật trong repository; chưa được lưu thành thẻ Plan của PVTA."
+    ]
+  },
+  "steps": [
+    {
+      "id": "doi-chieu-hien-trang",
+      "goal": "Đối chiếu hiện trạng và lập bảng ánh xạ trường",
+      "task": "Đọc thay đổi đang dở, luồng Xuất mẫu, định dạng mẫu, nhập JSON và bộ chọn thư mục. Liệt kê đầu vào, nút, cạnh, nhánh, vòng lặp, biến, hợp đồng, tài nguyên theo phạm vi và cấu hình chạy; đánh dấu giữ nguyên, tham số hóa, đóng gói, bỏ hoặc gán lại.",
+      "files": ["chatbox/src/WorkflowPanel.tsx", "chatbox/src/workflow-tools.ts", "core/src/desktop/workflow-templates.ts", "core/src/desktop/types.ts"],
+      "risk": "Ghi đè thay đổi chưa commit hoặc bỏ sót trường chưa được nhập xuất.",
+      "inputs": ["Kế hoạch đã chốt trong hội thoại", "Cây làm việc hiện tại"],
+      "outputs": ["Bảng ánh xạ trường và phụ thuộc trong docs/workflow-export-field-map.md"],
+      "dependsOn": [],
+      "completion": "Bảng bao phủ mọi trường lưu của Workflow và WorkflowTemplate, có đường dẫn nguồn và quyết định cho từng trường.",
+      "onError": "Dừng, ghi rõ trường hoặc nguồn chưa xác minh; không sửa dữ liệu đang dở."
+    },
+    {
+      "id": "dac-ta-chuyen-doi",
+      "goal": "Đặc tả thuật toán chuyển đổi thành mẫu",
+      "task": "Tách cú pháp thực thi khỏi dữ liệu; phân loại theo thứ tự cú pháp, nguồn đã biết, trường có kiểu, nội dung tự do. Định danh tham số theo nguồn, vai trò và phạm vi; giữ hằng số nghiệp vụ; đánh dấu dữ liệu chưa rõ. Mô tả đầu vào không có, tệp hoặc thư mục và hợp đồng đầu ra dự kiến. Quy định xử lý phụ thuộc ngoài khi nhập.",
+      "files": ["docs/workflow-export-field-map.md", "docs/workflow-template-conversion.md"],
+      "risk": "Tham số hóa nhầm hằng số nghiệp vụ hoặc lộ dữ liệu riêng trong ví dụ.",
+      "inputs": ["Bảng ánh xạ của bước đối chiếu"],
+      "outputs": ["Đặc tả có phiên bản trong docs/workflow-template-conversion.md"],
+      "dependsOn": ["doi-chieu-hien-trang"],
+      "completion": "Đặc tả nêu quy tắc chuyển đổi từng loại trường, không gian tên tham số và điều kiện chặn xuất.",
+      "onError": "Giữ mục chưa rõ ở trạng thái cần người dùng phân loại; không suy đoán."
+    },
+    {
+      "id": "viet-lai-xuat-mau",
+      "goal": "Viết lại Xuất mẫu có bước rà soát",
+      "task": "Chuyển đổi trên bản sao; chỉ gửi nội dung tự do cần phân loại tới AI đã cấu hình. Kiểm tra đề xuất AI, áp dụng theo vị trí nguồn, giữ cấu trúc nhánh và vòng lặp. Hiển thị so sánh trước–sau, tham số và mục chưa phân loại; chỉ xuất sau khi người dùng duyệt và mọi kiểm tra đạt.",
+      "files": ["chatbox/src/workflow-tools.ts", "chatbox/src/WorkflowPanel.tsx", "core/src/desktop/workflow-templates.ts"],
+      "risk": "Thay chuỗi thiếu ngữ cảnh, phá cú pháp hoặc tự động xuất khi chưa duyệt.",
+      "inputs": ["Đặc tả chuyển đổi", "Quy trình nguồn"],
+      "outputs": ["Thuật toán Xuất mẫu và giao diện rà soát"],
+      "dependsOn": ["dac-ta-chuyen-doi"],
+      "completion": "Mẫu không còn dữ liệu riêng đã đánh dấu; giữ kiểu dữ liệu, liên kết nút và hợp đồng đầu ra; còn mục chưa phân loại thì bị chặn.",
+      "onError": "Giữ bản nháp và lỗi theo vị trí; cho sửa thủ công, không xuất bản mẫu lỗi."
+    },
+    {
+      "id": "xu-ly-phu-thuoc",
+      "goal": "Đóng gói và kiểm tra phụ thuộc khi nhập",
+      "task": "Chụp nội dung prompt, skill và rule đang có hiệu lực theo phạm vi; bỏ liên kết Plan máy nguồn và ánh xạ ID nội bộ. Đánh dấu sổ nguồn, tệp, thư mục và model cần gán lại; không đóng gói bí mật hay nội dung nguồn. Cho nhập nháp thiếu phụ thuộc ngoài nhưng chặn chạy.",
+      "files": ["core/src/desktop/workflow-templates.ts", "core/src/desktop/workflows.ts", "chatbox/src/workflow-tools.ts"],
+      "risk": "Tham chiếu hỏng hoặc phụ thuộc máy nguồn bị dùng ngầm.",
+      "inputs": ["Đặc tả chuyển đổi", "Mẫu đã chuyển đổi"],
+      "outputs": ["Bộ kiểm tra phụ thuộc và báo cáo gán lại"],
+      "dependsOn": ["dac-ta-chuyen-doi", "viet-lai-xuat-mau"],
+      "completion": "JSON sai cấu trúc bị từ chối; bản nhập thiếu phụ thuộc ngoài hiện rõ và không thể chạy trước khi gán đủ.",
+      "onError": "Từ chối nhập khi tham chiếu nội bộ hỏng; giữ nháp và danh sách phụ thuộc khi chỉ thiếu tài nguyên ngoài."
+    },
+    {
+      "id": "them-xuat-quy-trinh",
+      "goal": "Thêm Xuất quy trình JSON cụ thể",
+      "task": "Thêm công cụ cạnh Xuất mẫu; xuất đầu vào và cấu hình cụ thể theo bảng ánh xạ, loại lịch sử chạy, bí mật và nội dung tệp đính kèm. Bắt buộc mở bộ chọn thư mục mỗi lần; hủy thì không ghi. Tạo tên mới khi trùng, báo đường dẫn chỉ sau khi ghi thành công.",
+      "files": ["chatbox/src/WorkflowPanel.tsx", "chatbox/src/workflow-tools.ts", "core/src/desktop/runtime.ts"],
+      "risk": "Mất cấu hình khi nhập lại, ghi đè tệp hoặc báo thành công giả.",
+      "inputs": ["Bảng ánh xạ trường", "Bộ kiểm tra phụ thuộc"],
+      "outputs": ["Công cụ Xuất quy trình và định dạng JSON có phiên bản"],
+      "dependsOn": ["doi-chieu-hien-trang", "xu-ly-phu-thuoc"],
+      "completion": "Hủy chọn thư mục không tạo tệp; xuất–nhập giữ cấu hình đã cam kết và báo phần cần gán lại.",
+      "onError": "Giữ nguyên dữ liệu nguồn, hiển thị lỗi ghi hoặc nhập; không ghi đè tệp trùng tên."
+    },
+    {
+      "id": "kiem-thu-ban-giao",
+      "goal": "Kiểm thử và bàn giao",
+      "task": "Kiểm thử từng bộ dữ liệu harness, nhập lại, hủy lưu, lỗi ghi và tên trùng. Chạy typecheck, build và toàn bộ test; chẩn đoán từng lỗi thất bại. Kiểm tra trên desktop và với AI thật nếu môi trường cho phép; cập nhật hướng dẫn. Không commit hoặc đẩy mã khi chưa được yêu cầu.",
+      "files": ["chatbox/test", "core/test", "docs/workflow-language.md", "docs/workflow-template-conversion.md"],
+      "risk": "Kiểm thử mô phỏng không chứng minh được hành vi desktop hoặc AI thật.",
+      "inputs": ["Mã nguồn của năm bước trước", "Bộ dữ liệu harness"],
+      "outputs": ["Kiểm thử, tài liệu và báo cáo kiểm chứng"],
+      "dependsOn": ["viet-lai-xuat-mau", "xu-ly-phu-thuoc", "them-xuat-quy-trinh"],
+      "completion": "Có kết quả từng ca harness, typecheck, build và toàn bộ test; báo riêng phần desktop hoặc AI chưa xác minh.",
+      "onError": "Chẩn đoán lỗi liên quan trước khi sửa; ghi rõ lỗi ngoài phạm vi và dừng bàn giao nếu tiêu chí chính chưa đạt."
+    }
+  ],
+  "harness": {
+    "datasets": [
+      "Không có đầu vào; hằng số nghiệp vụ phải giữ nguyên.",
+      "Một DOCX chứa tên người, đường dẫn và dữ liệu riêng phải được thay bằng yêu cầu đầu vào có kiểu.",
+      "Một thư mục có nhánh, hợp nhánh, vòng lặp và nhiều định dạng tệp đầu ra.",
+      "Hai giá trị giống nhau nhưng khác vai trò; một dữ liệu được dùng tại nhiều nút.",
+      "Prompt có {{input}}, {{prev}}, biến, biểu thức và tài nguyên ở nhiều phạm vi.",
+      "Máy nhập thiếu model, sổ nguồn, tệp hoặc tài nguyên thư viện."
+    ],
+    "passConditions": [
+      "Mỗi bộ dữ liệu có mẫu mong đợi và bảng ánh xạ trường.",
+      "Không còn dữ liệu riêng đã đánh dấu trong tên, prompt, giá trị mặc định hoặc ví dụ.",
+      "Mẫu dùng được với nguồn khác cùng kiểu và giữ đúng nhánh, vòng lặp, hợp đồng đầu ra.",
+      "Không xuất khi còn mục chưa phân loại hoặc tham chiếu hỏng.",
+      "Xuất–nhập giữ cấu hình đã cam kết sau khi chuẩn hóa ID.",
+      "Hủy chọn thư mục không tạo tệp; lỗi ghi không báo thành công.",
+      "Quy trình xuất hiện trong bộ quản lý và chưa tự chạy."
+    ]
+  }
+}

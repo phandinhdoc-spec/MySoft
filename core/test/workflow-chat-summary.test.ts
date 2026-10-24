@@ -30,7 +30,7 @@ describe('workflowChatSummary',()=>{
   expect(text).toContain('2. Chấm — lỗi: Mô hình không phản hồi');
   expect(text).toContain('3. Tổng hợp — bỏ qua');
   expect(text).toContain('**Kết quả (Soạn câu hỏi):**');
-  expect(text).toContain('Có thể chạy tiếp từ khâu lỗi');
+  expect(text).toContain('Reset và chạy từ đầu');
  });
 
  it('truncates long output and lists confirmed output files only',()=>{

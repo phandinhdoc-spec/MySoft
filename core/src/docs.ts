@@ -61,6 +61,7 @@ const RESULT_OPENABLE = new Set([
   ".xlsx", ".xls", ".xlsm", ".xltx",
   ".pptx", ".ppt", ".pptm", ".potx",
   ".pdf", ".zip", ".md", ".txt", ".csv", ".typ",
+  ".png", ".jpg", ".jpeg", ".webp",
 ]);
 
 export function openResultFile(p: unknown, opts: { platform?: NodeJS.Platform; opener?: Opener } = {}): { ok: true; file: string } | { ok: false; error: string } {
