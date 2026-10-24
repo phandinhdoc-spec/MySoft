@@ -5,9 +5,13 @@
 /* Menu gợi ý nằm trong luồng để không bị cắt bởi hộp thoại có thanh cuộn. */
 .step-composer .trigger-menu{position:static;margin:6px 0;max-height:min(300px,45dvh)}
 .step-composer .file-chips{margin:0}
+.wf-resource-list{display:grid;gap:8px}.wf-resource-list details{border:1px solid var(--line);border-radius:8px;padding:8px}.wf-resource-list label{display:grid;gap:4px;margin:6px 0}.wf-resource-list textarea{min-height:100px;width:100%;box-sizing:border-box}
 .wf-language-hint{margin:4px 0;color:var(--text-secondary,currentColor)}
 .wf-language-error{border-left:3px solid var(--danger,#a33333);padding:0 10px;color:var(--danger,#a33333)}
 .wf-language-error p{margin:4px 0}.wf-language-error button{margin:4px 8px 4px 0}
 .wf-language{font-size:13px;display:grid;gap:6px}.wf-language [role=listbox]{display:flex;flex-wrap:wrap;gap:4px}.wf-language [role=option]{text-align:left}.wf-language [role=status]{color:var(--danger,#a33333)}.wf-language-dialog{border:1px solid var(--border,#aaa);border-radius:8px;padding:12px;display:grid;gap:8px}.wf-language-dialog label{display:grid;gap:4px}.wf-language-dialog textarea{width:100%;box-sizing:border-box}
 .step-composer .attachment-chip button{padding:2px 4px}
+.step-add-tool-btn{display:inline-flex;align-items:center;justify-content:center;gap:1px;font-size:11px;font-weight:600;padding:2px 6px;color:var(--muted);border-radius:6px;height:26px;background:none;border:1px solid transparent;cursor:pointer}
+.step-add-tool-btn:hover:not(:disabled){color:var(--accent);background:var(--accent-soft);border-color:var(--line)}
+.step-tool-badge{font-size:12px;font-family:ui-monospace,monospace;opacity:0.85}
 .wf-prompt-field{display:flex;flex-direction:column;gap:8px}.wf-prompt-field>.wf-field-label{font-size:13px;font-weight:550}

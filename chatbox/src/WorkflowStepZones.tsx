@@ -68,8 +68,6 @@ export function StepOutputsZone({step,directives,diagnostic,children}:{step:Work
     {children}
     {hasDeclared&&<dl className="wf-zone-list">{declared.filter(([,v])=>!!v).map(([k,v])=><div key={k}><dt><strong>{labels[k]}</strong></dt><dd>{v}</dd></div>)}</dl>}
     {diagnostic?<div className="wf-zone-diag"><strong>{uiText("Lỗi biên dịch ở nút này")}{diagnostic.line?` (${uiText("dòng {0}",[diagnostic.line])})`:''}</strong><p>{diagnostic.message}</p><p><em>{diagnostic.repair}</em></p></div>:<p className="muted small">{uiText("Không có lỗi biên dịch ở nút này.")}</p>}
-    <strong className="wf-zone-title">{uiText("Chỉ thị đầu ra (chỉ để xem; sửa trong ô Prompt)")}</strong>
-    {directives.length?<ul className="wf-zone-list">{directives.map((d,i)=><li key={i}><code>{directiveText(d)}</code> <small className="muted">{uiText("dòng {0}",[d.line])}</small></li>)}</ul>:<p className="muted small">{uiText("Chưa có chỉ thị !dau-ra, !lap-lai hoặc !dung.")}</p>}
    </div>
   </details>
  </section>;

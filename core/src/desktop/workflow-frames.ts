@@ -1,5 +1,6 @@
-import type {Workflow,WorkflowFrame,WorkflowStep} from './types.js';
+import type {Workflow,WorkflowFrame,WorkflowStep,WorkflowResource} from './types.js';
 import {assertNoShadow,parseDeclarations,mergeDeclarations,type Declarations} from './workflow-vars.js';
+import {scopedWorkflowResources} from './workflow-scoped-resources.js';
 
 export const MAX_FRAME_DEPTH=3,MAX_FRAMES=20,MAX_SUB_DEPTH=3,MAX_FLAT_STEPS=60;
 const STR=(v:unknown,max:number)=>typeof v==='string'?v.slice(0,max):'';
@@ -109,7 +110,7 @@ export function assertNoCycle(wf:Workflow,all:Workflow[]):void{
 export function flattenWorkflow(wf:Workflow,all:Workflow[]):{steps:WorkflowStep[];frames:WorkflowFrame[]}{
  assertNoCycle(wf,all);
  const byId=new Map(all.map(w=>[w.id,w]));
- const build=(w:Workflow,prefix:string):{steps:WorkflowStep[];frames:WorkflowFrame[]}=>{
+ const build=(w:Workflow,prefix:string,inherited:WorkflowResource[]=[]):{steps:WorkflowStep[];frames:WorkflowFrame[]}=>{
   const deps=explicitDeps(w);
   const stepsOut:WorkflowStep[]=[],framesOut:WorkflowFrame[]=[];
   const expandedIds=new Map<string,string[]>(); // mã nút cha → các mã nút thay thế
@@ -117,11 +118,11 @@ export function flattenWorkflow(wf:Workflow,all:Workflow[]):{steps:WorkflowStep[
   w.steps.forEach((s,i)=>{
    const myDeps=deps[i]!.flatMap(d=>terminalsOf.get(d)??[prefix+d]);
    if(!s.subWorkflowId){
-    stepsOut.push({...s,...(w.planId&&!s.templateCopy?{planPrompt:true as const}:{}),id:prefix+s.id,dependsOn:myDeps,subWorkflowId:undefined});
+    stepsOut.push({...s,resources:[...inherited,...scopedWorkflowResources(s,w.steps)].map((r,i)=>({...r,id:`scoped-${i}`,scope:'step'})),...(w.planId&&!s.templateCopy?{planPrompt:true as const}:{}),id:prefix+s.id,dependsOn:myDeps,subWorkflowId:undefined});
     expandedIds.set(s.id,[prefix+s.id]);terminalsOf.set(s.id,[prefix+s.id]);return;
    }
    const child=byId.get(s.subWorkflowId)!;
-   const inner=build(child,`${prefix}${s.id}.`);
+   const inner=build(child,`${prefix}${s.id}.`,[...inherited,...scopedWorkflowResources(s,w.steps)]);
    const childIds=new Set(inner.steps.map(x=>x.id));
    const innerDependedOn=new Set(inner.steps.flatMap(x=>x.dependsOn??[]));
    inner.steps.forEach(x=>{const roots=!(x.dependsOn??[]).some(d=>childIds.has(d));stepsOut.push(roots?{...x,dependsOn:[...(x.dependsOn??[]),...myDeps]}:x);});

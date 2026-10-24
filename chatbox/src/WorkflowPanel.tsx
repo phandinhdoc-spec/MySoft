@@ -15,6 +15,8 @@ import {Icon} from './Icon';
 import {Badge,ToolButton,ToolGroup,ToolSep,WfGlyph} from './WorkflowToolkit';
 import {CodeApproval} from './CodeApproval';
 import {StepComposer} from './StepComposer';
+import {StepInputFiles} from './StepInputFiles';
+import {StepInputsForm,StepOutputsForm} from './WorkflowStepForm';
 import {StepInputsZone,StepOutputsZone,stepDiagnostic,stepDirectives,stepVariables} from './WorkflowStepZones';
 import './workflow.css';
 import {forkWorkflow,insertWorkflowAfter,layoutWorkflow} from './workflow-graph';
@@ -245,10 +247,12 @@ export function WorkflowPanel({state,report,notice,onAutoCreate,selectedId,navig
      </div>
      {step.access==='full'&&<p className="wf-warn">{uiText("Nút này được sửa tệp và chạy lệnh trực tiếp trong thư mục làm việc")} {draft.folder?`: ${draft.folder}`:' (cần chọn thư mục ở trên)'}.</p>}
      <StepInputsZone variables={stepVariables(draft,step.id)} hasDependencies={draft.mode==='parallel'&&(step.dependsOn??[]).length>0}>
+      <StepInputFiles files={step.files??[]} disabled={running||!!(saved.planId&&!step.templateCopy)} onChange={files=>patchStep(step.id,{files})} report={report} notice={notice}/><StepInputsForm workflow={draft} step={step} disabled={running} onPrompt={prompt=>patchStep(step.id,{prompt})}/>
       {draft.mode==='parallel'&&<fieldset disabled={running}><legend>{uiText("Các bước cần chờ")}</legend><p className="muted small">{uiText("Không chọn: chạy độc lập. Chọn nhiều bước: hợp nhất kết quả qua")} {'{{prev}}'}{uiText(". Không tạo vòng lặp.")}</p>{draft.steps.filter(s=>s.id!==step.id).map(s=><label className="wf-check" key={s.id}><input type="checkbox" checked={(step.dependsOn??[]).includes(s.id)} onChange={e=>patchStep(step.id,{dependsOn:e.target.checked?[...(step.dependsOn??[]),s.id]:(step.dependsOn??[]).filter(id=>id!==s.id)})}/>{s.name}</label>)}</fieldset>}
      </StepInputsZone>
-     <div className="wf-prompt-field"><span className="wf-field-label">Prompt</span><StepComposer workflow={draft} stepId={step.id} state={state} value={step.prompt} onChange={(prompt,files)=>patchStep(step.id,{prompt,...(files?{files}:{})})} files={step.files??[]} onFiles={files=>patchStep(step.id,{files:files.length?files:undefined})} projectId={saved.projectId} disabled={running} filesDisabledReason={saved.planId&&!step.templateCopy?uiText("Quy trình sinh từ Plan chạy theo Plan nên chưa nhận tệp riêng cho từng nút; hãy đính kèm tệp trong hội thoại của Plan."):undefined} report={report} notice={notice}/></div>
+     <div className="wf-prompt-field"><span className="wf-field-label">Prompt</span><StepComposer inheritedResources={draft.steps.filter(s=>s.id!==step.id).flatMap(s=>(s.resources??[]).filter(r=>r.scope==='workflow').map(resource=>({owner:s.name,resource})))} key={step.id} resources={step.resources} onResources={(resources,prompt)=>patchStep(step.id,{resources,...(prompt!==undefined?{prompt}:{})})} workflow={draft} stepId={step.id} state={state} value={step.prompt} onChange={(prompt,files)=>patchStep(step.id,{prompt,...(files?{files}:{})})} files={step.files??[]} onFiles={files=>patchStep(step.id,{files:files.length?files:undefined})} projectId={saved.projectId} disabled={running} filesDisabledReason={saved.planId&&!step.templateCopy?uiText("Quy trình sinh từ Plan chạy theo Plan nên chưa nhận tệp riêng cho từng nút; hãy đính kèm tệp trong hội thoại của Plan."):undefined} report={report} notice={notice}/></div>
      <StepOutputsZone step={step} directives={stepDirectives(step.prompt,step.id)} diagnostic={stepDiagnostic(draft,step.id)}>
+      <StepOutputsForm workflow={draft} step={step} disabled={running} onPrompt={prompt=>patchStep(step.id,{prompt})}/>
       <label className="wf-check"><input type="checkbox" checked={!!step.continueOnError} disabled={running} onChange={e=>patchStep(step.id,{continueOnError:e.target.checked})}/> {uiText("Lỗi vẫn chạy tiếp")}</label>
      </StepOutputsZone>
      <div className="wf-step-foot">

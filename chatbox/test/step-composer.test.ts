@@ -11,6 +11,7 @@ vi.mock('../src/PlanCard',()=>({PlanCard:()=>null}));
 vi.mock('../src/LinkedNotebooks',()=>({LinkedNotebooks:()=>null}));
 import {WorkflowPanel} from '../src/WorkflowPanel';
 import {exportWorkflow} from '../src/workflow-tools';
+import {importWorkflow} from '../src/workflow-tools';
 import {inputPath,parsePrompt} from '../../core/src/desktop/workflow-language';
 let host:HTMLDivElement,root:Root;
 const wf=(extra:Partial<Workflow>={}):Workflow=>({id:'w',name:'Bài học',updatedAt:1,runs:[],steps:[{id:'A',name:'A',prompt:'',choice:'auto',access:'read'}],...extra});
@@ -20,9 +21,58 @@ const open=async(w:Workflow)=>{
  await act(async()=>host.querySelector<HTMLButtonElement>('[aria-label="Sửa bước: A"]')!.click());
 };
 const dialog=()=>host.querySelector('.step-composer')!;
+const setValue=(el:HTMLInputElement|HTMLTextAreaElement|HTMLSelectElement,v:string)=>{const proto=el instanceof HTMLTextAreaElement?HTMLTextAreaElement.prototype:el instanceof HTMLSelectElement?HTMLSelectElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(proto,'value')!.set!.call(el,v);el.dispatchEvent(new Event(el instanceof HTMLSelectElement?'change':'input',{bubbles:true}));};
 const labels=()=>[...dialog().querySelectorAll('.composer-toolbar button')].map(b=>b.getAttribute('aria-label')??'');
 beforeEach(()=>{(globalThis as any).IS_REACT_ACT_ENVIRONMENT=true;Element.prototype.scrollIntoView??=function(){};mocks.rpc.mockReset().mockResolvedValue(true);mocks.pickFiles.mockReset();host=document.createElement('div');document.body.append(host);root=createRoot(host);});
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();});
+
+it.each([['step',0],['workflow',1],['step',2]] as const)('tạo tài nguyên phạm vi %s qua menu %s không ghi thư viện và giữ qua lưu/mở lại',async(scope,index)=>{
+ await open(wf());
+ await act(async()=>setValue(dialog().querySelector<HTMLSelectElement>('[aria-label="Phạm vi áp dụng tài nguyên"]')!,scope));
+ await act(async()=>dialog().querySelectorAll<HTMLButtonElement>('.trigger-button')[index]!.click());
+ await act(async()=>dialog().querySelector<HTMLButtonElement>('.trigger-add-btn')!.click());
+ await act(async()=>{setValue(host.querySelector<HTMLInputElement>('.modal input[required]')!,'Riêng');setValue(host.querySelector<HTMLTextAreaElement>('.modal textarea[required]')!,'NỘI DUNG RIÊNG');});
+ await act(async()=>host.querySelector<HTMLFormElement>('.modal form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+ expect(mocks.rpc.mock.calls.some(c=>['savePrompt','saveRule','createSkill'].includes(c[0]))).toBe(false);
+ expect(dialog().querySelector('.wf-resource-list')?.textContent).toContain('Riêng');
+ expect(dialog().querySelector<HTMLTextAreaElement>('[aria-label="Prompt của nút"]')!.value).toBe('');
+ await act(async()=>[...host.querySelectorAll('button')].find(b=>b.textContent==='Lưu thay đổi')!.click());
+ const saved=mocks.rpc.mock.calls.find(c=>c[0]==='workflowSave')![1].workflow as Workflow;
+ expect(saved.steps[0]!.resources?.[0]).toMatchObject({scope,body:'NỘI DUNG RIÊNG',kind:index===0?'prompt':index===1?'skill':'rule'});
+ expect(importWorkflow(exportWorkflow(saved)).steps[0]!.resources).toEqual(saved.steps[0]!.resources);
+ await act(async()=>host.querySelector<HTMLButtonElement>('[aria-label="Đóng cửa sổ sửa bước"]')!.click());
+ await act(async()=>host.querySelector<HTMLButtonElement>('[aria-label="Sửa bước: A"]')!.click());
+ expect(dialog().querySelector('.wf-resource-list')?.textContent).toContain('Riêng');
+});
+
+it('chọn prompt thư viện làm bản riêng, đổi phạm vi rồi bỏ áp dụng',async()=>{
+ await open(wf());
+ await act(async()=>setValue(dialog().querySelector<HTMLSelectElement>('[aria-label="Phạm vi áp dụng tài nguyên"]')!,'step'));
+ await act(async()=>dialog().querySelectorAll<HTMLButtonElement>('.trigger-button')[0]!.click());
+ await act(async()=>dialog().querySelector<HTMLButtonElement>('.trigger-menu [role=option]')!.click());
+ expect(dialog().querySelector('.wf-resource-list summary')).not.toBeNull();
+ const scope=dialog().querySelector<HTMLSelectElement>('.wf-resource-list select')!;
+ expect([...scope.options].map(o=>o.value)).toEqual(['step','workflow']);
+ await act(async()=>setValue(scope,'workflow'));
+ await act(async()=>[...host.querySelectorAll('button')].find(b=>b.textContent==='Lưu thay đổi')!.click());
+ const saved=mocks.rpc.mock.calls.find(c=>c[0]==='workflowSave')![1].workflow as Workflow;
+ expect(saved.steps[0]!.resources![0]).toMatchObject({scope:'workflow',kind:'prompt'});
+ expect(saved.steps[0]!.resources![0]!.body.length).toBeGreaterThan(0);
+ await act(async()=>[...dialog().querySelectorAll('button')].find(b=>b.textContent==='Bỏ áp dụng')!.click());
+ expect(dialog().querySelector('.wf-resource-list summary')).toBeNull();
+});
+
+it('chọn PDF và ảnh tại vùng đầu vào rồi lưu cùng nút',async()=>{
+ await open(wf());const select=host.querySelector<HTMLSelectElement>('[aria-label="Loại tệp đầu vào"]')!;
+ await act(async()=>setValue(select,'pdf'));mocks.pickFiles.mockResolvedValueOnce(['/tmp/đề.pdf']);
+ await act(async()=>[...host.querySelectorAll('button')].find(b=>b.textContent==='Chèn tệp đầu vào')!.click());
+ expect(mocks.pickFiles).toHaveBeenLastCalledWith(false,expect.objectContaining({extensions:['pdf']}));
+ await act(async()=>setValue(select,'image'));mocks.pickFiles.mockResolvedValueOnce(['/tmp/hình.png']);
+ await act(async()=>[...host.querySelectorAll('button')].find(b=>b.textContent==='Chèn tệp đầu vào')!.click());
+ expect(mocks.pickFiles).toHaveBeenLastCalledWith(false,expect.objectContaining({extensions:['png','jpg','jpeg','webp']}));
+ await act(async()=>[...host.querySelectorAll('button')].find(b=>b.textContent==='Lưu thay đổi')!.click());
+ expect(mocks.rpc.mock.calls.find(c=>c[0]==='workflowSave')![1].workflow.steps[0].files).toEqual(['/tmp/đề.pdf','/tmp/hình.png']);
+});
 
 it('ô prompt của nút giữ 5 công cụ tài nguyên cùng thanh Markdown',async()=>{
  await open(wf());
@@ -223,4 +273,88 @@ it('ẩn/hiện công cụ khung không thay prompt khai báo; gợi ý chỉ g�
  mocks.rpc.mockResolvedValueOnce(prompt);
  await act(async()=>[...host.querySelectorAll('button')].find(b=>b.textContent==='Nhờ AI đề xuất')!.click());
  const sent=mocks.rpc.mock.calls.find(c=>c[0]==='workflowSuggest')![1];expect(sent.workflow.id).toBe(w.id);expect(JSON.stringify(sent)).not.toContain('SECRET');expect(sent.workflow.steps[0].prompt).toBe(prompt);
+});
+
+
+it('cho phép mở cửa sổ thêm mới prompt mẫu (@), skill (/), quy tắc (#) và quản lý từ nút quy trình',async()=>{
+ const set=(el:HTMLInputElement|HTMLTextAreaElement,v:string)=>{const proto=el instanceof HTMLTextAreaElement?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(proto,'value')!.set!.call(el,v);el.dispatchEvent(new Event('input',{bubbles:true}));};
+ await open(wf());
+ const ta=dialog().querySelector<HTMLTextAreaElement>('[aria-label="Prompt của nút"]')!;
+ const tb=[...dialog().querySelectorAll<HTMLButtonElement>('.trigger-button')];
+
+ // 1. Mở prompt mẫu @ -> Thêm prompt mẫu mới
+ await act(async()=>tb[0]!.click());
+ const addPromptBtn=dialog().querySelector<HTMLButtonElement>('.trigger-add-btn')!;
+ expect(addPromptBtn.textContent).toContain('Thêm prompt mẫu');
+ await act(async()=>addPromptBtn.click());
+ expect(host.querySelector('.modal header h2')?.textContent).toBe('Thêm prompt mẫu mới');
+ const titleInput=host.querySelector<HTMLInputElement>('.modal input[required]')!;
+ const textInput=host.querySelector<HTMLTextAreaElement>('.modal textarea[required]')!;
+ await act(async()=>{
+  set(titleInput,'Phiếu bài tập');
+  set(textInput,'Soạn 5 câu trắc nghiệm');
+ });
+ mocks.rpc.mockResolvedValueOnce('prompt-123');
+ await act(async()=>host.querySelector<HTMLFormElement>('.modal form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+ expect(mocks.rpc).toHaveBeenCalledWith('savePrompt',expect.objectContaining({prompt:expect.objectContaining({title:'Phiếu bài tập'})}));
+ expect(host.querySelector('.modal')).toBeNull();
+ expect(ta.value).toContain('@Phiếu bài tập');
+
+ // 2. Mở skill / -> Viết skill mới
+ await act(async()=>tb[1]!.click());
+ const addSkillBtn=dialog().querySelector<HTMLButtonElement>('.trigger-add-btn')!;
+ expect(addSkillBtn.textContent).toContain('Viết skill mới');
+ await act(async()=>addSkillBtn.click());
+ expect(host.querySelector('.modal header h2')?.textContent).toBe('Viết skill mới');
+ const skillNameInput=host.querySelector<HTMLInputElement>('.modal input[required]')!;
+ const skillBodyInput=host.querySelector<HTMLTextAreaElement>('.modal textarea[required]')!;
+ await act(async()=>{
+  set(skillNameInput,'cham-bai');
+  set(skillBodyInput,'# Chấm bài');
+ });
+ mocks.rpc.mockResolvedValueOnce({installed:['cham-bai'],skipped:[]});
+ await act(async()=>host.querySelector<HTMLFormElement>('.modal form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+ expect(mocks.rpc).toHaveBeenCalledWith('createSkill',expect.objectContaining({name:'cham-bai'}));
+ expect(host.querySelector('.modal')).toBeNull();
+ expect(ta.value).toContain('/cham-bai');
+
+ // 3. Mở rule # -> Thêm quy tắc mới
+ await act(async()=>tb[2]!.click());
+ const addRuleBtn=dialog().querySelector<HTMLButtonElement>('.trigger-add-btn')!;
+ expect(addRuleBtn.textContent).toContain('Thêm quy tắc');
+ await act(async()=>addRuleBtn.click());
+ expect(host.querySelector('.modal header h2')?.textContent).toBe('Thêm quy tắc mới');
+ const ruleTitleInput=host.querySelector<HTMLInputElement>('.modal input[required]')!;
+ const ruleTextInput=host.querySelector<HTMLTextAreaElement>('.modal textarea[required]')!;
+ await act(async()=>{
+  set(ruleTitleInput,'Dùng tiếng Việt');
+  set(ruleTextInput,'Luôn trả lời tiếng Việt');
+ });
+ mocks.rpc.mockResolvedValueOnce('rule-1');
+ await act(async()=>host.querySelector<HTMLFormElement>('.modal form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+ expect(mocks.rpc).toHaveBeenCalledWith('saveRule',expect.objectContaining({rule:expect.objectContaining({title:'Dùng tiếng Việt'})}));
+ expect(host.querySelector('.modal')).toBeNull();
+ expect(ta.value).toContain('#Dùng tiếng Việt');
+
+ // 4. Quản lý mở các modal tương ứng
+ await act(async()=>tb[0]!.click());
+ const managePromptBtn=[...dialog().querySelectorAll<HTMLButtonElement>('.trigger-menu footer button')].find(b=>b.textContent?.includes('Quản lý'))!;
+ await act(async()=>managePromptBtn.click());
+ expect(host.querySelector('.modal header h2')?.textContent).toBe('Thư viện lời nhắc');
+ await act(async()=>host.querySelector<HTMLButtonElement>('.modal header [aria-label="Đóng"]')!.click());
+ expect(host.querySelector('.modal')).toBeNull();
+
+ await act(async()=>tb[1]!.click());
+ const manageSkillBtn=[...dialog().querySelectorAll<HTMLButtonElement>('.trigger-menu footer button')].find(b=>b.textContent?.includes('Quản lý'))!;
+ await act(async()=>manageSkillBtn.click());
+ expect(host.querySelector('.modal header h2')?.textContent).toBe('Quản lý kỹ năng');
+ await act(async()=>host.querySelector<HTMLButtonElement>('.modal header [aria-label="Đóng"]')!.click());
+ expect(host.querySelector('.modal')).toBeNull();
+
+ await act(async()=>tb[2]!.click());
+ const manageRuleBtn=[...dialog().querySelectorAll<HTMLButtonElement>('.trigger-menu footer button')].find(b=>b.textContent?.includes('Quản lý'))!;
+ await act(async()=>manageRuleBtn.click());
+ expect(host.querySelector('.modal header h2')?.textContent).toBe('Quản lý quy tắc');
+ await act(async()=>host.querySelector<HTMLButtonElement>('.modal header [aria-label="Đóng"]')!.click());
+ expect(host.querySelector('.modal')).toBeNull();
 });

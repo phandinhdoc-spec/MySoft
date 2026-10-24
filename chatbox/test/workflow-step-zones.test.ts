@@ -63,12 +63,12 @@ it('lỗi của nút khác không hiện ở vùng ĐẦU RA của nút đang s�
  expect(dialog.querySelector('.wf-zone-out')!.textContent).toContain('Không có lỗi biên dịch ở nút này.');
 });
 
-it('chỉ thị !dau-ra hiển thị ở ĐẦU RA dưới dạng chỉ để xem',async()=>{
+it('chỉ thị !dau-ra hiện thành ô sửa được ở ĐẦU RA',async()=>{
  const dialog=await open(wf([{name:'A',prompt:'!dau-ra = "ket qua"\nNội dung'},{name:'B'}]),'A');
  const zone=dialog.querySelector('.wf-zone-out')!;
  expect(zone.querySelector('details')!.open).toBe(true);
- expect(zone.querySelector('.wf-zone-list code')!.textContent).toBe('!dau-ra = "ket qua"');
- expect(zone.textContent).toContain('chỉ để xem');
+ expect(zone.querySelector<HTMLInputElement>('[aria-label="Biểu thức đầu ra"]')!.value).toBe('"ket qua"');
+ expect(zone.textContent).not.toContain('chỉ để xem');
 });
 
 it('khóa các điều khiển quyền và nút khi đang chạy',async()=>{
@@ -85,4 +85,68 @@ it('hàm thuần: biến và chỉ thị được tách đúng',()=>{
  expect(stepDirectives(w.steps[0]!.prompt,'A')).toEqual([{kind:'dau-ra',line:2,value:'"ok"',target:undefined}]);
  expect(directiveText({kind:'lap-lai',line:1,value:'$x > 1',target:'A'})).toBe('!lap-lai "A" neu $x > 1');
  expect(directiveText({kind:'dung',line:1,value:'true'})).toBe('!dung neu true');
+});
+
+const typeInto=async(el:HTMLInputElement|HTMLSelectElement,value:string)=>{
+ await act(async()=>{
+  const proto=el instanceof HTMLSelectElement?HTMLSelectElement.prototype:HTMLInputElement.prototype;
+  Object.getOwnPropertyDescriptor(proto,'value')!.set!.call(el,value);
+  el.dispatchEvent(new Event(el instanceof HTMLSelectElement?'change':'input',{bubbles:true}));
+ });
+};
+const blur=async(el:HTMLElement)=>act(async()=>{el.focus();el.blur();el.dispatchEvent(new FocusEvent('focusout',{bubbles:true}));});
+const promptOf=(dialog:HTMLElement)=>dialog.querySelector<HTMLTextAreaElement>('.wf-prompt-field textarea')!.value;
+const click=async(el:Element|null)=>act(async()=>{(el as HTMLElement).click();});
+
+it('biểu mẫu ĐẦU VÀO: thêm biến ghi !bien $ten vào đầu prompt và giữ văn bản',async()=>{
+ const dialog=await open(wf([{name:'A',prompt:'Nội dung\nthứ hai'},{name:'B'}]),'A');
+ await typeInto(dialog.querySelector('[aria-label="Tên biến mới"]')!,'so-lan');
+ await typeInto(dialog.querySelector('[aria-label="Giá trị đầu của biến mới"]')!,'0');
+ await click([...dialog.querySelectorAll('button')].find(b=>b.textContent==='Thêm biến')!);
+ expect(promptOf(dialog)).toBe('!bien $so-lan = 0\nNội dung\nthứ hai');
+});
+
+it('biểu mẫu ĐẦU VÀO: giá trị không phải hằng hiện lỗi dưới ô và không ghi',async()=>{
+ const dialog=await open(wf([{name:'A',prompt:'Nội dung'},{name:'B'}]),'A');
+ await typeInto(dialog.querySelector('[aria-label="Tên biến mới"]')!,'a');
+ await typeInto(dialog.querySelector('[aria-label="Giá trị đầu của biến mới"]')!,'$b');
+ await click([...dialog.querySelectorAll('button')].find(b=>b.textContent==='Thêm biến')!);
+ expect(promptOf(dialog)).toBe('Nội dung');
+ expect(dialog.querySelector('.wf-zone-in [role="alert"]')!.textContent).toContain('hằng');
+});
+
+it('biểu mẫu ĐẦU RA: điều kiện dừng sai bị chặn, đúng thì ghi !dung neu',async()=>{
+ const dialog=await open(wf([{name:'A',prompt:'!bien n = 0\nNội dung'},{name:'B'}]),'A');
+ const field=()=>dialog.querySelector<HTMLInputElement>('[aria-label="Điều kiện dừng"]')!;
+ await typeInto(field(),'$n >');await blur(field());
+ expect(promptOf(dialog)).toBe('!bien n = 0\nNội dung');
+ expect(dialog.querySelector('.wf-zone-out [role="alert"]')!.textContent).toContain('Điều kiện dừng');
+ await typeInto(field(),'$n >= 3');await blur(field());
+ expect(promptOf(dialog)).toBe('!bien n = 0\n!dung neu $n >= 3\nNội dung');
+});
+
+it('biểu mẫu ĐẦU RA: chọn nút đầu vòng và điều kiện ghi !lap-lai',async()=>{
+ const dialog=await open(wf([{name:'A',prompt:'!bien n = 0'},{name:'B',prompt:'Kiểm tra'}]),'B');
+ await typeInto(dialog.querySelector('[aria-label="Nút đầu vòng lặp"]')!,'S0');
+ await typeInto(dialog.querySelector('[aria-label="Điều kiện lặp lại"]')!,'$n < 3');
+ await blur(dialog.querySelector('[aria-label="Điều kiện lặp lại"]')!);
+ expect(promptOf(dialog)).toBe('!lap-lai "S0" neu $n < 3\nKiểm tra');
+});
+
+it('biểu mẫu ĐẦU RA: số vòng tối đa sinh biến đếm, vượt 50 hiện lỗi và không ghi',async()=>{
+ const dialog=await open(wf([{name:'A',prompt:'Làm'},{name:'B',prompt:'Kiểm tra'}]),'B');
+ await typeInto(dialog.querySelector('[aria-label="Nút đầu vòng lặp"]')!,'S0');
+ await typeInto(dialog.querySelector('[aria-label="Điều kiện lặp lại"]')!,'true');
+ await typeInto(dialog.querySelector('[aria-label="Số vòng tối đa"]')!,'51');
+ await blur(dialog.querySelector('[aria-label="Số vòng tối đa"]')!);
+ expect(promptOf(dialog)).toBe('Kiểm tra');
+ expect(dialog.querySelector('.wf-zone-out [role="alert"]')!.textContent).toContain('1 đến 50');
+ await typeInto(dialog.querySelector('[aria-label="Số vòng tối đa"]')!,'4');
+ await blur(dialog.querySelector('[aria-label="Số vòng tối đa"]')!);
+ expect(promptOf(dialog)).toBe('!bien $vong_S1 = 0\n!gan $vong_S1 = $vong_S1 + 1\n!lap-lai "S0" neu (true) && $vong_S1 < 4\nKiểm tra');
+});
+
+it('biểu mẫu bị khóa khi đang chạy',async()=>{
+ const dialog=await open(wf([{name:'A'},{name:'B'}],{runs:[{id:'r',status:'running',startedAt:1,steps:[]}]}),'A');
+ expect([...dialog.querySelectorAll<HTMLFieldSetElement>('.wf-form-set')].every(f=>f.disabled)).toBe(true);
 });

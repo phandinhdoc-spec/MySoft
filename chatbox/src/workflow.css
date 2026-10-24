@@ -230,3 +230,13 @@
 .wf-zone-diag p{margin:4px 0}
 .wf-step-foot{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 @media(max-width:900px){.wf-step-head{grid-template-columns:1fr}}
+
+/* Biểu mẫu chỉ thị trong vùng ĐẦU VÀO / ĐẦU RA. */
+.wf-form{display:flex;flex-direction:column;gap:8px}
+.wf-form-set{margin:0;border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0}
+.wf-form-set legend{font-size:12px;font-weight:600;color:var(--muted);padding:0 4px}
+.wf-form-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr) auto;gap:6px;margin-bottom:6px}
+.wf-form-row>*{min-width:0}
+.wf-form-row input[inputmode="numeric"]{width:11em}
+.wf-form-error{margin:4px 0 0;font-size:13px;color:var(--danger,#a33333)}
+@media(max-width:900px){.wf-form-row{grid-template-columns:1fr}}

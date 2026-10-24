@@ -161,3 +161,20 @@ describe('bộ chạy chỉ thị',()=>{
   expect(evaluate(parseExpression('$r[0].v'),()=>[{v:3}])).toBe(3);
  });
 });
+
+describe('cú pháp có $ ở vế trái',()=>{
+ it('!bien/!gan/!dau-vao chấp nhận $ten và kiểu cũ không $ cùng chạy giống nhau',async()=>{
+  for(const prompt of ['!bien so-lan = 0\n!gan so-lan = $so-lan + 1\n!dau-ra = $so-lan','!bien $so-lan = 0\n!gan $so-lan = $so-lan + 1\n!dau-ra = $so-lan']){
+   const wf=make([step('a',prompt)]);
+   const machine=new WorkflowMachine(compileWorkflow(wf));
+   const result=await machine.execute('a',null,async()=>null);
+   expect(result.output).toBe(1);
+   expect(parsePrompt(prompt,'a').commands.map(c=>c.name)).toEqual(['so-lan','so-lan',undefined]);
+  }
+ });
+ it('!dau-vao $ten = @truoc nhận kết quả nút trước',async()=>{
+  const wf=make([step('a','Một'),step('b','!dau-vao $kq = @truoc\n!dau-ra = $kq',['a'])]);
+  const machine=new WorkflowMachine(compileWorkflow(wf));
+  expect((await machine.execute('b','xin chào',async()=>null)).output).toBe('xin chào');
+ });
+});

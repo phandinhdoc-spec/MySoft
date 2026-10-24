@@ -1,7 +1,8 @@
 import type {Plan,PlanStep,Workflow,WorkflowRun,PlanVersion} from './types.js';
 import {uid} from './storage.js';
+import {cleanWorkflowResources,scopedWorkflowResources} from './workflow-scoped-resources.js';
 
-export const PLAN_PROMPT=`CHẾ ĐỘ PLAN: chỉ đọc, tìm hiểu và lập kế hoạch; không ghi tệp, không tạo pvta-action.
+export const PLAN_PROMPT=`CHẾ ĐỘ PLAN: chỉ đọc, tìm hiểu và bàn về bản nháp kế hoạch; không thực hiện công việc, không ghi tệp, không tạo pvta-action. Kể cả khi người dùng đồng ý trong Plan/Plan Pro, vẫn chỉ cập nhật nháp. Người dùng bấm nút Duyệt (hoặc chuyển sang Chat rồi yêu cầu lập kế hoạch hoặc chốt/đồng ý kế hoạch) để công bố kế hoạch và quy trình tương ứng trong bộ quản lý quy trình. Công bố không đồng nghĩa với chạy các bước. Plan Pro luôn kèm harness phản biện và kiểm định từng bước khi chạy.
 Trước khi lập plan: nhận diện mục tiêu, chủ đề, loại tài liệu, môn/lớp, đầu ra (định dạng, độ dài, tiêu chí hoàn thành), tài liệu liên quan trong hội thoại/dự án và lịch sử. Đọc dữ kiện đã có trước, không hỏi lại. Dùng office_rag_search/office_file_read để đọc nguồn liên quan, ghi tên tệp và vị trí đoạn/trang; không coi tên tệp là nội dung đã đọc. Có thể dùng office_history_search {query} để tìm công việc cũ cùng dự án; tóm tắt cũ chưa phải bằng chứng đã kiểm chứng.
 Dùng office_web_search {query} và office_web_read {url} qua pvta-read để tìm và đọc nguồn mạng. Chỉ gửi từ khóa chủ đề công khai, không gửi thông tin cá nhân hay nguyên văn tài liệu riêng. Ưu tiên nguồn cơ quan ban hành. Không coi đoạn tìm kiếm là toàn văn đã kiểm chứng; ghi URL và phần chưa đọc được. Nếu mất mạng, nêu giới hạn, không bịa căn cứ.
 Với giáo án: xác định môn, lớp, bài, thời lượng, yêu cầu cần đạt, đối tượng học sinh (cần hỗ trợ, phổ thông, khá giỏi), điều kiện lớp. Tìm văn bản hướng dẫn phù hợp cấp học, ví dụ Công văn 5512 và phụ lục kế hoạch bài dạy khi phù hợp; kiểm tra nguồn và phạm vi áp dụng, không mặc định mọi lớp đều dùng 5512. Đề xuất phương pháp và kỹ thuật dạy học với lý do phù hợp nội dung và học sinh; phương án phân hóa, đánh giá, thiết bị và tài liệu tham khảo. Thiếu dữ kiện thiết yếu thì hỏi ngắn gọn trước khi lập plan; giả định phải ghi rõ để người dùng sửa.
@@ -81,14 +82,14 @@ export function editPlanSteps(plan:Plan,input:unknown){
   const id=typeof s.id==='string'&&s.id.trim()&&s.id.length<=80?s.id:uid();if(ids.has(id))throw Error('ID bước bị trùng.');ids.add(id);
   const list=(key:string)=>{if(s[key]===undefined)return undefined;if(!Array.isArray(s[key])||s[key].length>20||s[key].some((x:unknown)=>typeof x!=='string'||x.length>2000))throw Error('Đầu vào, đầu ra hoặc phụ thuộc không hợp lệ.');return [...s[key]] as string[];};
   const field=(key:string)=>{if(s[key]===undefined)return undefined;if(typeof s[key]!=='string'||s[key].length>4000)throw Error('Điều kiện hoặc xử lí lỗi không hợp lệ.');return s[key] as string;};
-  return {id,goal:s.goal.slice(0,1000),task:s.task,files:Array.isArray(s.files)?s.files.filter((f:unknown)=>typeof f==='string').slice(0,20):[],risk:typeof s.risk==='string'?s.risk.slice(0,1000):'',status:'waiting',inputs:list('inputs'),outputs:list('outputs'),dependsOn:list('dependsOn'),completion:field('completion'),onError:field('onError')};
+  return {id,resources:cleanWorkflowResources(s.resources),goal:s.goal.slice(0,1000),task:s.task,files:Array.isArray(s.files)?s.files.filter((f:unknown)=>typeof f==='string').slice(0,20):[],risk:typeof s.risk==='string'?s.risk.slice(0,1000):'',status:'waiting',inputs:list('inputs'),outputs:list('outputs'),dependsOn:list('dependsOn'),completion:field('completion'),onError:field('onError')};
  });
  steps.forEach((s,i)=>{if(input[i]?.templateCopy===true)s.templateCopy=true;const old=plan.steps.find(p=>p.id===s.id);if(old?.promptFormat==='yaml-v1'&&old.task===s.task)s.promptFormat='yaml-v1';
   // Nguồn gốc do máy chủ quyết định: chỉ giữ theo mã bước đã có, không nhận từ dữ liệu gửi lên. Bước mới chỉ nhận qua insertTemplate.
   if(s.templateCopy&&old?.origin)s.origin={...old.origin};});
  archivePlan(plan);
  // Any changed contract can invalidate consumers, including dependencies later in the list.
- const definition=(s:PlanStep,i:number,all:PlanStep[])=>JSON.stringify({id:s.id,goal:s.goal,task:s.task,files:s.files,risk:s.risk,...planContract(s,i,all)});
+ const definition=(s:PlanStep,i:number,all:PlanStep[])=>JSON.stringify({id:s.id,goal:s.goal,task:s.task,files:s.files,risk:s.risk,resources:scopedWorkflowResources(s,all),...planContract(s,i,all)});
  const changed=steps.length!==plan.steps.length||steps.some((s,i)=>!plan.steps[i]||definition(s,i,steps)!==definition(plan.steps[i]!,i,plan.steps));
  let prefixChanged=false;
  steps.forEach((s,i)=>{const old=plan.steps[i];if(!old||definition(s,i,steps)!==definition(old,i,plan.steps))prefixChanged=true;if(old&&!prefixChanged)Object.assign(s,old);});
@@ -104,7 +105,7 @@ export function linkPlan(plan:Plan,list:Workflow[],createdAt?:number):Workflow{
  const previousDefinition=JSON.stringify([w.name,w.steps,w.mode,w.maxConcurrency]);
  plan.steps=plan.steps.map((s,i)=>({...s,...planContract(s,i,plan.steps)}));
  plan.workflowId=w.id;w.planId=plan.id;w.name=plan.title;w.mode='parallel';w.maxConcurrency=1;
- w.steps=plan.steps.map(s=>({id:s.id,name:s.goal,prompt:s.task,choice:'auto',access:'read',inputs:s.inputs,outputs:s.outputs,dependsOn:s.dependsOn,completion:s.completion,onError:s.onError,...(s.templateCopy?{templateCopy:true as const,files:s.files,...(s.origin?{origin:{...s.origin}}:{})}:{}),...(s.promptFormat?{promptFormat:s.promptFormat}:{})}));if(previousDefinition!==JSON.stringify([w.name,w.steps,w.mode,w.maxConcurrency]))w.updatedAt=Date.now();return w;
+ w.steps=plan.steps.map(s=>({id:s.id,name:s.goal,prompt:s.task,resources:s.resources,choice:'auto',access:'read',inputs:s.inputs,outputs:s.outputs,dependsOn:s.dependsOn,completion:s.completion,onError:s.onError,...(s.templateCopy?{templateCopy:true as const,files:s.files,...(s.origin?{origin:{...s.origin}}:{})}:{}),...(s.promptFormat?{promptFormat:s.promptFormat}:{})}));if(previousDefinition!==JSON.stringify([w.name,w.steps,w.mode,w.maxConcurrency]))w.updatedAt=Date.now();return w;
 }
 export function syncPlanRun(plan:Plan,run:WorkflowRun){
  run.steps=plan.steps.map(s=>({stepId:s.id,name:s.goal,status:s.status==='done'?'success':s.status==='interrupted'?'error':s.status,output:s.output,error:s.error,startedAt:s.startedAt,endedAt:s.endedAt,logs:structuredClone(s.logs),checkpoint:structuredClone(s.checkpoint)}));

@@ -52,7 +52,7 @@ export function insertTemplate(d:InsertDeps,templateId:string,target:InsertTarge
   const block=expandTemplate(tpl,values,d.refs({projectId:wf.projectId}),{prefix,maxPrompt:WORKFLOW_PROMPT_MAX});
   const deps=explicitDeps(wf.steps,wf.mode!=='parallel');
   const old=wf.steps.map((s,i)=>({...s,dependsOn:deps[i]!}));
-  const added:WorkflowStep[]=block.map(b=>({id:b.id,name:b.name,prompt:b.prompt,choice:b.choice,access:b.access,inputs:b.inputs,outputs:b.outputs,dependsOn:b.dependsOn,completion:b.completion,onError:b.onError}));
+  const added:WorkflowStep[]=block.map(b=>({id:b.id,name:b.name,prompt:b.prompt,resources:b.resources,choice:b.choice,access:b.access,inputs:b.inputs,outputs:b.outputs,dependsOn:b.dependsOn,completion:b.completion,onError:b.onError}));
   const steps=[...old,...added];
   added.forEach(s=>{s.templateCopy=true;s.origin={templateId:tpl.id,group};});
   const roots=added.filter(b=>!b.dependsOn!.length).map(b=>b.id);
@@ -70,7 +70,7 @@ export function insertTemplate(d:InsertDeps,templateId:string,target:InsertTarge
   const chat=d.data.chats.find(c=>c.id===plan.chatId);
   const block=expandTemplate(tpl,values,d.refs({projectId:chat?.projectId,chatId:chat?.id}),{prefix,maxPrompt:PLAN_TASK_MAX});
   const old=plan.steps.map((s,i)=>({...s,...planContract(s,i,plan.steps)}));
-  const added:PlanStep[]=block.map(b=>({id:b.id,goal:b.name,task:b.prompt,files:[],risk:'',status:'waiting',inputs:b.inputs,outputs:b.outputs,dependsOn:b.dependsOn,completion:b.completion,onError:b.onError}));
+  const added:PlanStep[]=block.map(b=>({id:b.id,goal:b.name,task:b.prompt,resources:b.resources,files:[],risk:'',status:'waiting',inputs:b.inputs,outputs:b.outputs,dependsOn:b.dependsOn,completion:b.completion,onError:b.onError}));
   const roots=added.filter(b=>!b.dependsOn!.length).map(b=>b.id);
   const links=suggestLinks(old,old.map(s=>s.dependsOn),roots);
   added.forEach(s=>{s.templateCopy=true;});
@@ -84,7 +84,7 @@ export function insertTemplate(d:InsertDeps,templateId:string,target:InsertTarge
  }
  if(workflows.length>=MAX_WORKFLOWS)throw Error(`Tối đa ${MAX_WORKFLOWS} quy trình.`);
  const block=expandTemplate(tpl,values,d.refs({projectId:target.projectId}),{maxPrompt:WORKFLOW_PROMPT_MAX});
- const wf:Workflow=normalizeWorkflow({name:(target.name??'').trim()||tpl.name,mode:'parallel',maxConcurrency:2,steps:block.map(b=>({id:b.id,name:b.name,prompt:b.prompt,choice:b.choice,access:b.access,inputs:b.inputs,outputs:b.outputs,dependsOn:b.dependsOn,completion:b.completion,onError:b.onError}))});
+ const wf:Workflow=normalizeWorkflow({name:(target.name??'').trim()||tpl.name,mode:'parallel',maxConcurrency:2,steps:block.map(b=>({id:b.id,name:b.name,prompt:b.prompt,resources:b.resources,choice:b.choice,access:b.access,inputs:b.inputs,outputs:b.outputs,dependsOn:b.dependsOn,completion:b.completion,onError:b.onError}))});
  if(target.projectId&&d.data.projects.some(p=>p.id===target.projectId))wf.projectId=target.projectId;
  wf.steps.forEach(s=>{s.templateCopy=true;s.origin={templateId:tpl.id,group};});
  workflows.push(wf);

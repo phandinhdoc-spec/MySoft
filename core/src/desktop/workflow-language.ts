@@ -5,11 +5,11 @@ import {parseExpression,references,evaluate,validName,displayValue,type Value} f
 export {displayValue,type Value} from './workflow-expression.js';
 export const DIRECTIVES=['bien','dau-vao','ham','goi','gan','dau-ra','in','lap-lai','dung'] as const;
 export const DIRECTIVE_HELP:Record<typeof DIRECTIVES[number],string>={
- bien:'!bien tên = giá-trị — khai báo hằng ban đầu, ví dụ !bien so-lan = 0.',
- 'dau-vao':'!dau-vao tên = "đường-dẫn-tuyệt-đối" hoặc @truoc để nhận kết quả trước.',
+ bien:'!bien $tên = giá-trị — khai báo hằng ban đầu, ví dụ !bien $so-lan = 0 (kiểu cũ không có $ ở vế trái vẫn chạy).',
+ 'dau-vao':'!dau-vao $tên = "đường-dẫn-tuyệt-đối" hoặc @truoc để nhận kết quả trước.',
  ham:'!ham tên(tham-số) [mô tả] {đầu-ra: mô tả}; khai báo không tự gọi hàm.',
  goi:'!goi lần-gọi = tên-hàm(giá-trị); hàm không có đầu ra thì bỏ phần gán.',
- gan:'!gan tên = biểu-thức — chỉ cập nhật biến đã khai báo bằng !bien.',
+ gan:'!gan $tên = biểu-thức — chỉ cập nhật biến đã khai báo bằng !bien.',
  'dau-ra':'!dau-ra = biểu-thức — mỗi nút tối đa một đầu ra; dùng mảng hoặc đối tượng nếu cần nhiều giá trị.',
  in:'!in biểu-thức — ghi nhật kí, không truyền làm đầu ra.',
  'lap-lai':'!lap-lai "mã-nút" neu điều-kiện — nút đích phải là tổ tiên đã nối tới nút kiểm tra.',
@@ -47,7 +47,7 @@ export function parsePrompt(prompt:string,stepId:string):ParsedPrompt{
   const kind=match[1]!,body=match[2]!.trim();
   try{
    if(['bien','dau-vao','gan'].includes(kind)){
-    const m=/^([\w-]+)\s*=\s*(.+)$/.exec(body);if(!m)throw Error(`!${kind} cần tên và giá trị. Mở Gợi ý khai báo để bổ sung.`);
+    const m=/^\$?([\w-]+)\s*=\s*(.+)$/.exec(body);if(!m)throw Error(`!${kind} cần tên và giá trị. Mở Gợi ý khai báo để bổ sung.`);
     validName(m[1]!);commands.push({kind,line,name:m[1],value:m[2]!});
    }else if(kind==='ham'){
     let block=body;
@@ -63,7 +63,7 @@ export function parsePrompt(prompt:string,stepId:string):ParsedPrompt{
     if(new Set(params).size!==params.length||new Set(outputs).size!==outputs.length)throw Error('Tham số hoặc đầu ra bị trùng.');
     commands.push({kind,line,name:m[1],params,outputs,description:m[3]!.trim(),value:block});
    }else if(kind==='goi'){
-    const m=/^(?:([\w-]+)\s*=\s*)?([\w-]+)\(([\s\S]*)\)$/.exec(body);if(!m)throw Error('!goi [lần-gọi =] tên-hàm(tham số).');
+    const m=/^(?:\$?([\w-]+)\s*=\s*)?([\w-]+)\(([\s\S]*)\)$/.exec(body);if(!m)throw Error('!goi [lần-gọi =] tên-hàm(tham số).');
     if(m[1])validName(m[1]);validName(m[2]!);parseExpression(`[${m[3]}]`);
     commands.push({kind,line,name:m[1],callee:m[2],value:`[${m[3]}]`});
    }else if(kind==='lap-lai'){

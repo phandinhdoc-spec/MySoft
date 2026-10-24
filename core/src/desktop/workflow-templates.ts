@@ -1,5 +1,6 @@
 import type {ModelChoice} from '@pvta/shared';
 import {MAX_WORKFLOW_STEPS} from './workflow-limits.js';
+import {cleanWorkflowResources} from './workflow-scoped-resources.js';
 import type {TemplateOutput,TemplateParam,TemplateStep,WorkflowTemplate} from './types.js';
 
 /**
@@ -21,7 +22,7 @@ export function stepChoice(v:unknown,where:string):ModelChoice|'auto'{
 const PLACEHOLDER=/\{\{([^{}]+?)\}\}/g;
 
 /** Bước cụ thể (đã điền tham số), dùng chung cho Plan và Quy trình. */
-export interface ConcreteStep {id:string;name:string;prompt:string;access:'read'|'full';choice:ModelChoice|'auto';inputs:string[];outputs:string[];dependsOn:string[];completion:string;onError:string}
+export interface ConcreteStep {resources?:TemplateStep['resources'];id:string;name:string;prompt:string;access:'read'|'full';choice:ModelChoice|'auto';inputs:string[];outputs:string[];dependsOn:string[];completion:string;onError:string}
 /** Nơi tra nội dung kỹ năng, quy tắc và lời nhắc mẫu; trả undefined nếu không tìm thấy. */
 export interface TemplateRefs {skill(name:string):string|undefined;rule(key:string):string|undefined;prompt(id:string):string|undefined}
 export interface TemplateValues {params?:Record<string,unknown>;output?:unknown}
@@ -67,7 +68,7 @@ export function normalizeTemplate(input:any,old?:WorkflowTemplate,now=Date.now()
   checkPlaceholders(prompt,`Khâu “${sname}”`);
   const skills=names(s?.skills,'Danh sách kỹ năng'),rules=names(s?.rules,'Danh sách quy tắc'),prompts=names(s?.prompts,'Danh sách lời nhắc mẫu');
   const dependsOn=s?.dependsOn===undefined?undefined:(()=>{if(!Array.isArray(s.dependsOn)||s.dependsOn.some((x:unknown)=>typeof x!=='string'))throw Error('Danh sách khâu cần chờ không hợp lệ.');return [...new Set(s.dependsOn as string[])];})();
-  return {id,name:sname,prompt,access:s?.access==='full'?'full':'read',choice:stepChoice(s?.choice,`khâu “${sname}”`),...(skills?.length?{skills}:{}),...(rules?.length?{rules}:{}),...(prompts?.length?{prompts}:{}),inputs:list(s?.inputs,'Đầu vào'),outputs:list(s?.outputs,'Đầu ra'),dependsOn,completion:s?.completion===undefined?undefined:STR(s.completion,4000),onError:s?.onError===undefined?undefined:STR(s.onError,4000)};
+  return {id,name:sname,prompt,resources:cleanWorkflowResources(s?.resources),access:s?.access==='full'?'full':'read',choice:stepChoice(s?.choice,`khâu “${sname}”`),...(skills?.length?{skills}:{}),...(rules?.length?{rules}:{}),...(prompts?.length?{prompts}:{}),inputs:list(s?.inputs,'Đầu vào'),outputs:list(s?.outputs,'Đầu ra'),dependsOn,completion:s?.completion===undefined?undefined:STR(s.completion,4000),onError:s?.onError===undefined?undefined:STR(s.onError,4000)};
  });
  const output:TemplateOutput={mode:input.output?.mode==='fixed'?'fixed':'ask',text:STR(input.output?.text,4000)};
  if(output.mode==='fixed'&&!output.text.trim())throw Error('Đầu ra cố định cần mô tả. Hoặc chọn “Quy định mỗi lần dùng”.');
@@ -138,11 +139,11 @@ export function expandTemplate(tpl:WorkflowTemplate,values:TemplateValues,refs:T
   }
   const outputs=[...(s.outputs??[s.name])];
   if(terminal&&outFilled)outputs.push(`${outFilled.split('\n')[0]!.slice(0,150)} — ${s.name}`);
-  return {id:id(s.id),name:s.name,prompt:fixed+skillText,access:s.access,choice:s.choice??'auto',inputs:(s.inputs??['Bối cảnh và yêu cầu đã ghi trong Plan']).map(x=>fill(x,params)),outputs:outputs.map(x=>fill(x,params)),dependsOn:deps[i]!,completion:fill(s.completion??`Hoàn thành khâu “${s.name}” đúng yêu cầu.`,params),onError:fill(s.onError??'Dừng, báo lỗi; chỉ bỏ qua khi người dùng chấp nhận.',params)};
+  return {id:id(s.id),name:s.name,resources:s.resources?.map(r=>({...r,id:globalThis.crypto.randomUUID(),body:fill(r.body,params)})),prompt:fixed+skillText,access:s.access,choice:s.choice??'auto',inputs:(s.inputs??['Bối cảnh và yêu cầu đã ghi trong Plan']).map(x=>fill(x,params)),outputs:outputs.map(x=>fill(x,params)),dependsOn:deps[i]!,completion:fill(s.completion??`Hoàn thành khâu “${s.name}” đúng yêu cầu.`,params),onError:fill(s.onError??'Dừng, báo lỗi; chỉ bỏ qua khi người dùng chấp nhận.',params)};
  });
 }
 
 /** Tạo mẫu từ các bước đang có (quy trình hoặc Plan) để dùng lại; thầy cô thêm tham số rồi. */
-export function templateFromSteps(name:string,steps:{id:string;name:string;prompt:string;access?:'read'|'full';choice?:ModelChoice|'auto';inputs?:string[];outputs?:string[];dependsOn?:string[];completion?:string;onError?:string}[],now=Date.now()):WorkflowTemplate{
- return normalizeTemplate({name,description:'Tạo từ quy trình/Plan đã có. Thêm tham số {{khóa}} vào prompt cho phần thay đổi mỗi lần dùng.',params:[],steps:steps.map((s,i)=>({id:s.id,name:s.name,prompt:s.prompt,access:s.access??'read',choice:s.choice,inputs:s.inputs,outputs:s.outputs,dependsOn:s.dependsOn??(i?[steps[i-1]!.id]:[]),completion:s.completion,onError:s.onError})),output:{mode:'ask',text:''}},undefined,now);
+export function templateFromSteps(name:string,steps:{id:string;name:string;prompt:string;resources?:TemplateStep['resources'];access?:'read'|'full';choice?:ModelChoice|'auto';inputs?:string[];outputs?:string[];dependsOn?:string[];completion?:string;onError?:string}[],now=Date.now()):WorkflowTemplate{
+ return normalizeTemplate({name,description:'Tạo từ quy trình/Plan đã có. Thêm tham số {{khóa}} vào prompt cho phần thay đổi mỗi lần dùng.',params:[],steps:steps.map((s,i)=>({id:s.id,name:s.name,prompt:s.prompt,resources:s.resources,access:s.access??'read',choice:s.choice,inputs:s.inputs,outputs:s.outputs,dependsOn:s.dependsOn??(i?[steps[i-1]!.id]:[]),completion:s.completion,onError:s.onError})),output:{mode:'ask',text:''}},undefined,now);
 }
