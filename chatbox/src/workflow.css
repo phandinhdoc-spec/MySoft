@@ -208,3 +208,35 @@
 @keyframes wfexpand{from{opacity:.4}to{opacity:1}}
 .wf-visual-editor .wf-drag-handle{min-height:44px;font-size:var(--wf-fs-xs)}
 .wf-frame-head{padding:6px 12px;min-height:26px}
+
+/* Sửa nút theo ba vùng: ĐẦU VÀO → PROMPT → ĐẦU RA. Chỉ đổi cách hiển thị. */
+.wf-step-editor{gap:14px}
+.wf-step-head{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1.4fr) auto;gap:12px;align-items:end}
+.wf-step-head .wf-field{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}
+.wf-step-editor .wf-prompt-field{min-width:0}
+.wf-step-editor .composer-input textarea{min-height:12rem}
+.wf-zone{border:1px solid var(--line);border-radius:10px;background:var(--bg);padding:10px 12px;min-width:0}
+.wf-zone summary{cursor:pointer;list-style:none;font-size:12px;font-weight:600;letter-spacing:.04em;color:var(--muted)}
+.wf-zone summary::-webkit-details-marker{display:none}
+.wf-zone summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+.wf-zone summary small{font-weight:400;letter-spacing:0;margin-left:6px}
+.wf-zone-body{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.wf-zone-body fieldset{margin:0;border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.wf-zone-title{font-size:13px}
+.wf-zone-list{display:flex;flex-direction:column;gap:4px;margin:0;padding:0;list-style:none;font-size:13px}
+.wf-zone-list dt{margin:0}
+.wf-zone-list dd{margin:0 0 4px}
+.wf-zone-diag{border-left:3px solid var(--danger,#a33333);padding:0 10px;font-size:13px}
+.wf-zone-diag p{margin:4px 0}
+.wf-step-foot{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+@media(max-width:900px){.wf-step-head{grid-template-columns:1fr}}
+
+/* Biểu mẫu chỉ thị trong vùng ĐẦU VÀO / ĐẦU RA. */
+.wf-form{display:flex;flex-direction:column;gap:8px}
+.wf-form-set{margin:0;border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0}
+.wf-form-set legend{font-size:12px;font-weight:600;color:var(--muted);padding:0 4px}
+.wf-form-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr) auto;gap:6px;margin-bottom:6px}
+.wf-form-row>*{min-width:0}
+.wf-form-row input[inputmode="numeric"]{width:11em}
+.wf-form-error{margin:4px 0 0;font-size:13px;color:var(--danger,#a33333)}
+@media(max-width:900px){.wf-form-row{grid-template-columns:1fr}}

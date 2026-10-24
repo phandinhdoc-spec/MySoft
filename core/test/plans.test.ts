@@ -34,7 +34,8 @@ it('asks unresolved material questions instead of exposing an approvable plan',a
 });
 it('persists an editable survey with source provenance and passes it to execution',async()=>{
  const {r,spy,dir}=setup();const id=await req(r,'newChat');spy.mockResolvedValue(result(planAnswer(survey())));
- const message=await req(r,'send',{chatId:id,text:'Lập kế hoạch bài X',plan:true}) as any;
+ await req(r,'send',{chatId:id,text:'Lập kế hoạch bài X',plan:true});
+ const message=await req(r,'send',{chatId:id,text:'Chốt kế hoạch',planningMode:'chat'}) as any;
  expect(message.plan.context).toContain('### Dữ kiện');expect(message.plan.context).toContain('### Giả định');expect(message.plan.context).toContain('2026-10-19');expect(message.plan.context).toContain('Mục tiêu bài X lớp 8');
  const second=setup(dir).r;expect(second.store.data.chats[0]!.messages.find(m=>m.plan)?.plan?.context).toBe(message.plan.context);
  await req(r,'editPlan',{id:message.plan.id,steps:message.plan.steps,context:message.plan.context+'\nĐiều chỉnh: 3 tiết',revision:0});
@@ -184,7 +185,9 @@ it('clarifies missing lesson inputs across turns and creates only an unapproved 
  expect(r.store.data.workflows??[]).toHaveLength(0);
  const brief={...survey(),topic:'Lực ma sát',facts:['Người dùng: lớp 8, hai tiết, trình độ hỗn hợp, không mạng'],assumptions:[],sources:[],limitations:['Chưa xác minh văn bản hướng dẫn; cần kiểm tra trước khi soạn']};
  spy.mockResolvedValue(result(planAnswer(brief)));
- const second=await req(r,'send',{chatId,text:'Lực ma sát, lớp 8, hai tiết, trình độ hỗn hợp; không mạng, cần bản Word và phiếu giấy.',plan:true}) as {plan:Plan};
+ await req(r,'send',{chatId,text:'Lực ma sát, lớp 8, hai tiết, trình độ hỗn hợp; không mạng, cần bản Word và phiếu giấy.',plan:true});
+ expect(r.store.data.workflows??[]).toHaveLength(0);
+ const second=await req(r,'send',{chatId,text:'Chốt kế hoạch',planningMode:'chat'}) as {plan:Plan};
  expect(second.plan.approved).toBe(false);expect(second.plan.context).toContain('không mạng');
  expect(second.plan.context).toContain('Chưa xác minh');expect(r.store.data.workflows).toHaveLength(1);
  expect(r.store.data.workflows![0]!.runs).toHaveLength(0);
@@ -331,13 +334,51 @@ it('uses a user chosen total planning budget and rejects invalid budgets without
  const sending=req(r,'send',{chatId:id,text:'Plan',plan:true,planningTimeoutMs:120000});const rejected=expect(sending).rejects.toThrow('hết thời gian');await entered;await vi.advanceTimersByTimeAsync(120000);await rejected;
 });
 const proDraft=()=>{const raw=JSON.parse(planAnswer(survey()).split('\n')[1]!);raw.steps=[{id:'s1',goal:'Soạn và kiểm tra',task:'Soạn rồi đối chiếu mục tiêu',files:[],risk:'Thiếu dữ liệu',inputs:['Yêu cầu đã khảo sát'],outputs:['Giáo án'],dependsOn:[],completion:'Đủ mục tiêu và đánh giá',onError:'Dừng hỏi người dùng'}];return '```pvta-plan\n'+JSON.stringify(raw)+'\n```';};
+it('keeps Plan discussion read-only and persists the draft until confirmation in Chat',async()=>{
+ const {r,spy,dir}=setup();const id=await req(r,'newChat');r.store.data.preferences.access='full';spy.mockResolvedValue(result(proDraft()));
+ const draft=await req(r,'send',{chatId:id,text:'Đồng ý với kế hoạch',planningMode:'plan'}) as any;
+ expect(draft.plan).toBeUndefined();expect(draft.text).toContain('Bản nháp');expect(r.store.data.workflows??[]).toHaveLength(0);
+ const restored=setup(dir).r;expect(restored.store.data.chats[0]!.planningDraft?.title).toBe('Bài X');
+ const published=await req(restored,'send',{chatId:id,text:'Chốt kế hoạch',planningMode:'chat'}) as any;
+ expect(published.plan.steps.every((s:any)=>s.status==='waiting')).toBe(true);
+ expect(restored.store.data.workflows![0]!.runs).toEqual([]);
+ expect(restored.store.data.workflows![0]!.steps[0]!.prompt).toBe(published.plan.steps[0].task);
+});
+it('creates a plan and workflow from an explicit Chat request without executing actions',async()=>{
+ const {r,spy}=setup();const id=await req(r,'newChat');spy.mockResolvedValue(result(proDraft()+'\n```pvta-action\n'+JSON.stringify({kind:'write_text',path:'/tmp/should-not-write.md',content:'no'})+'\n```'));
+ const m=await req(r,'send',{chatId:id,text:'Lập kế hoạch bài X',planningMode:'chat'}) as any;
+ expect(m.plan?.workflowId).toBe(r.store.data.workflows![0]!.id);expect(m.actions).toEqual([]);expect(r.store.data.chats[0]!.planningDraft).toBeUndefined();
+});
+it('does not treat questions or refusals as plan confirmation',async()=>{
+ const {planChatIntent}=await import('../src/desktop/planning');
+ for(const text of ['Tôi chưa đồng ý với kế hoạch','Không chốt kế hoạch','Chốt kế hoạch?','Giải thích bước hai'])expect(planChatIntent(text)).toBeUndefined();
+ expect(planChatIntent('đồng ý')).toBe('confirm');expect(planChatIntent('Hãy lập kế hoạch bài X')).toBe('create');
+});
+it('keeps the Pro harness after a rejected draft when the user asks to finalize in Chat',async()=>{
+ const {r,spy}=setup();const id=await req(r,'newChat');let reviews=0;
+ spy.mockImplementation(async o=>result(o.system?.startsWith('PLAN PRO — PHẢN BIỆN')?(reviews++,JSON.stringify({passed:false,issues:[],questions:['Cần xác minh nguồn nào?']})):proDraft()));
+ await req(r,'send',{chatId:id,text:'Soạn giáo án',planningMode:'pro'});
+ const m=await req(r,'send',{chatId:id,text:'Chốt kế hoạch',planningMode:'chat'}) as any;
+ expect(reviews).toBe(2);expect(m.plan).toBeUndefined();expect(r.store.data.workflows??[]).toHaveLength(0);expect(r.store.data.chats[0]!.planningSession).toBe('pro');
+});
+it('continues discussion in Chat without publishing a draft on a question',async()=>{
+ const {r,spy}=setup();const id=await req(r,'newChat');spy.mockResolvedValue(result(proDraft()));
+ await req(r,'send',{chatId:id,text:'Soạn giáo án',planningMode:'plan'});
+ const m=await req(r,'send',{chatId:id,text:'Giải thích bước kiểm tra?',planningMode:'chat'}) as any;
+ expect(m.plan).toBeUndefined();expect(r.store.data.workflows??[]).toHaveLength(0);expect(r.store.data.chats[0]!.planningDraft).toBeDefined();
+});
 it('Plan Pro critiques, repairs, checks and publishes only the accepted draft with a persisted checkpoint',async()=>{
  const {r,spy,dir}=setup();const id=await req(r,'newChat');let reviews=0;
  spy.mockImplementation(async o=>{if(o.system?.startsWith('PLAN PRO — PHẢN BIỆN'))return result(JSON.stringify(++reviews===1?{passed:false,issues:['Bổ sung kiểm tra thời lượng'],questions:[]}:{passed:true,issues:[],questions:[]}));return result(proDraft());});
  const m=await req(r,'send',{chatId:id,text:'Soạn giáo án',planningMode:'pro'}) as any;
- expect(reviews).toBe(2);expect(m.plan?.approved).toBe(false);expect(m.actions).toEqual([]);expect(r.store.data.workflows).toHaveLength(1);
+ expect(reviews).toBe(2);expect(m.plan).toBeUndefined();expect(m.actions).toEqual([]);expect(r.store.data.workflows??[]).toHaveLength(0);
+ expect(r.store.data.chats[0]!.planningDraft?.pro).toBe(true);
  expect(r.store.data.chats[0]!.messages[0]!.planning).toMatchObject({mode:'pro',phase:'ready',round:2,timeoutMs:0,draft:proDraft()});
  expect(setup(dir).r.store.data.chats[0]!.messages[0]!.planning?.phase).toBe('ready');
+ const finalized=await req(r,'send',{chatId:id,text:'Đồng ý với kế hoạch',planningMode:'chat'}) as any;
+ expect(finalized.plan).toMatchObject({approved:false,pro:true});expect(r.store.data.workflows).toHaveLength(1);
+ expect(r.store.data.workflows![0]!.planId).toBe(finalized.plan.id);
+ expect(r.store.data.chats[0]!.planningDraft).toBeUndefined();
 });
 it('Plan Pro never exposes a rejected or cyclic draft as an executable plan',async()=>{
  const {r,spy}=setup();const id=await req(r,'newChat');const draft=proDraft().replace('"dependsOn":[]','"dependsOn":["s1"]');spy.mockResolvedValue(result(draft));
@@ -379,4 +420,43 @@ it('keeps Plan activity and progress available to a newly opened window',async()
  await vi.waitFor(()=>expect(spy).toHaveBeenCalled());
  try{const snapshot=await req(r,'view') as ReturnType<typeof r.view>;expect(snapshot.activeChatIds).toContain(p.chatId);expect(snapshot.chatProgress?.[p.chatId]?.length).toBeGreaterThan(0);}finally{release(result('Kết quả'));await running;}
  expect(r.view().activeChatIds).not.toContain(p.chatId);expect(r.view().chatProgress?.[p.chatId]).toBeUndefined();
+});
+it('Approve button sends the whole conversation and publishes the plan with its workflow',async()=>{
+ const {r,spy}=setup();const id=await req(r,'newChat') as string;
+ spy.mockResolvedValue(result('Thầy cô dạy mấy tiết?'));
+ await req(r,'send',{chatId:id,text:'Soạn giáo án bài X lớp 8 YEU-CAU-DAU',planningMode:'plan'});
+ await req(r,'send',{chatId:id,text:'Hai tiết, thêm phiếu nhóm Y-CHOT-SAU',planningMode:'plan'});
+ const prompts:string[]=[];spy.mockImplementation(async o=>{prompts.push(o.buildPrompt?.(false,false)??'');return result(proDraft());});
+ const m=await req(r,'send',{chatId:id,text:'bất kỳ',planningMode:'plan',approvePlan:true}) as any;
+ const sent=prompts.find(t=>t.includes('NGƯỜI DÙNG ĐÃ BẤM NÚT DUYỆT'))!;
+ expect(sent).toContain('YEU-CAU-DAU');expect(sent).toContain('Y-CHOT-SAU');expect(sent).toContain('Thầy cô dạy mấy tiết?');
+ expect(m.plan?.workflowId).toBe(r.store.data.workflows![0]!.id);expect(m.plan.steps.every((s:any)=>s.status==='waiting')).toBe(true);
+ const chat=r.store.data.chats[0]!;expect(chat.planningDraft).toBeUndefined();expect(chat.planningSession).toBeUndefined();
+ expect(chat.messages.at(-2)!.text).toBe('Duyệt kế hoạch');
+});
+it('Approve button stops an ongoing planning turn before publishing and refuses Chat mode or empty chats',async()=>{
+ const {r,spy}=setup();const id=await req(r,'newChat') as string;
+ await expect(req(r,'send',{chatId:id,text:'x',planningMode:'plan',approvePlan:true})).rejects.toThrow('Chưa có nội dung trao đổi');
+ await expect(req(r,'send',{chatId:id,text:'x',planningMode:'chat',approvePlan:true})).rejects.toThrow('Plan hoặc Plan Pro');
+ let started!:()=>void;const entered=new Promise<void>(res=>started=res);
+ spy.mockImplementationOnce(()=>{started();return new Promise(()=>{});});
+ const pending=req(r,'send',{chatId:id,text:'Bàn kế hoạch bài Z',planningMode:'plan'});const stopped=expect(pending).rejects.toThrow();await entered;
+ spy.mockResolvedValue(result(proDraft()));
+ const m=await req(r,'send',{chatId:id,text:'x',planningMode:'plan',approvePlan:true}) as any;await stopped;
+ expect(m.plan).toBeDefined();expect(r.store.data.workflows).toHaveLength(1);
+});
+it('Approve keeps the existing draft when the model cannot produce a plan',async()=>{
+ const {r,spy}=setup();const id=await req(r,'newChat') as string;spy.mockResolvedValue(result(proDraft()));
+ await req(r,'send',{chatId:id,text:'Soạn giáo án',planningMode:'plan'});expect(r.store.data.chats[0]!.planningDraft).toBeDefined();
+ spy.mockResolvedValue(result('Cần biết số tiết.'));
+ const m=await req(r,'send',{chatId:id,text:'x',planningMode:'plan',approvePlan:true}) as any;
+ expect(m.plan).toBeUndefined();expect(m.text).toContain('bấm Duyệt lại');expect(r.store.data.chats[0]!.planningDraft).toBeDefined();expect(r.store.data.workflows??[]).toHaveLength(0);
+});
+it('planApprovalTask keeps every turn in order and marks truncation honestly',async()=>{
+ const {planApprovalTask}=await import('../src/desktop/planning');
+ expect(planApprovalTask([{role:'assistant',text:'Chào'}],'plan')).toBeUndefined();
+ const msgs=[{role:'user',text:'A1'},{role:'assistant',text:'B1'},{role:'assistant',text:'lỗi',error:true},{role:'user',text:'A2'}];
+ const t=planApprovalTask(msgs,'pro')!;expect(t.indexOf('Giáo viên: A1')).toBeLessThan(t.indexOf('PVTA: B1'));expect(t.indexOf('PVTA: B1')).toBeLessThan(t.indexOf('Giáo viên: A2'));expect(t).not.toContain('lỗi');expect(t).toContain('Plan Pro');expect(t).not.toContain('đã lược');
+ const long=planApprovalTask([{role:'user',text:'DAU '+'x'.repeat(5000)},{role:'user',text:'y'.repeat(5000)+' CUOI'}],'plan',t=>t,2000)!;
+ expect(long).toContain('DAU');expect(long).toContain('CUOI');expect(long).toContain('đã lược');
 });

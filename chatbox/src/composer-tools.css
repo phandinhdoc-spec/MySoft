@@ -97,6 +97,12 @@ body.composer-dragging{user-select:none;cursor:ns-resize}
 .composer .composer-toolbar .access-option[aria-checked=true]{border-color:var(--accent)}
 .composer .composer-toolbar .planning-controls{gap:4px;flex-wrap:nowrap}
 .composer .composer-toolbar .planning-controls select{font-size:16px;font-weight:600;max-width:135px}
+/* Nút Duyệt: xám, khóa ở Chat; đỏ chữ trắng ở Plan/Plan Pro. */
+.composer .composer-toolbar .plan-approve{padding:0 10px;font-size:13px;font-weight:700;background:#9aa0a6;border-color:#9aa0a6;color:#fff;opacity:1}
+.composer .composer-toolbar .plan-approve:disabled,.composer .composer-toolbar .plan-approve:disabled:hover{background:#9aa0a6;border-color:#9aa0a6;color:#fff;opacity:1;cursor:not-allowed}
+.composer .composer-toolbar .plan-approve.on{background:#dc2626;border-color:#dc2626;color:#fff}
+.composer .composer-toolbar .plan-approve.on:hover{background:#b91c1c;border-color:#b91c1c}
+.composer .composer-toolbar .plan-approve.on:disabled{background:#dc2626;border-color:#dc2626;opacity:.7;cursor:progress}
 .composer .composer-toolbar .toolbar-divider{height:var(--composer-icon-size,16px);margin:0 2px}
 .composer .composer-toolbar .mode-control{max-width:150px;overflow:hidden}
 .composer .composer-toolbar .mode-control>span{font-size:var(--composer-icon-size,16px)}

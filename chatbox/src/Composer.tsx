@@ -75,15 +75,21 @@ export function menuItems(kind:TriggerKind,query:string,state:ViewState,ctx:Pick
  return items.slice(0,MAX_ITEMS);
 }
 
-export function TriggerMenu({char,items,selected,onPick,onHover,onManage,onClose}:{char:TriggerChar;items:MenuItem[];selected:number;onPick:(i:MenuItem)=>void;onHover:(n:number)=>void;onManage:()=>void;onClose:()=>void}){
+export function TriggerMenu({char,items,selected,onPick,onHover,onManage,onAdd,onClose}:{char:TriggerChar;items:MenuItem[];selected:number;onPick:(i:MenuItem)=>void;onHover:(n:number)=>void;onManage:()=>void;onAdd?:()=>void;onClose:()=>void}){
  const t=TRIGGERS[char];
  useEffect(()=>{document.getElementById('trigger-option-'+selected)?.scrollIntoView({block:'nearest'});},[selected]);
  let last='';
  return <div className="trigger-menu" role="listbox" aria-label={t.name} onMouseDown={e=>e.preventDefault()}>
   <header><strong><span className="trigger-char">{char}</span> {t.name}</strong><small>{uiText("↑↓ chọn · Enter chèn · Esc đóng")}</small><button type="button" className="menu-close" aria-label={uiText("Đóng")} onClick={onClose}>{uiText("×")}</button></header>
   <div className="trigger-list">{items.map((it,i)=>{const heading=it.group!==last?it.group:undefined;last=it.group??'';return <React.Fragment key={it.id}>{heading&&<div className="trigger-group">{heading}</div>}<button type="button" id={'trigger-option-'+i} role="option" aria-selected={i===selected} className={i===selected?'selected':''} onMouseEnter={()=>onHover(i)} onClick={()=>onPick(it)}><span className="trigger-title">{it.star?'★ ':''}{it.title}</span><small>{it.desc}</small></button></React.Fragment>;})}
-   {!items.length&&<p className="trigger-empty">{char==='@'?uiText("Chưa có lời nhắc phù hợp."):char==='/'?uiText("Chưa có kỹ năng phù hợp."):char==='$'?uiText("Chưa có tài liệu phù hợp. Bấm “Đính kèm tệp khác” để thêm."):char==='$$'?uiText("Chưa có thư mục phù hợp. Bấm “Chọn thư mục khác” để chọn."):uiText("Chưa có quy tắc nào. Bấm “Quản lý quy tắc” để thêm.")}</p>}</div>
-  <footer><button type="button" onClick={onManage}>⚙ {t.manage}</button></footer>
+   {!items.length&&<div className="trigger-empty">
+    <p>{char==='@'?uiText("Chưa có lời nhắc phù hợp."):char==='/'?uiText("Chưa có kỹ năng phù hợp."):char==='$'?uiText("Chưa có tài liệu phù hợp. Bấm “Đính kèm tệp khác” để thêm."):char==='$$'?uiText("Chưa có thư mục phù hợp. Bấm “Chọn thư mục khác” để chọn."):uiText("Chưa có quy tắc nào. Bấm “Quản lý quy tắc” để thêm.")}</p>
+    {onAdd&&<button type="button" className="trigger-empty-add-btn" onClick={onAdd}>＋ {char==='@'?uiText("Thêm prompt mẫu mới"):char==='/'?uiText("Viết skill mới"):char==='#'?uiText("Thêm quy tắc mới"):uiText("Thêm mới")}</button>}
+   </div>}</div>
+  <footer>
+   {onAdd&&<button type="button" className="trigger-add-btn" onClick={onAdd}>＋ {char==='@'?uiText("Thêm prompt mẫu"):char==='/'?uiText("Viết skill mới"):char==='#'?uiText("Thêm quy tắc"):uiText("Thêm mới")}</button>}
+   <button type="button" onClick={onManage}>⚙ {t.manage}</button>
+  </footer>
  </div>;
 }
 
@@ -232,8 +238,60 @@ export function RuleManager({state,report,notice,scope={kind:'profile'},onAction
    {menu.menu}{!rules.length&&<div className="empty-card"><h3>{uiText("Chưa có quy tắc nào")}</h3><p>{uiText("Ví dụ: “Giọng văn gần gũi”, “Trình bày đề kiểm tra”. Đặt một lần, gọi lại bằng # khi cần.")}</p></div>}</div></div>;
 }
 
+/** Cửa sổ thêm prompt mẫu mới độc lập */
+export function AddPromptDialog({onSaved,onCancel,report}:{onSaved:(prompt:{id:string;title:string;text:string;category?:string})=>void;onCancel:()=>void;report:(e:unknown)=>void}){
+ const [title,setTitle]=useState('');
+ const [category,setCategory]=useState('cua-toi');
+ const [text,setText]=useState('');
+ const [busy,setBusy]=useState(false);
+ return <form className="settings-section" onSubmit={e=>{
+  e.preventDefault();
+  if(!title.trim()||!text.trim())return;
+  setBusy(true);
+  const p={title:title.trim(),category,text:text.trim()};
+  void rpc<string>('savePrompt',{prompt:p}).then(id=>{
+   onSaved({...p,id});
+  }).catch(report).finally(()=>setBusy(false));
+ }}>
+  <label>{uiText("Tên prompt mẫu")}<input autoFocus required maxLength={80} value={title} onChange={e=>setTitle(e.target.value)} placeholder={uiText("Ví dụ: Phiếu học tập nhóm")}/></label>
+  <label>{uiText("Nhóm")}<select value={category} onChange={e=>setCategory(e.target.value)}><option value="cua-toi">{uiText("Của tôi")}</option>{PROMPT_CATEGORIES.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+  <label>{uiText("Nội dung lời nhắc")}<textarea required className="editor" maxLength={20000} value={text} onChange={e=>setText(e.target.value)} placeholder={uiText("Viết nội dung mẫu, dùng [mô tả] cho chỗ cần điền.")}/></label>
+  <StandardizeBox kind="prompt" text={text} onApply={r=>setText(r.text)} report={report}/>
+  <p className="muted small">{uiText("Chỗ trống dạng [mô tả] được chọn sẵn khi chèn; bấm Tab để nhảy tới chỗ trống kế tiếp.")}</p>
+  <div className="modal-actions">
+   <button type="button" disabled={busy} onClick={onCancel}>{uiText("Hủy")}</button>
+   <button className="primary" type="submit" disabled={busy||!title.trim()||!text.trim()}>{busy?uiText("Đang lưu…"):uiText("Lưu lời nhắc")}</button>
+  </div>
+ </form>;
+}
+
+/** Cửa sổ viết kỹ năng mới độc lập */
+export function AddSkillDialog({onSaved,onCancel,report}:{onSaved:(skillName:string)=>void;onCancel:()=>void;report:(e:unknown)=>void}){
+ const [name,setName]=useState('');
+ const [body,setBody]=useState('');
+ const [busy,setBusy]=useState(false);
+ return <form className="settings-section" onSubmit={e=>{
+  e.preventDefault();
+  if(!name.trim()||!body.trim())return;
+  setBusy(true);
+  void rpc<{installed:string[];skipped:{name:string;reason:string}[];standardized?:any}>('createSkill',{name:name.trim(),text:body.trim()}).then(r=>{
+   if(r.skipped?.[0])throw Error(r.skipped[0].reason);
+   onSaved(name.trim());
+  }).catch(report).finally(()=>setBusy(false));
+ }}>
+  <label>{uiText("Tên kỹ năng (gọi bằng /tên)")}<input autoFocus required maxLength={60} value={name} onChange={e=>setName(e.target.value)} placeholder={uiText("Ví dụ: giao-an-toan")}/></label>
+  <label>{uiText("Nội dung SKILL.md")}<textarea required className="editor" value={body} onChange={e=>setBody(e.target.value)} placeholder={uiText("# Tên kỹ năng\n\nMục tiêu và các bước thực hiện…")}/></label>
+  <StandardizeBox kind="skill" text={body} title={name} defaultSource={uiText("Thầy cô viết")} onApply={r=>{setBody(r.text);if(r.title)setName(r.title);}} report={report}/>
+  <p className="muted small">{uiText("Khi lưu, PVTA tự chuẩn hóa hình thức; nội dung của thầy cô được giữ nguyên.")}</p>
+  <div className="modal-actions">
+   <button type="button" disabled={busy} onClick={onCancel}>{uiText("Hủy")}</button>
+   <button className="primary" type="submit" disabled={busy||!name.trim()||!body.trim()}>{busy?uiText("Đang lưu…"):uiText("Lưu kỹ năng")}</button>
+  </div>
+ </form>;
+}
+
 /** Cửa sổ thêm quy tắc mới độc lập */
-export function AddRuleDialog({scope,onSaved,onCancel,report}:{scope:RuleScope;onSaved:()=>void;onCancel:()=>void;report:(e:unknown)=>void}){
+export function AddRuleDialog({scope,onSaved,onCancel,report}:{scope:RuleScope;onSaved:(ruleKey?:string)=>void;onCancel:()=>void;report:(e:unknown)=>void}){
  const [title,setTitle]=useState('');
  const [text,setText]=useState('');
  const [always,setAlways]=useState(false);
@@ -244,7 +302,7 @@ export function AddRuleDialog({scope,onSaved,onCancel,report}:{scope:RuleScope;o
   if(!title.trim()||!text.trim())return;
   setBusy(true);
   void rpc('saveRule',{rule:{title:title.trim(),text:text.trim(),always},scope}).then(()=>{
-   onSaved();
+   onSaved(title.trim());
   }).catch(report).finally(()=>setBusy(false));
  }}>
   <label>{uiText("Tên quy tắc")}<input autoFocus required maxLength={80} value={title} onChange={e=>setTitle(e.target.value)} placeholder={uiText("Ví dụ: Giọng văn gần gũi")}/></label>

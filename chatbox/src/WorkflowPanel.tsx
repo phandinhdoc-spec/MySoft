@@ -15,6 +15,9 @@ import {Icon} from './Icon';
 import {Badge,ToolButton,ToolGroup,ToolSep,WfGlyph} from './WorkflowToolkit';
 import {CodeApproval} from './CodeApproval';
 import {StepComposer} from './StepComposer';
+import {StepInputFiles} from './StepInputFiles';
+import {StepInputsForm,StepOutputsForm} from './WorkflowStepForm';
+import {StepInputsZone,StepOutputsZone,stepDiagnostic,stepDirectives,stepVariables} from './WorkflowStepZones';
 import './workflow.css';
 import {forkWorkflow,insertWorkflowAfter,layoutWorkflow} from './workflow-graph';
 
@@ -227,29 +230,37 @@ export function WorkflowPanel({state,report,notice,onAutoCreate,selectedId,navig
 
     {linked&&<details className="wf-plan-advanced"><summary>{uiText("Chi tiết kế hoạch: đầu vào, đầu ra, tiêu chí hoàn thành, khôi phục")}</summary><p className="muted small">{uiText("Quy trình này sinh từ Plan. Tên bước và prompt sửa bằng nút ở sơ đồ phía trên; phần dưới dùng khi cần chỉnh hợp đồng từng bước hoặc duyệt từng nấc.")}</p><PlanCard state={state} key={linked.id} graphView plan={linked} busy={running} report={report} notice={notice} onRun={stepId=>rpc('runPlan',{id:linked.id,stepId,revision:linked.revision??0}).catch(report)}/></details>}
 
-    {step&&<WorkflowDialog title={uiText("Sửa bước: {0}",[step.name])} onClose={()=>setStepId('')}><div className="wf-editor">
-     <div className="wf-editor-row">
+    {step&&<WorkflowDialog title={uiText("Sửa bước: {0}",[step.name])} onClose={()=>setStepId('')}><div className="wf-editor wf-step-editor">
+     <div className="wf-step-head">
       <label>{uiText("Tên nút")}<input value={step.name} maxLength={100} disabled={running} onChange={e=>patchStep(step.id,{name:e.target.value})}/></label>
       <label>Model<select value={choiceKey(step.choice)} disabled={running} onChange={e=>patchStep(step.id,{choice:parseKey(e.target.value)})}>
        <option value="auto">{uiText("Tự động chọn AI")}</option>
        {groups.map(g=><optgroup key={g.label} label={g.label}>{g.items.map(m=><option key={m.key} value={m.key}>{m.label}</option>)}</optgroup>)}
        {step.choice!=='auto'&&!groups.some(g=>g.items.some(m=>m.key===choiceKey(step.choice)))&&<option value={choiceKey(step.choice)}>{step.choice.model} {uiText("(chưa cấu hình)")}</option>}
       </select></label>
-     </div>
-     {draft.mode==='parallel'&&<fieldset disabled={running}><legend>{uiText("Các bước cần chờ")}</legend><p className="muted small">{uiText("Không chọn: chạy độc lập. Chọn nhiều bước: hợp nhất kết quả qua")} {'{{prev}}'}{uiText(". Không tạo vòng lặp.")}</p>{draft.steps.filter(s=>s.id!==step.id).map(s=><label className="wf-check" key={s.id}><input type="checkbox" checked={(step.dependsOn??[]).includes(s.id)} onChange={e=>patchStep(step.id,{dependsOn:e.target.checked?[...(step.dependsOn??[]),s.id]:(step.dependsOn??[]).filter(id=>id!==s.id)})}/>{s.name}</label>)}</fieldset>}
-<div className="wf-prompt-field"><span className="wf-field-label">Prompt</span><StepComposer workflow={draft} stepId={step.id} state={state} value={step.prompt} onChange={(prompt,files)=>patchStep(step.id,{prompt,...(files?{files}:{})})} files={step.files??[]} onFiles={files=>patchStep(step.id,{files:files.length?files:undefined})} projectId={saved.projectId} disabled={running} filesDisabledReason={saved.planId&&!step.templateCopy?uiText("Quy trình sinh từ Plan chạy theo Plan nên chưa nhận tệp riêng cho từng nút; hãy đính kèm tệp trong hội thoại của Plan."):undefined} report={report} notice={notice}/></div>
-     <div className="wf-editor-row wf-perm">
-      <div role="radiogroup" aria-label={uiText("Quyền của nút")} className="wf-seg">
-       <button role="radio" aria-checked={step.access==='read'} className={step.access==='read'?'on':''} disabled={running} onClick={()=>patchStep(step.id,{access:'read'})}><Icon name="eye" size={16}/> {uiText("Chỉ đọc")}</button>
-       <button role="radio" aria-checked={step.access==='full'} className={step.access==='full'?'on':''} disabled={running} onClick={()=>patchStep(step.id,{access:'full'})}><Icon name="pen" size={16}/> {uiText("Chỉnh sửa")}</button>
+      <div className="wf-field"><span className="wf-field-label">{uiText("Quyền")}</span>
+       <div role="radiogroup" aria-label={uiText("Quyền của nút")} className="wf-seg">
+        <button role="radio" aria-checked={step.access==='read'} className={step.access==='read'?'on':''} disabled={running} onClick={()=>patchStep(step.id,{access:'read'})}><Icon name="eye" size={16}/> {uiText("Chỉ đọc")}</button>
+        <button role="radio" aria-checked={step.access==='full'} className={step.access==='full'?'on':''} disabled={running} onClick={()=>patchStep(step.id,{access:'full'})}><Icon name="pen" size={16}/> {uiText("Chỉnh sửa")}</button>
+       </div>
       </div>
-      <label className="wf-check"><input type="checkbox" checked={!!step.continueOnError} disabled={running} onChange={e=>patchStep(step.id,{continueOnError:e.target.checked})}/> {uiText("Lỗi vẫn chạy tiếp")}</label>
-      <span className="wf-spacer"/>
-      <button disabled={running||draft.steps.findIndex(s=>s.id===step.id)===0} onClick={()=>move(draft.steps.findIndex(s=>s.id===step.id),-1)} aria-label={uiText("Dời nút sang trái")}>←</button>
-      <button disabled={running||draft.steps.findIndex(s=>s.id===step.id)===draft.steps.length-1} onClick={()=>move(draft.steps.findIndex(s=>s.id===step.id),1)} aria-label={uiText("Dời nút sang phải")}>→</button>
-      <button disabled={running} onClick={()=>{edit(d=>({...d,steps:d.steps.filter(s=>s.id!==step.id).map(s=>({...s,dependsOn:s.dependsOn?.filter(id=>id!==step.id)}))}));setStepId('');}}>{uiText("Xóa nút")}</button>
      </div>
      {step.access==='full'&&<p className="wf-warn">{uiText("Nút này được sửa tệp và chạy lệnh trực tiếp trong thư mục làm việc")} {draft.folder?`: ${draft.folder}`:' (cần chọn thư mục ở trên)'}.</p>}
+     <StepInputsZone variables={stepVariables(draft,step.id)} hasDependencies={draft.mode==='parallel'&&(step.dependsOn??[]).length>0}>
+      <StepInputFiles files={step.files??[]} disabled={running||!!(saved.planId&&!step.templateCopy)} onChange={files=>patchStep(step.id,{files})} report={report} notice={notice}/><StepInputsForm workflow={draft} step={step} disabled={running} onPrompt={prompt=>patchStep(step.id,{prompt})}/>
+      {draft.mode==='parallel'&&<fieldset disabled={running}><legend>{uiText("Các bước cần chờ")}</legend><p className="muted small">{uiText("Không chọn: chạy độc lập. Chọn nhiều bước: hợp nhất kết quả qua")} {'{{prev}}'}{uiText(". Không tạo vòng lặp.")}</p>{draft.steps.filter(s=>s.id!==step.id).map(s=><label className="wf-check" key={s.id}><input type="checkbox" checked={(step.dependsOn??[]).includes(s.id)} onChange={e=>patchStep(step.id,{dependsOn:e.target.checked?[...(step.dependsOn??[]),s.id]:(step.dependsOn??[]).filter(id=>id!==s.id)})}/>{s.name}</label>)}</fieldset>}
+     </StepInputsZone>
+     <div className="wf-prompt-field"><span className="wf-field-label">Prompt</span><StepComposer inheritedResources={draft.steps.filter(s=>s.id!==step.id).flatMap(s=>(s.resources??[]).filter(r=>r.scope==='workflow').map(resource=>({owner:s.name,resource})))} key={step.id} resources={step.resources} onResources={(resources,prompt)=>patchStep(step.id,{resources,...(prompt!==undefined?{prompt}:{})})} workflow={draft} stepId={step.id} state={state} value={step.prompt} onChange={(prompt,files)=>patchStep(step.id,{prompt,...(files?{files}:{})})} files={step.files??[]} onFiles={files=>patchStep(step.id,{files:files.length?files:undefined})} projectId={saved.projectId} disabled={running} filesDisabledReason={saved.planId&&!step.templateCopy?uiText("Quy trình sinh từ Plan chạy theo Plan nên chưa nhận tệp riêng cho từng nút; hãy đính kèm tệp trong hội thoại của Plan."):undefined} report={report} notice={notice}/></div>
+     <StepOutputsZone step={step} directives={stepDirectives(step.prompt,step.id)} diagnostic={stepDiagnostic(draft,step.id)}>
+      <StepOutputsForm workflow={draft} step={step} disabled={running} onPrompt={prompt=>patchStep(step.id,{prompt})}/>
+      <label className="wf-check"><input type="checkbox" checked={!!step.continueOnError} disabled={running} onChange={e=>patchStep(step.id,{continueOnError:e.target.checked})}/> {uiText("Lỗi vẫn chạy tiếp")}</label>
+     </StepOutputsZone>
+     <div className="wf-step-foot">
+      <button disabled={running||draft.steps.findIndex(s=>s.id===step.id)===0} onClick={()=>move(draft.steps.findIndex(s=>s.id===step.id),-1)} aria-label={uiText("Dời nút sang trái")}>←</button>
+      <button disabled={running||draft.steps.findIndex(s=>s.id===step.id)===draft.steps.length-1} onClick={()=>move(draft.steps.findIndex(s=>s.id===step.id),1)} aria-label={uiText("Dời nút sang phải")}>→</button>
+      <span className="wf-spacer"/>
+      <button disabled={running} onClick={()=>{edit(d=>({...d,steps:d.steps.filter(s=>s.id!==step.id).map(s=>({...s,dependsOn:s.dependsOn?.filter(id=>id!==step.id)}))}));setStepId('');}}>{uiText("Xóa nút")}</button>
+     </div>
     </div></WorkflowDialog>}
 
     {!hidden.history&&<>

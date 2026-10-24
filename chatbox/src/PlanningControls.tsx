@@ -6,11 +6,15 @@ export function planningMinutes(value:string):number{
  if(!/^\d+$/.test(value.trim())||Number(value)<1||Number(value)>35791)throw Error(uiText("Nhập KGH hoặc số phút từ 1 đến 35791."));
  return Number(value)*60_000;
 }
-export function PlanningControls({mode,time,onMode,onTime,onWorkflow}:{mode:PlanningMode;time:string;onMode:(mode:PlanningMode)=>void;onTime:(value:string)=>void;onWorkflow?:()=>void}){
+export function PlanningControls({mode,time,onMode,onTime,onWorkflow,onApprove,approving=false}:{mode:PlanningMode;time:string;onMode:(mode:PlanningMode)=>void;onTime:(value:string)=>void;onWorkflow?:()=>void;onApprove?:()=>void;approving?:boolean}){
+ const canApprove=mode!=='chat'&&!approving;
  return <div className="planning-controls">
   <select className={`plan-toggle ${mode!=='chat'?'on':''}`} aria-label={uiText("Chế độ Chat, Plan hoặc Plan Pro")} value={mode} onChange={e=>onMode(e.target.value as PlanningMode)} title="Chat · Plan · Plan Pro (Ctrl/Cmd + Shift + P)">
    <option value="chat">Chat</option><option value="plan">◇ Plan</option><option value="pro">◇ Plan Pro</option>
   </select>
+  {onApprove&&<button type="button" className={`plan-approve ${mode!=='chat'?'on':''}`} disabled={!canApprove} onClick={onApprove}
+   title={mode==='chat'?uiText("Chuyển sang Plan hoặc Plan Pro để dùng nút Duyệt."):uiText("Dừng bàn kế hoạch, rà lại toàn bộ trao đổi và xuất kế hoạch kèm quy trình.")}
+   aria-label={uiText("Duyệt kế hoạch")}>{approving?uiText("Đang duyệt…"):uiText("Duyệt")}</button>}
   {mode!=='chat'&&onWorkflow&&<button type="button" aria-label={uiText("Mở quy trình trực quan")} onClick={onWorkflow}>{uiText("Quy trình ↗")}</button>}
   {mode!=='chat'&&<label className="planning-time" title={uiText("Thời gian cho toàn bộ lượt lập kế hoạch. KGH: không giới hạn; hoặc nhập số phút.")}>
    <input aria-label={uiText("Thời gian lập kế hoạch (phút hoặc KGH)")} value={time} placeholder="KGH" maxLength={5} onChange={e=>onTime(e.target.value.toUpperCase())} onBlur={()=>{if(!time.trim())onTime('KGH');}}/>
@@ -18,7 +22,7 @@ export function PlanningControls({mode,time,onMode,onTime,onWorkflow}:{mode:Plan
   </label>}
  </div>;
 }
-const phaseLabels:Record<PlanningRun['phase'],string>={survey:uiText("Đang khảo sát và lập nháp"),review:uiText("Đang phản biện và kiểm tra"),revise:uiText("Đang sửa bản nháp"),ready:uiText("Đã lập xong · Chờ duyệt"),questions:uiText("Cần làm rõ"),error:uiText("Chưa đạt kiểm tra"),interrupted:uiText("Đã dừng")};
+const phaseLabels:Record<PlanningRun['phase'],string>={survey:uiText("Đang khảo sát và lập nháp"),review:uiText("Đang phản biện và kiểm tra"),revise:uiText("Đang sửa bản nháp"),published:uiText("Đã chốt · Quy trình đã lưu"),ready:uiText("Bản nháp đã sẵn sàng · Bấm Duyệt để chốt"),questions:uiText("Cần làm rõ"),error:uiText("Chưa đạt kiểm tra"),interrupted:uiText("Đã dừng")};
 export function PlanningProgress({run}:{run:PlanningRun}){
  return <aside className="planning-progress">
   <div role="status"><strong>{run.mode==='pro'?'Plan Pro':'Plan'}</strong> · {phaseLabels[run.phase]}{run.round>0&&uiText(" · Vòng {0}/3",[run.round])} · {run.timeoutMs?uiText("{0} phút",[run.timeoutMs/60000]):'KGH'}</div>

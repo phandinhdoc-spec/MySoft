@@ -24,7 +24,7 @@ describe('desktop approval boundary',()=>{
  it('Plan discards actions, preserves editable steps, and cannot write before approval',async()=>{
   const {r,dir,spy}=setup();const output=path.join(dir,'blocked.md');const chatId=await request(r,'newChat');await request(r,'preferences',{patch:{choice:{backend:'api',model:'openai/mock'}}});
   spy.mockResolvedValue(result('```pvta-action\n'+JSON.stringify({kind:'write_text',path:output,content:'bad'})+'\n```\n```pvta-plan\n'+JSON.stringify({title:'Plan',brief:{objective:'Đọc tệp',topic:'Tài liệu',documentType:'Báo cáo',subject:'Không áp dụng',grade:'Không áp dụng',output:'Tóm tắt nội dung',facts:[],proposals:[],assumptions:[],questions:[],sources:[],limitations:['Không cần nguồn ngoài']},steps:[{goal:'Read',task:'Read file',files:[],risk:'None'}]})+'\n```'));
-  await request(r,'send',{chatId,text:'Plan',plan:true});const m=r.view().data.chats[0]!.messages[1]!;expect(m.actions).toEqual([]);expect(m.plan?.approved).toBe(false);expect(fs.existsSync(output)).toBe(false);expect(spy.mock.calls[0]![0].permission).toBe('read');
+  await request(r,'send',{chatId,text:'Plan',plan:true});const m=r.view().data.chats[0]!.messages[1]!;expect(m.actions).toEqual([]);expect(m.plan).toBeUndefined();expect(r.store.data.chats[0]!.planningDraft?.approved).toBe(false);expect(r.store.data.workflows??[]).toHaveLength(0);expect(fs.existsSync(output)).toBe(false);expect(spy.mock.calls[0]![0].permission).toBe('read');
  });
  it('parses pvta-plan in normal chat turn, creates plan and links to workflows',async()=>{
   const {r,spy}=setup();const chatId=await request(r,'newChat');await request(r,'preferences',{patch:{choice:{backend:'api',model:'openai/mock'}}});

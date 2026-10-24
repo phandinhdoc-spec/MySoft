@@ -8,6 +8,7 @@ export interface TemplateOrigin {templateId:string;group:string}
 /** Nguồn gốc bền vững của bản sao chèn; không dùng màu insertGroup để quyết định quyền biên tập. */
 export interface WorkflowStep {templateCopy?:true;origin?:TemplateOrigin;promptFormat?:'yaml-v1';/** Dấu nội bộ khi trải phẳng nút gốc của Plan. */planPrompt?:true}
 export interface PlanStep {templateCopy?:true;origin?:TemplateOrigin;promptFormat?:'yaml-v1'}
+export interface Chat { planningDraft?:Plan; planningSession?:'plan'|'pro' }
 export interface WorkflowRun {approvedPrompts?:import('./workflow-prompts.js').ApprovedPrompts}
 export interface Workflow {functions?:import('./workflow-language.js').FunctionImplementation[];/** Hội thoại được tạo khi mở chat của quy trình độc lập. */chatId?:string}
 export interface WorkflowStepRun {transfer?:import('./workflow-expression.js').Value}
@@ -38,6 +39,11 @@ export type AccessLevel='read'|'ask'|'full';
 /** Kết nối công cụ ngoài (MCP) qua chính CLI. Mặc định tắt; PVTA không làm MCP client. */
 export interface McpSettings {enabled:boolean;allowedTools:string[]}
 export interface Preferences {/** Tên hiển thị của người dùng trong hồ sơ cá nhân; chữ cái đầu của tên hiện ở biểu tượng hồ sơ. */ userName?:string;/** false = tắt AI nền gợi ý tính năng (mặc định bật). */ selfAdvice?:boolean;quickAccess?:string[];language?:'vi'|'en';theme:'system'|'light'|'dark';palette?:PaletteId;fontFamily?:FontId;iconStyle?:IconStyleId;toolbarIconSize?:number;fontSize:number;learning:boolean;/** true = nút Não bộ đang sáng: sau mỗi tiến trình, model mặc định rút kinh nghiệm và lưu đề xuất vào bộ nhớ. */ reflect?:boolean;hints:boolean;rag:boolean;rules:string;choice:ModelChoice|'auto';effort?:Effort|null;mode:string;access?:AccessLevel;bridge:boolean;bridgeToken?:string;refine?:RefineSettings;mcp?:McpSettings}
+/** Nội dung riêng được lưu cùng nút; phạm vi workflow có hiệu lực với mọi nút, kể cả nút thêm sau. */
+export interface WorkflowResource {id:string;kind:'rule'|'skill'|'prompt';name:string;body:string;scope:'step'|'workflow'}
+export interface WorkflowStep {resources?:WorkflowResource[]}
+export interface PlanStep {resources?:WorkflowResource[]}
+export interface TemplateStep {resources?:WorkflowResource[]}
 /** Một nút của quy trình: tên, prompt, model riêng và quyền (chỉ đọc hoặc chỉnh sửa trong thư mục làm việc). */
 export interface WorkflowStep extends PlanStepContract {/** Mã nhóm bước vừa chèn từ mẫu; chỉ để đổi màu khung, mất khi lưu. */ insertGroup?:string;/** Nút này chạy cả một quy trình khác (tham chiếu theo id); khi chạy được trải phẳng vào quy trình cha. */ subWorkflowId?:string;/** Tệp, ảnh, thư mục riêng của nút (đường dẫn tuyệt đối); đọc khi nút chạy. */ files?:string[];id:string;name:string;prompt:string;choice:ModelChoice|'auto';access:'read'|'full';continueOnError?:boolean;dependsOn?:string[]}
 /** Mã AI sinh trong khung có biến/hàm: cảnh báo của phản biện và quyết định của giáo viên. */

@@ -476,6 +476,14 @@ npx tsc -p core --noEmit
 npx tsc -p chatbox --noEmit
 ```
 
+## Phạm vi tài nguyên trong nút quy trình
+
+Trong ô Prompt của nút hoặc khâu mẫu, chọn **Phạm vi quy tắc, skill, prompt mẫu** trước khi dùng `@`, `/`, `#`: **Thư viện chung** dùng các hộp thoại lưu chung; **Chỉ nút này** và **Cả quy trình** lưu nội dung riêng cùng quy trình, không tạo mục trong thư viện. Có thể chọn tài nguyên đã có làm bản sao riêng hoặc bấm thêm mới. Mở mục tài nguyên để sửa nội dung, đổi giữa phạm vi nút/quy trình hoặc bỏ áp dụng; sau đó lưu quy trình. Tài nguyên toàn quy trình hiện ở các nút khác kèm tên nút nguồn để tìm nơi sửa. Xóa nút nguồn cũng xóa các tài nguyên do nút đó lưu.
+
+Vùng **ĐẦU VÀO → Tệp đầu vào của nút** có bộ lọc tài liệu, ảnh và PDF; hỗ trợ chọn nhiều tệp, bỏ tệp và lưu cùng nút. Công cụ **File** trong thanh Markdown cũng chọn được ảnh/PDF. Nút gốc của quy trình liên kết Plan vẫn theo giới hạn đính kèm hiện có; giao diện thông báo và khóa chọn tệp riêng cho những nút này.
+
+Kiểm thử tự động xác nhận lưu/nhập/xuất, phạm vi nội dung gửi tới model mô phỏng và cấu hình tệp qua giao diện jsdom. Chưa kiểm chứng với ứng dụng desktop và model thật.
+
 ## Chuẩn hóa skill, quy tắc, lời nhắc và quản lí nguồn
 
 - `SKILL.md` ở gốc là hướng dẫn nội bộ `pvta-viet-skill`, đồng bộ vào `core/src/standardize/guide.ts`. Không cài vào thư viện người dùng, không hiện trong danh sách hoặc gọi bằng `/`. Đây là giới hạn hiển thị của ứng dụng, không phải cơ chế giữ bí mật mã được phân phối. `npm test` kiểm tra bản nhúng còn khớp nguồn trước khi chạy.

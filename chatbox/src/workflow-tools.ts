@@ -1,6 +1,7 @@
 import {t as uiText} from './i18n';
 import {MAX_WORKFLOW_STEPS} from '../../core/src/desktop/workflow-limits';
 import type {Workflow,WorkflowStep} from '../../core/src/desktop/types';
+import {cleanWorkflowResources} from '../../core/src/desktop/workflow-scoped-resources';
 
 export type WorkflowDraft=Pick<Workflow,'id'|'name'|'folder'|'input'|'steps'|'mode'|'maxConcurrency'|'pinned'>&Partial<Pick<Workflow,'frames'|'suggestedLinks'|'outputDir'|'attachments'|'codeTimeoutMs'>>;
 export function selectWorkflows(list:Workflow[],query:string,status:string,sort:string){
@@ -31,7 +32,7 @@ export function importWorkflow(text:string):WorkflowDraft{
  }
  for(const s of w.steps)if(s.dependsOn!==undefined&&(!Array.isArray(s.dependsOn)||s.dependsOn.some((id:unknown)=>typeof id!=='string'||!ids.has(id))))throw Error(uiText("Mẫu có kết nối không hợp lệ."));
  // Imported templates always start with read-only permissions; users enable editing explicitly.
- const steps:WorkflowStep[]=w.steps.map((s:WorkflowStep)=>({id:s.id,name:s.name,prompt:s.prompt,choice:'auto',access:'read',dependsOn:s.dependsOn,continueOnError:s.continueOnError===true,inputs:s.inputs,outputs:s.outputs,completion:s.completion,onError:s.onError}));
+ const steps:WorkflowStep[]=w.steps.map((s:WorkflowStep)=>({id:s.id,name:s.name,prompt:s.prompt,resources:cleanWorkflowResources(s.resources),choice:'auto',access:'read',dependsOn:s.dependsOn,continueOnError:s.continueOnError===true,inputs:s.inputs,outputs:s.outputs,completion:s.completion,onError:s.onError}));
  const frames=(Array.isArray(w.frames)?w.frames:[]).slice(0,20).filter((f:any)=>f&&Array.isArray(f.stepIds)).map((f:any)=>({id:String(f.id??crypto.randomUUID()),name:String(f.name??'Khung').slice(0,100),stepIds:f.stepIds.filter((x:unknown)=>typeof x==='string'&&ids.has(x)),decl:String(f.decl??'').slice(0,4000)}));
  return copyWorkflow({id:'import',name:w.name,steps,...(frames.length?{frames}:{}),mode:w.mode==='parallel'?'parallel':'sequential',maxConcurrency:w.maxConcurrency},uiText("{0} (đã nhập)",[w.name]));
 }
