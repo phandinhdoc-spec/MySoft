@@ -36,7 +36,7 @@ function errText(e: unknown, fallback: string): string {
  *   khi chạy nền. Thay cho `--mode accept-edits` (khi đó agy bị chặn RunCommand).
  *   Không dùng `--mode auto`: ở chế độ headless agy tự từ chối write_file (kiểm chứng ngày 22/10).
  * - Các chế độ còn lại dùng --mode plan và --sandbox.
- * Prompt đi qua tham số dòng lệnh.
+ * Prompt đi qua stdin (`-p -`): không giới hạn độ dài, tránh lỗi spawn ENAMETOOLONG trên Windows.
  */
 export const agyBackend: Backend = {
   id: "agy",
@@ -46,8 +46,8 @@ export const agyBackend: Backend = {
   invocation(opts: InvokeOptions): Invocation {
     const full = opts.workspaceWrite === true;
     const args: Invocation["args"] = full
-      ? [{ flag: "-p", value: opts.prompt, essential: true }, { flag: "--dangerously-skip-permissions", essential: true }]
-      : [{ flag: "-p", value: opts.prompt, essential: true }, {flag: '--mode', value:'plan', essential:true}, {flag:'--sandbox',essential:true}];
+      ? [{ flag: "-p", value: "-", essential: true }, { flag: "--dangerously-skip-permissions", essential: true }]
+      : [{ flag: "-p", value: "-", essential: true }, {flag: '--mode', value:'plan', essential:true}, {flag:'--sandbox',essential:true}];
     if (!opts.plain) args.push({ flag: "--output-format", value: "stream-json", essential: true });
     if (opts.model) args.push({ flag: "--model", value: opts.model, essential: true });
     if (opts.conversationId) args.push({ flag: "--conversation", value: opts.conversationId, essential: true });
@@ -55,7 +55,7 @@ export const agyBackend: Backend = {
     if (eff && !slugHasEffort(opts.model)) args.push({ flag: "--effort", value: eff });
     args.push({ flag: "--print-timeout", value: "15m" });
     args.push({ flag: "--disable-slash-commands" });
-    return { bin: "", args };
+    return { bin: "", args, stdin: opts.prompt };
   },
 
   parseLine(line: string, st: ParseState): string | undefined {

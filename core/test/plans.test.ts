@@ -11,6 +11,7 @@ const result=(text:string)=>({text,attempts:1,fullPrompt:true,timings:{totalMs:0
 it('workflow reset clears Plan recovery errors, archives partial files and executes every node again',async()=>{
  const {r,spy,dir}=setup(),p=await plan(r),w=r.store.data.workflows![0]!;
  const root=path.join(dir,'workspace','desktop');fs.mkdirSync(root,{recursive:true});const file=path.join(root,'partial.txt');
+ p.steps[0]!.outputs=[file];w.steps[0]!.outputs=[file];
  let fail=true;const tasks:string[]=[];
  spy.mockImplementation(async o=>{
   const prompt=o.buildPrompt?.(false,false)??'';

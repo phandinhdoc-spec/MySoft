@@ -57,3 +57,16 @@ describe("biểu tượng", () => {
     expect(fs.existsSync(path.join(root, "scripts/windows/pvta.ico"))).toBe(true);
   });
 });
+
+describe("studio.ps1: loi tat Desktop va Start Menu", () => {
+  const text = read("installers/studio.ps1").toString("utf8");
+  it("chỉ dùng ký tự ASCII để PowerShell 5.1 đọc đúng", () => {
+    expect(text).toMatch(/^[\x00-\x7f]*$/);
+  });
+  it("tạo lối tắt ở Desktop và Start Menu (Programs) sau khi cài PVTA Chat", () => {
+    expect(text).toContain("GetFolderPath('Desktop')");
+    expect(text).toContain("GetFolderPath('Programs')");
+    expect(text).toContain("CreateShortcut");
+    expect(text).toContain("New-ChatShortcuts $chatExe");
+  });
+});

@@ -5,6 +5,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { DesktopRuntime } from '../src/desktop/runtime.js';
 import type { ResourceRef } from '../src/desktop/learning-policy.js';
+import {BASELINE_DEFS} from '../src/desktop/learning-baseline.js';
 
 const roots: string[] = [];
 const runtimes: DesktopRuntime[] = [];
@@ -28,6 +29,48 @@ const req = (r: DesktopRuntime, method: string, params: Record<string, unknown> 
   r.dispatch({ id: crypto.randomUUID(), method, params });
 
 describe('Learning RPC', () => {
+  it.each(['project','chat','workflow','plan'] as const)('reviews %s scope only while the local resource exists',async kind=>{
+    const {r}=setup();const now='2026-10-24T03:00:00.000Z';
+    await req(r,'seedBaseline',{now});
+    r.store.data.projects.push({id:'project'} as any);
+    r.store.data.chats.push({id:'chat',projectId:'project',messages:[{plan:{id:'plan'}}]} as any);
+    r.store.data.workflows=[{id:'workflow',projectId:'project'} as any];
+    const reg=r.learningStore.read();const lesson=reg.lessons.find(l=>l.classification.groupIds.includes('workflow'))!;
+    const scope=kind==='project'?{kind,projectId:'project'}:kind==='chat'?{kind,projectId:'project',chatId:'chat'}:kind==='workflow'?{kind,projectId:'project',workflowId:'workflow'}:{kind,projectId:'project',chatId:'chat',planId:'plan'};
+    r.learningStore.revise(reg.generation,{kind:'lesson',id:lesson.id,revision:1},{...lesson,scope},{actor:{kind:'user',id:'teacher'},context:{now,groups:['workflow'],canAccess:()=>true,sourceAvailable:()=>true,readArtifact:()=>null},canReview:()=>true});
+    const ref={kind:'lesson',id:lesson.id,revision:2};
+    await expect(req(r,'learning.review',{ref,action:'approve',now})).resolves.toMatchObject({ok:true});
+    await expect(req(r,'learning.review',{ref,action:'activate',now})).resolves.toMatchObject({ok:true});
+    r.store.data.projects=[];
+    await expect(req(r,'learning.review',{ref,action:'suspend',now})).rejects.toThrow('REVIEW_AUTH');
+  });
+  it('does not bypass the registry using a legacy active skill or direct skill read',async()=>{
+    const {r}=setup();const now=new Date().toISOString();const base=BASELINE_DEFS[0]!;
+    await req(r,'seedBaseline',{now,defs:[{...base,skill:{...base.skill,name:'learned-registry'}}]});
+    const reg=r.learningStore.read();const skill=reg.skills.find(s=>s.classification.groupIds.includes('workflow'))!;
+    const file=path.join(r.skills.dir,skill.name,'SKILL.md');fs.mkdirSync(path.dirname(file),{recursive:true});
+    fs.writeFileSync(file,`---\nname: ${skill.name}\ndescription: Test\nload: demand\n---\n${skill.bodyMarkdown}`);
+    r.store.data.learnedDrafts=[{id:'old',name:skill.name,description:skill.description,body:skill.bodyMarkdown,status:'active',reviewedAt:Date.now(),at:Date.now(),source:'test',existingHash:crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex')}];
+    const chatId=await req(r,'newChat');const chat=r.store.data.chats.find(c=>c.id===chatId)!;
+    expect((r as any).context(chat,'/'+skill.name)).not.toContain('[Dữ liệu quy trình '+skill.name+']');
+    expect(()=>(r as any).readSource(chat,{tool:'office_skill_read',args:{name:skill.name}})).toThrow('chưa được duyệt');
+    const lesson=reg.lessons.find(l=>l.id===skill.lessonRefs[0]!.id)!;
+    for(const action of ['approve','activate'])await req(r,'learning.review',{ref:{kind:'lesson',id:lesson.id,revision:1},action,now});
+    await req(r,'reviewLearnedSkill',{id:'old',action:'approve'});
+    expect(r.learningStore.read().skills.find(s=>s.id===skill.id)?.review.status).toBe('active');
+    expect((r as any).context(chat,'/'+skill.name)).toContain('[Dữ liệu quy trình '+skill.name+']');
+    await req(r,'learning.review',{ref:{kind:'skill',id:skill.id,revision:1},action:'suspend',now});
+    expect(()=>(r as any).readSource(chat,{tool:'office_skill_read',args:{name:skill.name}})).toThrow('chưa được duyệt');
+    await req(r,'reviewLearnedSkill',{id:'old',action:'reject'});
+    expect(r.learningStore.read().skills.find(s=>s.id===skill.id)?.review.status).toBe('rejected');
+  });
+  it('reviews a research baseline with its stored subtype', async () => {
+    const {r}=setup();const now='2026-10-24T03:00:00.000Z';
+    await req(r,'seedBaseline',{now});
+    const reg=r.learningStore.read();
+    const lesson=reg.lessons.find(l=>l.classification.researchSubtype==='legal')!;
+    await expect(req(r,'learning.review',{ref:{kind:'lesson',id:lesson.id,revision:1},action:'approve',now})).resolves.toMatchObject({ok:true});
+  });
   it('thực hiện seedBaseline và đảm bảo tính idempotent', async () => {
     const { r } = setup();
     const t0 = '2026-10-24T03:00:00.000Z';

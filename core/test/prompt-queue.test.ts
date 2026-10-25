@@ -23,6 +23,17 @@ async function setup(){
 }
 
 describe('chat prompt queue',()=>{
+ it('invalidates accumulated live Office proposals after steering during a later model call',async()=>{
+  const {r,chat,chatId,spy,running,release}=await setup();
+  vi.spyOn(r.office,'selectedSession').mockReturnValue({id:'office',host:'word',name:'Test.docx'} as any);
+  let releaseNext!:(text:string)=>void;
+  spy.mockImplementationOnce(()=>new Promise(resolve=>{releaseNext=text=>resolve(result(text));}));
+  release('```pvta-read\n'+JSON.stringify({tool:'office_word_insert_text',args:{text:'old'}})+'\n```');
+  await vi.waitFor(()=>expect(releaseNext).toBeDefined());
+  await request(r,'queuePrompt',{chatId,text:'Không sửa Office nữa',mode:'steer'});
+  releaseNext('Đã đề xuất');await running;
+  expect(chat.messages.flatMap(m=>m.actions??[])).toEqual([]);
+ });
  it('pauses remaining prompts when a queued model call fails',async()=>{
   const {r,chat,chatId,spy,running,release}=await setup();
   spy.mockRejectedValueOnce(Error('Mạng bị ngắt'));

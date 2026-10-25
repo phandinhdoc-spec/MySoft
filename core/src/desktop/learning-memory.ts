@@ -18,10 +18,10 @@ export function activateLearnedSkill(skills:SkillStore,item:LearnedDraft,previou
   if(!result.written)throw Error(result.reason);
  }else setSkillLoad(skills,item.name,'demand',true);
  if(previous&&previous.name!==item.name&&previous.status==='active')setSkillLoad(skills,previous.name,'off',true);
- item.existingHash=hash(file);item.status='active';item.at=Date.now();item.activationError=undefined;
+ item.existingHash=hash(file);item.status='active';item.at=Date.now();item.reviewedAt=item.at;item.activationError=undefined;
 }
 
-/** Keep failed items editable, without stopping startup or losing the observation. */
-export function autoActivateLearnedSkill(skills:SkillStore,item:LearnedDraft):void{
- try{activateLearnedSkill(skills,item);}catch(e){item.status='proposed';item.activationError=e instanceof Error?e.message:String(e);}
+/** Automatic learning can only stage a draft; publication requires explicit user review. */
+export function stageLearnedSkill(_skills:SkillStore,item:LearnedDraft):void{
+ item.status='proposed';delete item.reviewedAt;
 }

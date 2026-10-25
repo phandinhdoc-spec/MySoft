@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { decide } from "../src/permissions.js";
 import { API_KEY_VARS, cleanEnv } from "../src/env.js";
 import { classifyError, extractBadFlag } from "../src/errors.js";
-import { buildSpawn, quoteWinArg, resolveWin, whichWin, WinShellNewlineError } from "../src/spawn.js";
+import { buildSpawn, quoteWinArg, resolveWin, whichWin, WIN_ARG_LIMIT, WIN_SHELL_ARG_LIMIT, WinShellNewlineError } from "../src/spawn.js";
 import { claudeBackend } from "../src/backends/claude.js";
 import { agyBackend } from "../src/backends/agy.js";
 import { newParseState } from "../src/backends/types.js";
@@ -130,6 +130,10 @@ describe("spawn", () => {
     const p = buildSpawn("linux", "claude", [{ flag: "--tools", value: "" }]);
     expect(p.args).toEqual(["--tools", ""]);
   });
+  it("ngưỡng kiểm tra giới hạn dòng lệnh trên Windows (Win32 và cmd shell)", () => {
+    expect(WIN_ARG_LIMIT).toBe(28_000);
+    expect(WIN_SHELL_ARG_LIMIT).toBe(6_500);
+  });
 });
 
 describe("backend claude", () => {
@@ -230,10 +234,11 @@ describe("chế độ Nhanh của claude", () => {
 });
 
 describe("backend agy", () => {
-  it("prompt qua tham số, luôn dùng Plan và sandbox; không bỏ qua quyền", () => {
+  it("prompt qua stdin (-p -), luôn dùng Plan và sandbox; không bỏ qua quyền", () => {
     const ask = agyBackend.invocation({ model: "m", prompt: "P", permission: "ask" });
     const full = agyBackend.invocation({ model: "m", prompt: "P", permission: "full", conversationId: "c1" });
-    expect(ask.args.find((a) => a.flag === "-p")?.value).toBe("P");
+    expect(ask.args.find((a) => a.flag === "-p")?.value).toBe("-");
+    expect(ask.stdin).toBe("P");
     expect(ask.args.some((a) => a.flag === "--dangerously-skip-permissions")).toBe(false);
     expect(full.args.some((a) => a.flag === "--dangerously-skip-permissions")).toBe(false);
     expect(full.args.find((a) => a.flag === "--mode")).toMatchObject({value:"plan",essential:true});

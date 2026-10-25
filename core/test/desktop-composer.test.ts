@@ -102,10 +102,10 @@ describe('refine settings',()=>{
   expect(r.view().data.preferences.fontSize).toBe(16);   // lỗi thì không lưu một phần
  });
  it('counts learned items waiting for refinement',async()=>{
-  const {r,dir}=setup();expect(r.view().refine.pending).toBe(0);
-  const skillDir=path.join(dir,'skills','learned-mau');fs.mkdirSync(skillDir,{recursive:true});
-  fs.writeFileSync(path.join(skillDir,'SKILL.md'),'---\nname: learned-mau\ndescription: Mô tả đủ dài để hợp lệ\nload: demand\n---\nnội dung');
-  (r as any).store.data.learnedDrafts=[{id:'d',name:'learned-mau',description:'Mô tả đủ dài để hợp lệ',body:'nội dung',source:'test',at:1,status:'active'}];
+  const {r}=setup();expect(r.view().refine.pending).toBe(0);
+  r.store.data.learnedDrafts=[{id:'d',name:'learned-mau',description:'Mô tả đủ dài để hợp lệ',body:'Đọc mục tiêu và kiểm tra nội dung trước khi xuất.',source:'test',at:1,status:'proposed'}];
+  expect(r.view().refine.pending).toBe(0);
+  await call(r,'reviewLearnedSkill',{id:'d',action:'approve'});
   expect(r.view().refine.pending).toBe(1);
  });
 });

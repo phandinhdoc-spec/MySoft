@@ -134,8 +134,13 @@ export class WinShellNewlineError extends Error {
   }
 }
 
-/** Giới hạn độ dài dòng lệnh khi prompt đi qua tham số (Windows ~32.767 ký tự, để dư). */
+/**
+ * Giới hạn độ dài dòng lệnh khi prompt đi qua tham số trên Windows.
+ * Win32 CreateProcessW tối đa 32.767 ký tự (~28.000 để dư).
+ * cmd.exe (khi gọi qua shell) tối đa 8.191 ký tự (~6.500 để trừ cờ và trích dẫn/escape).
+ */
 export const WIN_ARG_LIMIT = 28_000;
+export const WIN_SHELL_ARG_LIMIT = 6_500;
 
 export function launch(plan: SpawnPlan, opts: { cwd: string; env: NodeJS.ProcessEnv }): ChildProcess {
   return spawn(plan.command, plan.args, {

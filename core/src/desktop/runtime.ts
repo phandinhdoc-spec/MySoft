@@ -39,10 +39,11 @@ import {draftMarkdownWorkflow} from './workflow-markdown.js';
 import {openTerminal} from './terminal.js';
 import {isCorrection,lightFeedbackModel,feedbackRuleKey,learningBatch,type LearningItem,type LearningKind} from './feedback-learning.js';
 import {LearningSignals,signalGroup,signalHash,type SignalInput} from './learning-signals.js';
-import {activateLearnedSkill,autoActivateLearnedSkill} from './learning-memory.js';
+import {activateLearnedSkill,stageLearnedSkill} from './learning-memory.js';
 import {LearningStore} from './learning-store.js';
 import {seedBaseline,BASELINE_DEFS,type BaselineDef} from './learning-baseline.js';
 import type {ResourceRef,ReviewAction,ReviewAuthority,LearningContext} from './learning-policy.js';
+import {resource} from './learning-policy.js';
 import {localBeautifyMarkdown} from './markdown-beautify.js';
 import {detectFeedback} from '@pvta/shared';
 import {abortable} from './request-deadline.js';
@@ -246,7 +247,7 @@ export class DesktopRuntime {
   },path.join(home,'github-upload-history.jsonl'));
   this.api=new ApiClient({settings:()=>this.config.get().api});this.engine=new Engine({probe:this.probe,api:this.api,allowApiKeys:()=>false});this.modes=new ModeStore(paths.modes(home));this.skills=new SkillStore(paths.skills(home));this.prompts=new PromptLibrary(paths.prompts(home));
   this.license=new LicenseStore(home);
-  this.workflows=new WorkflowRunner({list:()=>(this.store.data.workflows??=[]),changed:()=>this.changed(),started:()=>{this.learningCtl?.abort();this.reflectCtl?.abort();},observed:(wf,run,step,interrupted)=>{this.captureSignal({group:'workflow',kind:step.code?.decision==='not-run'?'draft':'execution',workflowId:wf.id,projectId:wf.projectId,runId:run.id,stepId:step.stepId,sourceId:run.id+':'+step.stepId,outcome:interrupted?'interrupted':step.status==='success'?'succeeded':'failed',text:'Trạng thái bộ chạy: '+step.status+'. Không xác minh nội dung đầu ra.',sourceVersion:signalHash(JSON.stringify(step))});},concurrency:n=>this.urgency.limit(n),rateLimited:()=>this.urgency.rateLimited(),idle:()=>this.urgency.idle(),grounding:(wf,query)=>this.notebooks.grounding([...(wf.notebookIds??[]),...(this.store.data.projects.find(x=>x.id===wf.projectId)?.notebookIds??[])],query),model:(text,system,signal,choice,run,images)=>this.taskContext.run({kind:'workflow'},()=>this.model(text,system,signal,undefined,choice,images,false,run)),resources:wf=>({skill:name=>{if(name.startsWith('learned-')&&!this.store.data.learnedDrafts?.some(d=>d.name===name&&d.status==='active'))return undefined;return this.skills.read(name)?.body;},rules:prompt=>invokedRules(effectiveRules({profile:this.store.data.ruleBook??[],project:this.store.data.projects.find(x=>x.id===wf.projectId)?.ruleBook??[],chat:[]}),prompt).map(r=>`- [#${r.key}] ${r.title}: ${r.text}`).join('\n').replace(/^(?=.)/,'QUY TẮC ĐƯỢC GỌI TRONG NÚT:\n')}),coreRules:async(cwd,signal)=>{const root=cwd?brainProjectRoot([cwd],[]):undefined;
+  this.workflows=new WorkflowRunner({list:()=>(this.store.data.workflows??=[]),changed:()=>this.changed(),started:()=>{this.learningCtl?.abort();this.reflectCtl?.abort();},observed:(wf,run,step,interrupted)=>{this.captureSignal({group:'workflow',kind:step.code?.decision==='not-run'?'draft':'execution',workflowId:wf.id,projectId:wf.projectId,runId:run.id,stepId:step.stepId,sourceId:run.id+':'+step.stepId,outcome:interrupted?'interrupted':step.status==='success'?'succeeded':'failed',text:'Trạng thái bộ chạy: '+step.status+'. Không xác minh nội dung đầu ra.',sourceVersion:signalHash(JSON.stringify(step))});},concurrency:n=>this.urgency.limit(n),rateLimited:()=>this.urgency.rateLimited(),idle:()=>this.urgency.idle(),grounding:(wf,query)=>this.notebooks.grounding([...(wf.notebookIds??[]),...(this.store.data.projects.find(x=>x.id===wf.projectId)?.notebookIds??[])],query),model:(text,system,signal,choice,run,images)=>this.taskContext.run({kind:'workflow'},()=>this.model(text,system,signal,undefined,choice,images,false,run)),resources:wf=>({skill:name=>{if(!this.canUseSkill(name,{projectId:wf.projectId,workflowId:wf.id}))return undefined;return this.skills.read(name)?.body;},rules:prompt=>invokedRules(effectiveRules({profile:this.store.data.ruleBook??[],project:this.store.data.projects.find(x=>x.id===wf.projectId)?.ruleBook??[],chat:[]}),prompt).map(r=>`- [#${r.key}] ${r.title}: ${r.text}`).join('\n').replace(/^(?=.)/,'QUY TẮC ĐƯỢC GỌI TRONG NÚT:\n')}),coreRules:async(cwd,signal)=>{const root=cwd?brainProjectRoot([cwd],[]):undefined;
    // Brain luôn chạy: có thư mục → Brain của dự án (CLI gọi được trong thư mục); không có → Brain "PVTA tự hiểu" nạp sẵn tầng 1.
    const self=CORE_POLICY.brain&&!root?selfBrainScope(this.store.home):undefined;
    const brain=!CORE_POLICY.brain?'':root?await brainContext(root,signal,digestPrompt(readDigest(this.store.home,root))):self?await brainContext(self,signal,'',{tools:false}):'';
@@ -272,7 +273,7 @@ export class DesktopRuntime {
   }
   if(this.store.data.learningLast?.state==='running')this.store.data.learningLast={at:Date.now(),state:'interrupted',message:'Lượt học trước bị gián đoạn; góp ý còn trong hàng đợi.'};
   for(const item of this.store.data.learned)if(item.status!=='rejected'&&item.rule.trim()&&!findUnsafe(item.rule))item.status='active';
-  for(const item of drafts)if(item.status!=='active'&&item.status!=='rejected')autoActivateLearnedSkill(this.skills,item);
+  for(const item of drafts)if(item.status!=='rejected'&&(item.status!=='active'||!item.reviewedAt))stageLearnedSkill(this.skills,item);
   try{this.signals=new LearningSignals(path.join(home,'chatbox','learning-signals-v1.json'));}catch{this.signalError='Không đọc được hộp tín hiệu tự học; giữ nguyên tệp để đối chiếu.';}
   if((this.learningQueue.length||this.signals?.pending())&&this.store.data.preferences.learning)this.scheduleLearning();
   ensureRefineSchedule(home,this.store.data.preferences.refine??defaultRefineSettings());
@@ -303,7 +304,7 @@ export class DesktopRuntime {
     try{const result=await createRefiner(this.store.home,{
      appRunning:()=>false,waitIdle:async signal=>!signal.aborted,
      progress:p=>{this.refineProgress=p;this.emit({id:'',event:'state',data:this.view()});},
-     writeSkill:(name,md)=>{const draft=skillRefinementDraft(name,md);autoActivateLearnedSkill(this.skills,draft);(this.store.data.learnedDrafts??=[]).push(draft);this.changed();return 'proposed';},
+     writeSkill:(name,md)=>{const draft=skillRefinementDraft(name,md);stageLearnedSkill(this.skills,draft);(this.store.data.learnedDrafts??=[]).push(draft);this.changed();return 'proposed';},
      learned:()=>this.store.data.learned.filter(l=>l.status!=='rejected'&&!l.edited).map(l=>({id:l.id,rule:l.rule})),
      applyRules:(updates,drops)=>{atomicJson(path.join(refinePaths(this.store.home).backup,`learned-${Date.now()}.json`),this.store.data.learned);this.store.data.learned=this.store.data.learned.filter(l=>l.status==='rejected'||l.edited||!drops.includes(l.id)).map(l=>l.status!=='rejected'&&!l.edited&&updates.has(l.id)?{...l,rule:updates.get(l.id)!,at:Date.now()}:l);this.changed();},
     }).run({force:true,catchUp,signal:ctl.signal});this.journal.finish(activity,result.state==='error'||result.state==='no-model'?'error':'done',JSON.stringify(result));return result;
@@ -319,7 +320,7 @@ export class DesktopRuntime {
   const settings=this.store.data.preferences.refine??defaultRefineSettings();
   let pending=0;
   try{
-   const plan=buildPlan({skills:this.skills.list().filter(s=>skillTier(this.skills,s.name)===2&&s.load!=='off'&&(!s.name.startsWith('learned-')||this.store.data.learnedDrafts?.some(d=>d.name===s.name&&d.status==='active'))).flatMap(s=>{try{return [{name:s.name,md:fs.readFileSync(path.join(s.dir,'SKILL.md'),'utf8')}];}catch{return [];}}),learned:this.store.data.learned.filter(l=>l.status!=='rejected'&&!l.edited),manifest:readManifest(this.store.home),journal:new RefineJournal(refinePaths(this.store.home).journal).doneRows()});
+   const plan=buildPlan({skills:this.skills.list().filter(s=>skillTier(this.skills,s.name)===2&&s.load!=='off'&&this.canUseSkill(s.name)).flatMap(s=>{try{return [{name:s.name,md:fs.readFileSync(path.join(s.dir,'SKILL.md'),'utf8')}];}catch{return [];}}),learned:this.store.data.learned.filter(l=>l.status!=='rejected'&&!l.edited),manifest:readManifest(this.store.home),journal:new RefineJournal(refinePaths(this.store.home).journal).doneRows()});
    pending=plan.skills.length+plan.rules.length;
   }catch{/* chỉ là số liệu hiển thị */}
   const sched=readSchedule(this.store.home);
@@ -338,7 +339,7 @@ export class DesktopRuntime {
  }
  view():ViewState{
   const data=structuredClone(this.store.data);delete data.preferences.bridgeToken;
-  return {urgency:this.urgency.view(),homeBrain:this.homeBrainView(),skillDiscovery:this.skillScout.view(),selfTip:CORE_POLICY.featureTips||this.store.data.preferences.selfAdvice!==false?this.selfAdvisor.current():undefined,activeChatIds:data.chats.filter(c=>this.jobs.has(c.id)).map(c=>c.id),chatProgress:Object.fromEntries(data.chats.filter(c=>this.jobs.has(c.id)).map(c=>[c.id,this.liveProgress.get(c.id)??[]])),modelUsage:this.modelUsage,learning:{reflect:{enabled:this.store.data.preferences.reflect===true,running:!!this.reflectCtl,message:this.reflectMessage},enabled:this.store.data.preferences.learning,pending:this.learningQueue.length,running:!!this.learningCtl,message:this.signalError??this.store.data.learningLast?.message??this.learningMessage,last:this.store.data.learningLast,skills:listLearned(paths.skills(this.store.home))},office:this.office.status(),version:VERSION,home:this.store.home,data,backends:this.backends,catalog:this.catalog,modes:this.modes.list(),api:API_PROVIDER_IDS.map(id=>({id,label:API_PROVIDERS[id].label,configured:this.api.configured(id),model:this.config.get().api?.[id]?.model,baseUrl:this.config.get().api?.[id]?.baseUrl??API_PROVIDERS[id].baseUrl,models:this.config.get().api?.[id]?.models??API_PROVIDERS[id].models})),license:this.license.status(),groups:this.groups.store.view(),toolActivity:computeToolActivity(this.store.data.chats),skills:this.skills.list().filter(s=>skillTier(this.skills,s.name)!==1).map(s=>({...s,tier:skillTier(this.skills,s.name),guide:this.skillGuides.get(s.name),load:s.name.startsWith('learned-')&&!this.store.data.learnedDrafts?.some(d=>d.name===s.name&&d.status==='active')?'off':s.load,dir:undefined,source:readRegistry(this.skills)[s.name]?.source??(s.name.startsWith('office-')?'Bộ kỹ năng Office đi kèm':undefined)})),prompts:this.prompts.state(),refine:this.refineView()};
+  return {urgency:this.urgency.view(),homeBrain:this.homeBrainView(),skillDiscovery:this.skillScout.view(),selfTip:CORE_POLICY.featureTips||this.store.data.preferences.selfAdvice!==false?this.selfAdvisor.current():undefined,activeChatIds:data.chats.filter(c=>this.jobs.has(c.id)).map(c=>c.id),chatProgress:Object.fromEntries(data.chats.filter(c=>this.jobs.has(c.id)).map(c=>[c.id,this.liveProgress.get(c.id)??[]])),modelUsage:this.modelUsage,learning:{reflect:{enabled:this.store.data.preferences.reflect===true,running:!!this.reflectCtl,message:this.reflectMessage},enabled:this.store.data.preferences.learning,pending:this.learningQueue.length,running:!!this.learningCtl,message:this.signalError??this.store.data.learningLast?.message??this.learningMessage,last:this.store.data.learningLast,skills:listLearned(paths.skills(this.store.home))},office:this.office.status(),version:VERSION,home:this.store.home,data,backends:this.backends,catalog:this.catalog,modes:this.modes.list(),api:API_PROVIDER_IDS.map(id=>({id,label:API_PROVIDERS[id].label,configured:this.api.configured(id),model:this.config.get().api?.[id]?.model,baseUrl:this.config.get().api?.[id]?.baseUrl??API_PROVIDERS[id].baseUrl,models:this.config.get().api?.[id]?.models??API_PROVIDERS[id].models})),license:this.license.status(),groups:this.groups.store.view(),toolActivity:computeToolActivity(this.store.data.chats),skills:this.skills.list().filter(s=>skillTier(this.skills,s.name)!==1).map(s=>({...s,tier:skillTier(this.skills,s.name),guide:this.skillGuides.get(s.name),load:!this.canUseSkill(s.name)?'off':s.load,dir:undefined,source:readRegistry(this.skills)[s.name]?.source??(s.name.startsWith('office-')?'Bộ kỹ năng Office đi kèm':undefined)})),prompts:this.prompts.state(),refine:this.refineView()};
  }
  publicError(e:unknown){let s=e instanceof Error?e.message:String(e);for(const c of Object.values(this.config.get().api??{}))if(c?.key)s=s.split(c.key).join('[đã ẩn khóa]');return s.replace(/(?:sk-[\w-]{12,}|AIza[\w-]{20,}|gh[pousr]_[\w]{12,})/g,'[đã ẩn khóa]').slice(0,1200);}
  /** Tra kỹ năng, quy tắc (cá nhân, dự án, hội thoại) và lời nhắc mẫu cho quy trình mẫu. */
@@ -346,7 +347,7 @@ export class DesktopRuntime {
   const d=this.store.data;
   const rules=[...(d.ruleBook??[]),...(d.projects.find(x=>x.id===scope.projectId)?.ruleBook??[]),...(d.chats.find(x=>x.id===scope.chatId)?.ruleBook??[])];
   return {
-   skill:name=>{if(name.startsWith('learned-')&&!d.learnedDrafts?.some(x=>x.name===name&&x.status==='active'))return undefined;return this.skills.read(name)?.body.slice(0,14000);},
+   skill:name=>{if(!this.canUseSkill(name,scope))return undefined;return this.skills.read(name)?.body.slice(0,14000);},
    rule:key=>rules.find(r=>r.key===key.replace(/^#/,''))?.text,
    prompt:id=>[...BUILTIN_PROMPTS,...this.prompts.state().own].find(x=>x.id===id)?.text,
   };
@@ -461,10 +462,10 @@ export class DesktopRuntime {
    const sk=r?.skill;
    if(sk&&typeof sk.name==='string'&&typeof sk.description==='string'&&typeof sk.body==='string'){
     const draft={name:sk.name,description:maskPersonal(sk.description).replace(/[\r\n]/g,' '),body:maskPersonal(sk.body)};
-    if(validateLearned(draft).ok){const drafts=this.store.data.learnedDrafts??=[];if(!drafts.some(d=>d.name===draft.name&&d.body===draft.body)){const item:LearnedDraft={...draft,id:uid(),source,chatId:c.id,at:Date.now(),status:'proposed'};autoActivateLearnedSkill(this.skills,item);drafts.push(item);skill=true;}}
+    if(validateLearned(draft).ok){const drafts=this.store.data.learnedDrafts??=[];if(!drafts.some(d=>d.name===draft.name&&d.body===draft.body)){const item:LearnedDraft={...draft,id:uid(),source,chatId:c.id,at:Date.now(),status:'proposed'};stageLearnedSkill(this.skills,item);drafts.push(item);skill=true;}}
    }
    this.reflectSeen.set(c.id,key);
-   this.reflectMessage=added||skill?`Đã lưu ${added} bài học${skill?' và 1 kỹ năng':''} vào bộ nhớ. Nội dung hợp lệ được tự dùng; xem hoặc sửa trong Những điều đã học.`:'Đã xem tiến trình; chưa có bài học mới đáng lưu.';
+   this.reflectMessage=added||skill?`Đã lưu ${added} bài học${skill?' và 1 bản nháp kỹ năng chờ duyệt':''} vào bộ nhớ. Bài học hợp lệ được tự dùng; kỹ năng cần thầy cô duyệt trong Những điều đã học.`:'Đã xem tiến trình; chưa có bài học mới đáng lưu.';
    this.journal.finish(activity,'done',this.reflectMessage);
   }catch(e){
    this.reflectMessage='Chưa rút xong kinh nghiệm: '+this.publicError(e);this.journal.finish(activity,ctl.signal.aborted?'interrupted':'error',this.reflectMessage);
@@ -532,8 +533,8 @@ export class DesktopRuntime {
    if(learned?.skill&&typeof learned.skill.name==='string'&&typeof learned.skill.description==='string'&&typeof learned.skill.body==='string'){
     const skill={name:learned.skill.name,description:maskPersonal(learned.skill.description).replace(/[\r\n]/g,' '),body:maskPersonal(learned.skill.body)};
     const drafts=this.store.data.learnedDrafts??=[];
-    if(!drafts.some(d=>d.name===skill.name&&d.body===skill.body)){const draft:LearnedDraft={...skill,id:uid(),source,chatId:item.chatId,at:Date.now(),status:'proposed'};autoActivateLearnedSkill(this.skills,draft);drafts.push(draft);}
-    this.learningMessage='Đã lưu kỹ năng; kỹ năng hợp lệ được tự dùng. Xem chi tiết trong Những điều đã học.';
+    if(!drafts.some(d=>d.name===skill.name&&d.body===skill.body)){const draft:LearnedDraft={...skill,id:uid(),source,chatId:item.chatId,at:Date.now(),status:'proposed'};stageLearnedSkill(this.skills,draft);drafts.push(draft);}
+    this.learningMessage='Đã lưu kỹ năng; kỹ năng đang chờ thầy cô duyệt. Xem chi tiết trong Những điều đã học.';
    }
    if(typeof rule==='string'&&rule.trim()&&rule.length<=160&&!findUnsafe(rule)){
     rule=maskPersonal(rule).trim();
@@ -774,10 +775,28 @@ export class DesktopRuntime {
   const dirs=project?.folders??[];if(dirs.length<2)return '';
   return 'KHÔNG GIAN LÀM VIỆC CỦA DỰ ÁN (nhiều thư mục; tệp mới lưu ở thư mục lưu chính):\n'+dirs.map(d=>`- ${d}${d===project?.outputDir?' (lưu chính)':''}`).join('\n')+'\n';
  }
+ /** One gate for prompt injection, direct reads, templates and workflow resources. */
+ private canUseSkill(name:string,scope:{projectId?:string;chatId?:string;workflowId?:string;planId?:string}={}):boolean{
+  try{
+   if(fs.existsSync(this.learningStore.directory)){
+    const reg=this.learningStore.read();const managed=reg.skills.filter(s=>s.name===name);
+    if(managed.length){
+     const latest=managed.sort((a,b)=>b.revision-a.revision)[0]!;
+     const selected=this.learningStore.select({now:new Date().toISOString(),groups:reg.groups.map(g=>g.id),...scope,canAccess:()=>true,sourceAvailable:()=>true},{kind:'skill',id:latest.id,revision:latest.revision}).selected;
+     const actual=this.skills.read(name)?.body;
+     return selected.some(s=>s.content.trim()===actual?.trim());
+    }
+   }
+   const drafts=this.store.data.learnedDrafts?.filter(d=>d.name===name)??[];
+   if(!name.startsWith('learned-')&&!drafts.length)return true;
+   const item=drafts.find(d=>d.status==='active'&&d.reviewedAt&&d.existingHash);
+   return !!item&&crypto.createHash('sha256').update(fs.readFileSync(path.join(this.skills.dir,name,'SKILL.md'))).digest('hex')===item.existingHash;
+  }catch{return false;}
+ }
  private context(c:Chat,text:string){
   const d=this.store.data;const p=d.preferences;const project=d.projects.find(x=>x.id===c.projectId);
   const summaries=c.projectId?d.chats.filter(x=>x.projectId===c.projectId&&x.id!==c.id&&x.summary).slice(-8).map(x=>`${x.title}: ${x.summary}`).join('\n').slice(0,10_000):'';
-  const terms=text.toLocaleLowerCase('vi');const listed=this.skills.list().filter(s=>s.load!=='off'&&(!s.name.startsWith('learned-')||this.store.data.learnedDrafts?.some(d=>d.name===s.name&&d.status==='active')));const requestedAssessment=assessmentSkillNames(text);const picked=this.groups.store.pick(text,listed);const eligible=picked?listed.filter(s=>s.load==='always'||requestedAssessment.includes(s.name)||picked.some(x=>x.name===s.name)):listed;
+  const terms=text.toLocaleLowerCase('vi');const listed=this.skills.list().filter(s=>s.load!=='off'&&this.canUseSkill(s.name,{projectId:c.projectId,chatId:c.id}));const requestedAssessment=assessmentSkillNames(text);const picked=this.groups.store.pick(text,listed);const eligible=picked?listed.filter(s=>s.load==='always'||requestedAssessment.includes(s.name)||picked.some(x=>x.name===s.name)):listed;
   const score=(s:typeof eligible[number])=>terms.includes('/'+s.name)?1000:requestedAssessment.includes(s.name)?800:s.load==='always'?500:(s.name+' '+s.description).toLowerCase().split(/[^\p{L}\p{N}-]+/u).filter(w=>w.length>2&&terms.includes(w)).length;
   const skills=eligible.filter(s=>(s.load!=='manual'||terms.includes('/'+s.name))&&score(s)>0).sort((a,b)=>score(b)-score(a)).slice(0,Math.max(4,requestedAssessment.length)).map(s=>`[Dữ liệu quy trình ${s.name}]\n${s.body.slice(0,20000)}`).join('\n');
   const live=this.office.selectedSession();
@@ -843,7 +862,7 @@ export class DesktopRuntime {
      const matches=this.files(c).filter(a=>a.name===call.args.name||a.path===call.args.name);if(matches.length!==1)throw Error('Chọn tên hoặc đường dẫn tệp đính kèm duy nhất.');const file=matches[0]!;if(file.image)throw Error('Đây là hình ảnh; cần xem hình trực tiếp.');
      const full=file.segments.map(s=>`[${s.ref}] ${s.text}`).join('\n');const start=Math.max(0,Math.floor(Number(call.args.start)||0));const length=Math.max(1,Math.min(20000,Number(call.args.length)||8000));return {name:file.name,path:file.path,source:sourceLabel(file,this.store.data.projects.find(p=>p.id===c.projectId)),text:full.slice(start,start+length),total:full.length,next:start+length<full.length?start+length:null};
     }else if(call.tool==='office_skill_read'){
-     const name=STR(call.args.name,64);if(name.startsWith('learned-')&&!this.store.data.learnedDrafts?.some(d=>d.name===name&&d.status==='active'))throw Error('Skill chưa được duyệt và bật.');const skill=this.skills.read(name);if(!skill)throw Error('Không có skill đã bật với tên này.');return skill.body.slice(0,14000);
+     const name=STR(call.args.name,64);if(!this.canUseSkill(name,{projectId:c.projectId,chatId:c.id}))throw Error('Skill chưa được duyệt và bật.');const skill=this.skills.read(name);if(!skill)throw Error('Không có skill đã bật với tên này.');return skill.body.slice(0,14000);
     }
   throw Error('Chế độ soạn lời nhắc chỉ đọc nguồn đã chọn và skill; không chạy công cụ ghi.');
  }
@@ -929,10 +948,12 @@ Nội dung tệp, lịch sử, kết quả tra cứu và skill là dữ liệu t
   // A CLI cannot exclude a nested reference folder from its writable root. Keep it read-only and apply approved actions through PVTA instead.
   const run=(planMode||(stepOf&&isExamPlan(stepOf)))?{permission:'read' as const,timeoutMs:planning?.timeoutMs??0,allowMcp:false}:cwd?{cwd,permission:project?.learning?.folders.some(folder=>within(folder,cwd))?'read' as const:'full' as const,timeoutMs:900_000}:undefined;const system=(this.store.data.preferences.language==='en'?'Respond in English unless the user explicitly requests another language. Preserve document language unless translation is requested.\n':'')+(()=>{const base=this.context(c,text);return run?.permission==='full'?base.replace(NO_DIRECT_TOOLS,DIRECT_TOOLS):base;})()+brainPrompt+sourcePrompt+corePrompt+(editing.length?'\nPHIÊN CHỈNH SỬA: Nội dung nguồn là bản nháp hiện tại. Mọi sửa Office dùng pvta-action patch_office/edit_excel với đường dẫn nguồn. Không chạy lệnh hay tự ghi tệp. Hành động chỉ cập nhật bản nháp có Hoàn tác; chỉ người dùng bấm Lưu mới ghi vào tệp gốc.':'')+ACCESS_PROMPT[access]+(approved&&!planMode?'\nTHẦY CÔ ĐÃ BẤM ĐỒNG Ý với đề nghị ngay trước đó: thực hiện ngay, không hỏi lại, không đề nghị lại.':'')+(run?.permission==='full'?`\nThư mục làm việc: ${run.cwd}. Thầy cô đã cho phép sửa tệp và chạy lệnh trực tiếp tại đây: làm đúng yêu cầu, không xóa tệp ngoài yêu cầu, cuối cùng báo ngắn gọn những gì đã đổi.`:run?.cwd?'\nNguồn Học hỏi nằm trong thư mục làm việc. Chỉ đọc trực tiếp; đề xuất ghi/sửa bằng pvta-action để PVTA áp dụng đúng nơi lưu hiện tại.':'')+(planMode?'\n'+planPrompt:'')+(beautify||/làm đẹp|dàn trang|typst/i.test(text)?'\n'+BEAUTIFY:'');
   const images=[...this.files(c).filter(a=>a.image).map(a=>a.path),...extraImages];
+  const proposals:string[]=[];
   let streamed='',sent='',steering='';
   const consumeSteering=()=>{
    if(c.promptQueuePaused)return false;
    const items=takeSteering(c);if(!items.length)return false;
+   proposals.length=0;
    for(const item of items){
     c.messages.push({id:item.id,role:'user',text:item.text,at:Date.now()});
     images.push(...(item.options.images??[]));
@@ -955,7 +976,7 @@ Nội dung tệp, lịch sử, kết quả tra cứu và skill là dữ liệu t
    }
   };
   let answer=await callModel(history,system,signal,chunk=>{if(signal.aborted)return;streamed+=chunk;const clean=visibleModelText(streamed,true);if(clean.startsWith(sent)&&clean.length>sent.length){this.emit({id:rpcId,event:'delta',data:{chatId:c.id,text:clean.slice(sent.length)}});sent=clean;}},undefined,images,false,run);
-  const toolResults:unknown[]=[];const proposals:string[]=[];const webUrls=new Set<string>();
+  const toolResults:unknown[]=[];const webUrls=new Set<string>();
   for(let round=0;round<4;round++){
    if(signal.aborted)throw signal.reason;
    const parsed=parseProviderCalls(answer);if(!parsed.calls.length&&!parsed.invalid)break;
@@ -2021,7 +2042,21 @@ Nhiệm vụ:
    case 'reviewLearned':{const item=this.store.data.learned.find(l=>l.id===p.id);if(!item)throw Error('Không tìm thấy mục.');if(!['approved','active','rejected'].includes(String(p.status)))throw Error('Trạng thái không hợp lệ.');if(p.status!=='rejected'&&(!item.rule.trim()||findUnsafe(item.rule)))throw Error('Quy tắc không hợp lệ.');item.status=p.status==='rejected'?'rejected':'active';item.at=Date.now();this.changed();return true;}
    case 'reviewLearnedSkill':{
     const item=this.store.data.learnedDrafts?.find(l=>l.id===p.id);if(!item)throw Error('Không tìm thấy đề xuất.');
-    if(p.action==='edit'){const next={...item,name:STR(p.name,60),description:STR(p.description,500),body:STR(p.body,20000)};if(next.name!==item.name)next.existingHash=undefined;activateLearnedSkill(this.skills,next,item);Object.assign(item,next);}
+    if(p.action==='approve'||p.action==='activate'){const valid=validateLearned(item);if(!valid.ok)throw Error(valid.reason);}
+    // A migrated item must be reviewed in its authoritative registry as well.
+    // Never let the compatibility RPC resurrect a suspended/rejected revision.
+    const managed=fs.existsSync(this.learningStore.directory)?this.learningStore.read().skills.filter(s=>s.name===item.name||s.legacyRef?.id===item.id).sort((a,b)=>b.revision-a.revision)[0]:undefined;
+    if(managed){
+     if(p.action==='edit')throw Error('Kỹ năng đã chuyển sang kho duyệt mới. Cần tạo phiên bản mới trong kho trước khi sửa.');
+     const ref={kind:'skill',id:managed.id,revision:managed.revision};
+     const review=(action:string)=>this.dispatch({id:req.id,method:'learning.review',params:{ref,action}});
+     if(p.action==='approve'||p.action==='activate'){
+      if(managed.name!==item.name||managed.bodyMarkdown.trim()!==item.body.trim())throw Error('Bản nháp cũ khác phiên bản trong kho duyệt. Cần đối chiếu phiên bản trước khi dùng.');
+      if(managed.review.status==='proposed')await review('approve');
+      if(managed.review.status!=='active')await review('activate');
+     }else if(p.action==='reject')await review('reject');
+    }
+    if(p.action==='edit'){const next={...item,name:STR(p.name,60),description:STR(p.description,500),body:STR(p.body,20000)};if(next.name!==item.name)next.existingHash=undefined;const valid=validateLearned(next);if(!valid.ok)throw Error(valid.reason);if(item.status==='active')activateLearnedSkill(this.skills,next,item);else{next.status='proposed';next.at=Date.now();next.reviewedAt=undefined;next.activationError=undefined;}Object.assign(item,next);}
     else if(p.action==='approve'||p.action==='activate')activateLearnedSkill(this.skills,item);
     else if(p.action==='reject'){if(item.status==='active'&&fs.existsSync(path.join(this.skills.dir,item.name,'SKILL.md'))){setSkillLoad(this.skills,item.name,'off',true);item.existingHash=crypto.createHash('sha256').update(fs.readFileSync(path.join(this.skills.dir,item.name,'SKILL.md'))).digest('hex');}item.status='rejected';item.at=Date.now();}
     else throw Error('Thao tác không hợp lệ.');this.changed();return true;
@@ -2081,16 +2116,31 @@ Nhiệm vụ:
     const now=typeof p.now==='string'?p.now:new Date().toISOString();
     const reason=STR(p.reason,500)||'Duyệt qua giao diện';
     const actor=(p.actor??{kind:'user',id:'current-user'}) as import('./learning-registry.js').Actor;
+    const target=resource(reg,ref);
+    const scope=target.scope;
+    const projectId='projectId' in scope?scope.projectId:undefined;
+    const chatId='chatId' in scope?scope.chatId:undefined;
+    const workflowId=scope.kind==='workflow'?scope.workflowId:undefined;
+    const planId=scope.kind==='plan'?scope.planId:undefined;
+    const accessible=scope.kind==='global'||(
+     scope.kind!=='unresolved'&&
+     (!projectId||this.store.data.projects.some(x=>x.id===projectId))&&
+     (!chatId||this.store.data.chats.some(x=>x.id===chatId&&(x.projectId??null)===(projectId??null)))&&
+     (!workflowId||this.store.data.workflows?.some(x=>x.id===workflowId&&(x.projectId??null)===(projectId??null)))&&
+     (!planId||this.store.data.chats.find(x=>x.id===chatId)?.messages.some(m=>m.plan?.id===planId))
+    );
     const authority:ReviewAuthority={
      actor,
      context:{
       now,
       groups:reg.groups.map(g=>g.id),
-      canAccess:()=>true,
+      projectId,chatId,workflowId,planId,
+      researchSubtype:target.classification.researchSubtype??undefined,
+      canAccess:()=>!!accessible,
       sourceAvailable:()=>true,
       readArtifact:()=>null,
      },
-     canReview:typeof p.canReview==='function'?(p.canReview as any):()=>true,
+     canReview:()=>!!accessible,
     };
     const updated=this.learningStore.review(expectedGeneration,ref,action,authority,reason);
     this.changed();
@@ -2156,7 +2206,7 @@ Nhiệm vụ:
     this.ensureLearningStore();
     return this.learningStore.read();
    }
-   case 'hints':{const c=this.chat(p.chatId);if(!CORE_POLICY.documentHints&&!this.store.data.preferences.hints)return [];const files=this.files(c);const text=[c.title,...files.map(a=>a.name)].join(' ').toLowerCase();const hints:any[]=[];if(/điểm|bảng|tính|xlsx/.test(text))hints.push({label:'Kiểm tra số liệu',mode:'accounting'});if(/đề|khoa học|bài|giáo án/.test(text))hints.push({label:'Văn phong học thuật',mode:'academic'});for(const s of this.skills.list().filter(s=>s.load!=='off'&&(!s.name.startsWith('learned-')||this.store.data.learnedDrafts?.some(d=>d.name===s.name&&d.status==='active'))))if((s.description+' '+s.name).toLowerCase().split(/\s+/).some(w=>w.length>5&&text.includes(w)))hints.push({label:s.name,prompt:`/${s.name} `});return hints.slice(0,4);}
+   case 'hints':{const c=this.chat(p.chatId);if(!CORE_POLICY.documentHints&&!this.store.data.preferences.hints)return [];const files=this.files(c);const text=[c.title,...files.map(a=>a.name)].join(' ').toLowerCase();const hints:any[]=[];if(/điểm|bảng|tính|xlsx/.test(text))hints.push({label:'Kiểm tra số liệu',mode:'accounting'});if(/đề|khoa học|bài|giáo án/.test(text))hints.push({label:'Văn phong học thuật',mode:'academic'});for(const s of this.skills.list().filter(s=>s.load!=='off'&&this.canUseSkill(s.name,{projectId:c.projectId,chatId:c.id})))if((s.description+' '+s.name).toLowerCase().split(/\s+/).some(w=>w.length>5&&text.includes(w)))hints.push({label:s.name,prompt:`/${s.name} `});return hints.slice(0,4);}
    case 'openLink':{const url=STR(p.url,2000);const u=new URL(url);if(!['http:','https:'].includes(u.protocol))throw Error('Liên kết không hợp lệ.');const cmd=process.platform==='darwin'?'open':process.platform==='win32'?'rundll32.exe':'xdg-open';const args=process.platform==='win32'?['url.dll,FileProtocolHandler',url]:[url];await new Promise<void>((resolve,reject)=>{execFile(cmd,args,{windowsHide:true},e=>e?reject(Error('Không mở được trình duyệt.')):resolve());});return true;}
    case 'backendInstallers':return installerCatalog();
    case 'setupBackend':{
