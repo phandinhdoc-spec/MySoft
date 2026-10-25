@@ -94,7 +94,7 @@ export const codexBackend: Backend = {
       const m = ev.msg as Record<string, any>;
       if (m.type === "agent_message" && typeof m.message === "string") return appendText(st, m.message, true);
       if (m.type === "agent_message_delta" && typeof m.delta === "string") return appendText(st, m.delta, false);
-      if (m.type === "error") st.error = { kind: "other", message: errMessage(m, "codex báo lỗi") };
+      if (m.type === "error" && !isReconnectNotice(m)) st.error = { kind: "other", message: errMessage(m, "codex báo lỗi") };
       return undefined;
     }
 
@@ -119,14 +119,25 @@ export const codexBackend: Backend = {
       case "turn.failed":
         st.error = { kind: "other", message: errMessage(ev.error, "codex không hoàn thành lượt này") };
         return undefined;
+      case "turn.completed":
+        // Lượt đã hoàn tất: mọi lỗi tạm thời trước đó (đã tự nối lại) không còn ý nghĩa.
+        st.error = undefined;
+        return undefined;
       case "error":
-        st.error = { kind: "other", message: errMessage(ev, "codex báo lỗi") };
+        // "Reconnecting... n/5" chỉ là thông báo thử lại của codex, không phải kết quả cuối.
+        // Lỗi thật (hết lượt thử) sẽ đến qua turn.failed hoặc mã thoát khác 0.
+        if (!isReconnectNotice(ev)) st.error = { kind: "other", message: errMessage(ev, "codex báo lỗi") };
         return undefined;
       default:
         return undefined;
     }
   },
 };
+
+function isReconnectNotice(ev: Record<string, any>): boolean {
+  const t = typeof ev.message === "string" ? ev.message : typeof ev.error?.message === "string" ? ev.error.message : "";
+  return /^\s*Reconnecting\.{3}\s*\d+\s*\/\s*\d+/i.test(t);
+}
 
 function appendText(st: ParseState, t: string, whole: boolean): string | undefined {
   if (whole && st.sawDelta) return undefined; // đã nhận từng đoạn

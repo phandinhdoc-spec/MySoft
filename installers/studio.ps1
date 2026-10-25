@@ -26,6 +26,45 @@ function Stop-Bridge {
     ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
 }
 
+# Tim tep chay cua PVTA Chat da cai (NSIS cai theo nguoi dung vao %LOCALAPPDATA%\PVTA; may cai cho moi nguoi dung thi o Program Files).
+function Find-ChatExe {
+  $dirs = @((Join-Path $env:LOCALAPPDATA 'PVTA'), (Join-Path $env:LOCALAPPDATA 'Programs\PVTA'))
+  foreach ($pf in @($env:ProgramFiles, ${env:ProgramFiles(x86)})) { if ($pf) { $dirs += (Join-Path $pf 'PVTA') } }
+  foreach ($d in $dirs) {
+    foreach ($n in @('pvta-chatbox.exe', 'PVTA.exe')) {
+      $f = Join-Path $d $n
+      if (Test-Path -LiteralPath $f) { return $f }
+    }
+  }
+  return $null
+}
+
+# Tao loi tat PVTA tren Desktop va trong Start Menu (hien o Start > All apps tren Windows 10/11). Ghi de neu da co.
+# Dung duong dan that cua thu muc (Known Folder) nen van dung khi Desktop duoc OneDrive chuyen huong.
+function New-ChatShortcuts($exe) {
+  $made = @()
+  try {
+    $sh = New-Object -ComObject WScript.Shell
+    $targets = @(
+      (Join-Path ([Environment]::GetFolderPath('Desktop')) 'PVTA.lnk'),
+      (Join-Path ([Environment]::GetFolderPath('Programs')) 'PVTA.lnk')
+    )
+    foreach ($lnk in $targets) {
+      try {
+        New-Item -ItemType Directory -Force (Split-Path $lnk) | Out-Null
+        $s = $sh.CreateShortcut($lnk)
+        $s.TargetPath = $exe
+        $s.WorkingDirectory = Split-Path $exe
+        $s.IconLocation = "$exe,0"
+        $s.Description = 'PVTA - Tro ly AI cho giao vien'
+        $s.Save()
+        $made += $lnk
+      } catch { Warn "Khong tao duoc loi tat $lnk ($($_.Exception.Message))" }
+    }
+  } catch { Warn "Khong tao duoc loi tat PVTA ($($_.Exception.Message))" }
+  return $made
+}
+
 function Get-Sha256Expected($sumsText, $name) {
   $line = $sumsText -split "`n" | Where-Object { $_ -match ('\s+\*?' + [regex]::Escape($name) + '\s*$') } | Select-Object -First 1
   if (-not $line) { return $null }
@@ -246,8 +285,12 @@ sh.Run """$node"" ""$App\pvta-bridge.mjs""", 0, False
   Write-Host ''
   Say 'Da cai xong.'
   if ($chatInstalled) {
-    $chatExe = Join-Path $env:LOCALAPPDATA 'PVTA\pvta-chatbox.exe'
-    if (Test-Path $chatExe) { Start-Process $chatExe } else { Write-Host 'Mo PVTA tu Start Menu.' }
+    $chatExe = Find-ChatExe
+    if ($chatExe) {
+      $links = New-ChatShortcuts $chatExe
+      if ($links.Count -gt 0) { Say 'Da tao bieu tuong PVTA tren Desktop va trong Start Menu.' }
+      Start-Process $chatExe
+    } else { Write-Host 'Mo PVTA tu Start Menu.' }
   }
   Write-Host '   Tien ich Office: thoat han Word / Excel / PowerPoint roi mo lai -> Insert -> Add-ins -> My Add-ins -> PVTA.'
   if (-not $have) { Warn 'Chua thay claude, codex hoac agy tren may. Cai va dang nhap mot cong cu (hoac nhap khoa API trong Cai dat cua PVTA) de PVTA tra loi duoc.' }

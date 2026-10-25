@@ -24,7 +24,7 @@ describe("skill đi kèm", () => {
       expect(s.name).toBe(n);
       expect(s.description && s.description.length).toBeGreaterThan(10);
       // Skill giới thiệu PVTA chỉ liệt kê, đọc khi người dùng hỏi về PVTA (đỡ tốn token mỗi lượt đầu).
-      const demand = ["pvta-gioi-thieu", "pvta-giao-an", "pvta-hanh-chinh", "pvta-phap-ly", "pvta-pdf"].includes(n);
+      const demand = ["pvta-gioi-thieu", "pvta-giao-an", "pvta-hanh-chinh", "pvta-phap-ly", "pvta-pdf", "viet-ke-hoach"].includes(n);
       expect(s.load).toBe(demand ? "demand" : "always");
       expect(findUnsafe(md)).toBeNull();
       expect(s.body.length).toBeLessThan(demand ? 10000 : 3000); // nạp lượt đầu có hạn mức; skill đọc theo yêu cầu thì rộng hơn
