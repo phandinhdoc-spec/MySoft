@@ -50,6 +50,7 @@ export function OpenCodePanel({state, patch, notice, close}: {
     </div>
     {error && <div role="alert" className="error-banner">{error}</div>}
     <p className="small muted">{uiText("{0} model · {1}", [models.length, live ? uiText("lấy trực tiếp từ opencode models") : uiText("danh sách dựng sẵn")])}</p>
+    {installed && !live && <div role="status" className="error-banner">{uiText("Chưa lấy được danh sách model từ opencode. Thử chạy opencode models trong terminal, đăng nhập bằng opencode auth login nếu cần, rồi bấm Kiểm tra lại & tải model.")}</div>}
     <label>{uiText("Tìm model")}<input value={query} onChange={e => setQuery(e.target.value)} placeholder={uiText("Tên nhà cung cấp hoặc model")}/></label>
     <div className="model-list">{shown.map(m => <button key={m.id} className={model === m.id ? 'chosen' : ''} onClick={() => setModel(m.id)}><strong>{m.label ?? m.id}</strong><small>{m.id}{m.hint ? ' · ' + m.hint : ''}</small>{model === m.id && <span>✓</span>}</button>)}</div>
     <label>{uiText("Mã model khác")}<input value={model} onChange={e => setModel(e.target.value)} placeholder="provider/model"/></label>

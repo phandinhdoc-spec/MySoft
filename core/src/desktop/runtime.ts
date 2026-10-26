@@ -378,7 +378,7 @@ export class DesktopRuntime {
     if(p.installed)this.engine.primeVersion(b.id,p.fingerprint);
     return {...b,installed:p.installed===true,version:p.fingerprint,efforts:p.efforts??[],auth};
    }));this.emit({id:'',event:'state',data:this.view()});
-   this.catalog=await discoverModels(bins,Object.fromEntries(this.backends.map(b=>[b.id,b.installed])));saveCatalog(path.join(this.store.home,'models.json'),this.catalog);this.emit({id:'',event:'state',data:this.view()});
+   this.catalog=await discoverModels(bins,Object.fromEntries(this.backends.map(b=>[b.id,b.installed])),process.env,this.catalog);saveCatalog(path.join(this.store.home,'models.json'),this.catalog);this.emit({id:'',event:'state',data:this.view()});
   })().finally(()=>{this.refreshing=undefined;});return this.refreshing;
  }
  private choice(p:ModelChoice|'auto'=this.store.data.preferences.choice):ModelChoice {
@@ -387,7 +387,7 @@ export class DesktopRuntime {
   }
   const b=this.backends.find(b=>b.installed&&b.auth!=='missing');if(b){const m=modelsOf(this.catalog,b.id);return {backend:b.id,model:m.find(m=>m.id!=='default')?.id??m[0]?.id??'default'};}
   const a=(['commandcode',...API_PROVIDER_IDS.filter(id=>id!=='commandcode')] as ApiProvider[]).find(id=>this.api.configured(id));if(a){const c=this.config.get().api?.[a];return {backend:'api',model:`${a}/${c?.model??c?.models?.[0]?.id??API_PROVIDERS[a].defaultModel}`};}
-  throw Error('Chưa có backend dùng được. Cấu hình CommandCode hoặc đăng nhập agy, Claude, Codex trong Công cụ AI.');
+  throw Error('Chưa có backend dùng được. Cấu hình CommandCode hoặc đăng nhập agy, Claude, Codex, OpenCode trong Công cụ AI.');
  }
  private fastestCheapestModel():ModelChoice {
   const options:ModelChoice[]=[];
@@ -1444,7 +1444,7 @@ ${n} tệp đã đọc trong phạm vi này.${trees.length?'\n'+trees.map(t=>tre
    }
    case 'chatModel':{const c=this.chat(p.chatId);if(this.jobs.has(c.id))throw Error('Hội thoại đang xử lý; hãy đổi model sau khi xong hoặc dừng yêu cầu.');
     if('effort' in p){if(p.effort!==null&&!EFFORTS.includes(p.effort as Effort))throw Error('Mức suy nghĩ không hợp lệ.');c.effort=p.effort as Effort|null;}
-    if('choice' in p){const v=p.choice as ModelChoice|'auto'|null;if(v===null){delete c.choice;delete c.effort;}else if(v==='auto'){c.choice='auto';}else{if(!v||typeof v!=='object'||typeof v.model!=='string'||!v.model.trim()||!['agy','claude','codex','api'].includes(v.backend))throw Error('Model không hợp lệ.');c.choice={...v,model:v.model.trim()};this.choice(c.choice);}}
+    if('choice' in p){const v=p.choice as ModelChoice|'auto'|null;if(v===null){delete c.choice;delete c.effort;}else if(v==='auto'){c.choice='auto';}else{if(!v||typeof v!=='object'||typeof v.model!=='string'||!v.model.trim()||!['agy','claude','codex','opencode','api'].includes(v.backend))throw Error('Model không hợp lệ.');c.choice={...v,model:v.model.trim()};this.choice(c.choice);}}
     this.changed();return {choice:c.choice,effort:c.effort};}
    case 'newChat':{const projectId=STR(p.projectId,80)||undefined;if(projectId&&!this.store.data.projects.some(x=>x.id===projectId))throw Error('Không tìm thấy dự án.');const c=this.makeChat(projectId);{const pr=this.store.data.projects.find(x=>x.id===projectId);const r=brainProjectRoot(pr?.folders??[],pr?.learning?.folders??[]);if(r)this.brainWarm(r);}this.changed();return c.id;}
    case 'pdfRegion':return this.pdfRegion(STR(p.data,12_000_000));

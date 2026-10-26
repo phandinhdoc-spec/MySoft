@@ -18,7 +18,7 @@ import {cleanWorkflowResources,scopedWorkflowResources,workflowResourceText} fro
 import {DEFAULT_CODE_TIMEOUT_MS,copyAttachments,extractCodeBlocks,findInterpreter,hasHigh,makeRunDir,parseReview,reviewPrompt,runCode,scanCode,supportedLanguages,type Finding} from './workflow-code.js';
 
 const STR=(v:unknown,max:number)=>typeof v==='string'?v.slice(0,max):'';
-const BACKENDS=['agy','claude','codex','api'];
+const BACKENDS=['agy','claude','codex','opencode','api'];
 export const MAX_WORKFLOWS=1000,MAX_STEPS=MAX_WORKFLOW_STEPS,MAX_RUNS=15,MAX_OUTPUT=20_000;
 const uid=()=>globalThis.crypto.randomUUID();
 
