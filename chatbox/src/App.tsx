@@ -453,9 +453,24 @@ export function App(){
   const up=()=>{el.removeEventListener('pointermove',move);el.removeEventListener('pointerup',up);el.removeEventListener('pointercancel',up);document.body.classList.remove('resizing-sidebar');setCurrentSideW(w=>{saveSide(w);return w;});};
   document.body.classList.add('resizing-sidebar');el.addEventListener('pointermove',move);el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
  }
+
+ /** Chiều cao tối đa của danh sách dự án: chừa chỗ cho khối dự án đang mở và chân thanh bên, để thanh kéo không bao giờ đẩy menu ra khỏi tầm nhìn. */
+ const navMax=(el?:Element|null)=>{const host=(el??document.querySelector('.sidebar-split'))?.parentElement;const room=host?host.clientHeight-220:700;return Math.max(60,Math.min(700,room));};
+ const applyNavH=(v:number,save=true)=>{const h=Math.min(navMax(),Math.max(60,Math.round(v)));setNavH(h);if(save){try{localStorage.setItem('pvta.sidebarNavHeight',String(h));}catch{/* không lưu được thì thôi */}}return h;};
+ /** Kéo thanh ngăn ngang: bắt con trỏ vào chính thanh để không mất sự kiện khi rê nhanh, ra ngoài cửa sổ hay qua iframe/webview. */
+ function startSplit(e:React.PointerEvent<HTMLDivElement>){
+  if(e.button!==0)return;
+  e.preventDefault();const el=e.currentTarget,startY=e.clientY,start=navH,id=e.pointerId;let last=start,done=false;
+  try{el.setPointerCapture(id);}catch{/* trình duyệt không hỗ trợ thì dùng sự kiện trên thanh */}
+  const move=(ev:PointerEvent)=>{if(ev.pointerId!==id)return;last=applyNavH(start+ev.clientY-startY,false);};
+  const up=(ev:Event)=>{if(done||(ev as PointerEvent).pointerId!==undefined&&(ev as PointerEvent).pointerId!==id)return;done=true;el.removeEventListener('pointermove',move);el.removeEventListener('pointerup',up);el.removeEventListener('pointercancel',up);el.removeEventListener('lostpointercapture',up);window.removeEventListener('blur',up);document.body.classList.remove('resizing-split');try{el.releasePointerCapture(id);}catch{/* đã nhả */}try{localStorage.setItem('pvta.sidebarNavHeight',String(last));}catch{/* bỏ qua */}};
+  document.body.classList.add('resizing-split');el.addEventListener('pointermove',move);el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);el.addEventListener('lostpointercapture',up);window.addEventListener('blur',up);
+ }
  /** Một dòng hội thoại ở thanh bên. Chat thường: biểu tượng hai gạch ngắn trên, một gạch dài dưới. Trong dự án: hình bình hành. */
  const chatRow=(c:Chat,inProject:boolean)=>renaming?.id===c.id?<form key={c.id} className="recent-rename" onSubmit={e=>{e.preventDefault();const t=renaming.value.trim();setRenaming(undefined);if(t&&t!==c.title)void rpc('renameChat',{chatId:c.id,title:t}).catch(report);}}><input autoFocus aria-label={uiText("Tên cuộc trò chuyện")} maxLength={150} value={renaming.value} onChange={e=>setRenaming({id:c.id,value:e.target.value})} onBlur={()=>setRenaming(undefined)} onKeyDown={e=>{if(e.key==='Escape')setRenaming(undefined);}}/></form>:<div key={c.id} className={`recent-row ${inProject?'in-project':''}`}><ChatActions chat={c} projects={state!.data.projects} variant="menu" report={report} onDone={r=>{if(c.id!==active)return;if(r.deleted){setActive('');setProject('');setHints([]);}else if(r.project!==undefined)setProject(r.project);}}><button title={uiText("{0} (nhấp đúp để đổi tên)",[c.title])} className={c.id===active?'active':''} onClick={()=>{setActive(c.id);setProject(c.projectId??'');setNav('chat');}} onDoubleClick={()=>setRenaming({id:c.id,value:c.title})}><i className={inProject?'glyph-para':'glyph-lines'} aria-hidden="true"/><span className="recent-title">{c.title}</span>{busy.has(c.id)&&<span className="tiny-dot"/>}{!inProject&&<small>{state?.data.projects.find(p=>p.id===c.projectId)?.name??uiText("Độc lập")}</small>}</button></ChatActions></div>;
  const sideProject=currentProject&&state?currentProject:undefined;
+ /** Thanh kéo ngăn luôn có khi một dự án đang mở ở bảng Hội thoại/Lịch sử/Dự án, kể cả khi trang chính đang ở Quản lí dự án hay mục khác. */
+ const splitOn=!!sideProject&&['chat','history','projects'].includes(sidePanel);
  const projectChats=sideProject&&state?state.data.chats.filter(c=>c.projectId===sideProject.id).sort((a,b)=>Number(!!b.pinned)-Number(!!a.pinned)||b.updatedAt-a.updatedAt):[];
  const projectShown=projectFilter.trim()?projectChats.filter(c=>c.title.toLocaleLowerCase('vi').includes(projectFilter.trim().toLocaleLowerCase('vi'))):projectChats;
  return <div className={`app with-activity-bar ${collapsed?'sidebar-collapsed':''} ${toolsOpen&&toolsPinned?'project-tools-docked':''} ${toolsExpanded?'project-tools-wide':''}`} style={{'--sidebar-w':`${currentSideW}px`} as React.CSSProperties}><LinkGuard report={report}/>
@@ -469,7 +484,7 @@ export function App(){
     onOffice={request=>{setGithubVisible(false);setOfficeNavigation({...request});setNav('office');}}
     onSkill={request=>{setGithubVisible(false);setSkillNavigation({...request});setNav('skills');}}
     onPrompt={prompt=>{setGithubVisible(false);setNav('chat');setText(prompt);input.current?.focus();}}
-    onTool={openTool} onTools={(section,target)=>{if(section==='groups'&&target)setGroupTarget({tab:target as typeof groupTarget.tab});openTools(section,section==='pro'?target as ProTab:undefined);}}/>:<div className={`sidebar-nav-pane ${sideProject&&nav==='chat'&&['chat','projects'].includes(sidePanel)?'split':''}`} style={sideProject&&nav==='chat'&&['chat','projects'].includes(sidePanel)?{height:navH}:undefined}><SidebarNav githubProject={currentProject} panelKey={sidePanel} state={state} nav={nav} active={active} project={project} githubVisible={githubVisible} newDocs={newDocsTotal}
+    onTool={openTool} onTools={(section,target)=>{if(section==='groups'&&target)setGroupTarget({tab:target as typeof groupTarget.tab});openTools(section,section==='pro'?target as ProTab:undefined);}}/>:<div className={`sidebar-nav-pane ${splitOn?'split':''}`} style={splitOn?{height:navH}:undefined}><SidebarNav githubProject={currentProject} panelKey={sidePanel} state={state} nav={nav} active={active} project={project} githubVisible={githubVisible} newDocs={newDocsTotal}
     onNavigate={key=>{if(key==='github')setGithubVisible(true);else if(key==='workflows')openWorkflows();else setNav(key);}}
     onChat={(id,p)=>{setActive(id);setProject(p);setNav('chat');}}
     onProject={id=>{setProject(id);setActive('');setNav('chat');}}
@@ -478,11 +493,10 @@ export function App(){
     onGithub={operation=>{setGithubNavigation({operation});setGithubVisible(true);}}
     onSource={source=>{setNotebookNavigation({...source});setNav('notebook');}}/></div>}
 
-   {sideProject&&nav==='chat'&&['chat','projects'].includes(sidePanel)?<>
-    <div className="sidebar-split" role="separator" aria-orientation="horizontal" aria-label={uiText("Kéo để đổi chiều cao danh sách dự án (mũi tên lên/xuống, nhấp đúp để đặt lại)")} aria-valuemin={60} aria-valuemax={700} aria-valuenow={navH} tabIndex={0}
-     onPointerDown={e=>{e.preventDefault();const startY=e.clientY,start=navH;let last=start;const move=(ev:PointerEvent)=>{last=Math.min(700,Math.max(60,Math.round(start+ev.clientY-startY)));setNavH(last);};const up=()=>{window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',up);document.body.classList.remove('resizing-split');try{localStorage.setItem('pvta.sidebarNavHeight',String(last));}catch{/* không lưu được thì thôi */}};document.body.classList.add('resizing-split');window.addEventListener('pointermove',move);window.addEventListener('pointerup',up);}}
-     onDoubleClick={()=>{setNavH(220);try{localStorage.setItem('pvta.sidebarNavHeight','220');}catch{/* bỏ qua */}}}
-     onKeyDown={e=>{const dy=e.key==='ArrowUp'?-24:e.key==='ArrowDown'?24:0;if(dy){e.preventDefault();const h=Math.min(700,Math.max(60,navH+dy));setNavH(h);try{localStorage.setItem('pvta.sidebarNavHeight',String(h));}catch{/* bỏ qua */}}}}/>
+   {splitOn?<>
+    <div className="sidebar-split" role="separator" aria-orientation="horizontal" aria-label={uiText("Kéo để đổi chiều cao danh sách dự án (mũi tên lên/xuống, nhấp đúp để đặt lại)")} aria-valuemin={60} aria-valuemax={navMax()} aria-valuenow={navH} tabIndex={0}
+     onPointerDown={startSplit} onDoubleClick={()=>applyNavH(220)}
+     onKeyDown={e=>{const dy=e.key==='ArrowUp'?-24:e.key==='ArrowDown'?24:0;if(dy){e.preventDefault();applyNavH(navH+dy);}if(e.key==='Home'){e.preventDefault();applyNavH(220);}}}/>
     <div className="sidebar-project"><div className="sidebar-project-head"><button type="button" className="sidebar-project-open" title={uiText("Mở trang dự án {0}",[sideProject.name])} onClick={()=>{setActive('');setNav('chat');}}><i className="glyph-para big" aria-hidden="true"/><strong>{sideProject.name}</strong></button><button title={uiText("Chat mới trong dự án")} aria-label={uiText("Chat mới trong dự án")} onClick={()=>void newChat(sideProject.id).catch(report)}>＋</button></div><button className="sidebar-project-back" onClick={()=>{setProject('');setActive('');setProjectFilter('');setNav('chat');}}>{uiText("‹ Tất cả hội thoại")}</button></div>
     <div className="sidebar-section"><span>{uiText("CHAT TRONG DỰ ÁN ·")} {projectChats.length}</span></div>
     {projectChats.length>6&&<input className="sidebar-filter" type="search" aria-label={uiText("Lọc chat trong dự án")} placeholder={uiText("Lọc chat trong dự án…")} value={projectFilter} onChange={e=>setProjectFilter(e.target.value)}/>}
