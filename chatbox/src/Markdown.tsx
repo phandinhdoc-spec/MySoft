@@ -5,8 +5,12 @@ import DOMPurify from 'dompurify';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 import {rpc} from './ipc';
+import {t as uiText} from './i18n';
+import {useObjectMenu} from './ObjectMenu';
 import './markdown-images.css';
 import {hydrateRichBlocks, mediaKind, richPlaceholder} from './rich-blocks';
+import {EmailResults} from './EmailResults';
+import {parseEmailResults} from './email-results';
 
 function localImagePath(src: string): string | undefined {
   try {
@@ -25,6 +29,29 @@ export interface MarkdownProps {
   text: string;
   onToggleTask?: (taskIndex: number) => void;
   className?: string;
+  /** Hội thoại chứa văn bản; dùng để tìm tệp được nhắc theo tên trong thư mục làm việc. */
+  chatId?: string;
+}
+
+const FILE_EXT = 'docx?|xlsx?|pptx?|docm|xlsm|pptm|dotx|xltx|potx|pdf|zip|md|txt|csv|typ|png|jpe?g|webp';
+const FILE_REF = new RegExp(`^(?:file://)?(?:[A-Za-z]:[\\\\/]|/|\\./|~/)?[^\\s<>"|?*\\x00-\\x1f]*[^\\s<>"|?*\\x00-\\x1f/\\\\]\\.(?:${FILE_EXT})$`, 'i');
+/** Tên tệp (hoặc đường dẫn) đứng riêng trong `code` hay trong liên kết cục bộ thì thành nút bấm mở tệp. */
+export function fileRefOf(text: string): string | undefined {
+  const t = text.trim();
+  if (t.length < 3 || t.length > 500 || /^https?:/i.test(t) || t.startsWith('~')) return undefined;
+  return FILE_REF.test(t) ? t : undefined;
+}
+
+/** Nhóm màu của liên kết tệp: Word, Excel, PowerPoint, PDF, ảnh, văn bản, khác. */
+export function fileKindOf(ref: string): string {
+  const ext = /\.([a-z0-9]+)$/i.exec(ref)?.[1]?.toLowerCase() ?? '';
+  if (/^docx?$|^docm$|^dotx$/.test(ext)) return 'word';
+  if (/^xlsx?$|^xlsm$|^xltx$|^csv$/.test(ext)) return 'excel';
+  if (/^pptx?$|^pptm$|^potx$/.test(ext)) return 'ppt';
+  if (ext === 'pdf') return 'pdf';
+  if (/^(png|jpe?g|webp)$/.test(ext)) return 'image';
+  if (/^(md|txt|typ)$/.test(ext)) return 'text';
+  return 'other';
 }
 
 // Hook to ensure only checkbox inputs are allowed for security
@@ -42,7 +69,34 @@ if (typeof window !== 'undefined' && DOMPurify.addHook) {
 const LINK_COLOR_CLASSES = ['link-color-0', 'link-color-1', 'link-color-2', 'link-color-3', 'link-color-4'];
 
 // Sanitize after math rendering; raw HTML, event attributes and script URLs never execute.
-export function Markdown({text, onToggleTask, className}: MarkdownProps) {
+export function Markdown(props: MarkdownProps) {
+  const email = useMemo(() => parseEmailResults(props.text.trim()), [props.text]);
+  const blocks = useMemo(() => {
+    const tokens = marked.lexer(props.text);
+    return tokens.map(token => ({raw: token.raw, email: token.type === 'code' && (!token.lang || token.lang.toLowerCase() === 'json') ? parseEmailResults(token.text) : undefined, text: token.type === 'code' ? token.text : ''}));
+  }, [props.text]);
+  if (email) return <EmailResults key={props.text} data={email} raw={props.text}/>;
+  if (!blocks.some(block => block.email)) return <MarkdownContent {...props}/>;
+  // Group ordinary Markdown so task numbering and lists are preserved within each segment.
+  const parts: React.ReactNode[] = [];
+  let pending = '';
+  let taskOffset = 0;
+  const flush = () => {
+    if (!pending) return;
+    const offset = taskOffset;
+    taskOffset += (marked.parse(pending, {async: false}) as string).match(/type="checkbox"/g)?.length ?? 0;
+    parts.push(<MarkdownContent {...props} key={parts.length} text={pending} onToggleTask={props.onToggleTask ? index => props.onToggleTask!(offset + index) : undefined}/>);
+    pending = '';
+  };
+  for (const block of blocks) {
+    if (!block.email) pending += block.raw;
+    else {flush(); parts.push(<EmailResults key={`${parts.length}:${block.text}`} data={block.email} raw={block.text}/>);}
+  }
+  flush();
+  return <>{parts}</>;
+}
+
+function MarkdownContent({text, onToggleTask, className, chatId}: MarkdownProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState<{src: string; alt: string}>();
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -158,6 +212,25 @@ export function Markdown({text, onToggleTask, className}: MarkdownProps) {
       }
     });
 
+    // 3b. Tên tệp trong `code` hoặc liên kết cục bộ: bấm để mở tệp (không đổi màu/kiểu đã có).
+    el.querySelectorAll<HTMLElement>('code, a[href]').forEach(node => {
+      if (node.closest('pre') || node.dataset.pvtaFileRef) return;
+      let ref: string | undefined;
+      if (node.tagName === 'CODE') ref = fileRefOf(node.textContent ?? '');
+      else {
+        const href = node.getAttribute('href') ?? '';
+        if (/^(?:https?|mailto|tel|#)/i.test(href)) return;
+        try {ref = fileRefOf(decodeURIComponent(href));} catch {ref = undefined;}
+      }
+      if (!ref) return;
+      node.dataset.pvtaFileRef = ref;
+      node.classList.add('pvta-file-ref');
+      node.setAttribute('role', 'button');
+      node.tabIndex = 0;
+      node.dataset.pvtaFileKind = fileKindOf(ref);
+      node.title = /\.(?:png|jpe?g|webp)$/i.test(ref) ? `Nhấp đúp để xem ảnh lớn (chuột phải để chọn cách mở): ${ref}` : `Nhấp đúp để mở (chuột phải để chọn cách mở): ${ref}`;
+    });
+
     // 4. Resolve local file images for preview
     let alive = true;
     const cleanups: (() => void)[] = [];
@@ -203,8 +276,77 @@ export function Markdown({text, onToggleTask, className}: MarkdownProps) {
     return () => {alive = false; stopRich(); cleanups.forEach(cleanup => cleanup());};
   }, [html]);
 
+  const isImageRef = (ref?: string) => !!ref && /\.(?:png|jpe?g|webp)$/i.test(ref);
+  const fileRefCall = (method: 'openFileRef' | 'revealFileRef', node: HTMLElement, app?: 'chitup' | 'vscode') => {
+    const ref = node.dataset.pvtaFileRef;
+    if (!ref) return Promise.resolve();
+    node.classList.remove('pvta-file-ref-error');
+    return rpc(method, app ? {ref, chatId, app} : {ref, chatId}).catch(error => {
+      node.classList.add('pvta-file-ref-error');
+      node.title = String((error as Error)?.message ?? error);
+    });
+  };
+  /** Ảnh mở ngay trong khung xem ảnh lớn của chat; lỗi thì báo như lúc mở tệp thường. */
+  const viewImageRef = (node: HTMLElement) => {
+    const ref = node.dataset.pvtaFileRef;
+    if (!ref) return Promise.resolve();
+    node.classList.remove('pvta-file-ref-error');
+    return rpc<{data?: string; name?: string}>('previewFileRef', {ref, chatId}).then(res => {
+      if (!res?.data) throw new Error('Không đọc được ảnh.');
+      setExpanded({src: res.data, alt: res.name || ref});
+    }).catch(error => {
+      node.classList.add('pvta-file-ref-error');
+      node.title = String((error as Error)?.message ?? error);
+    });
+  };
+  const openFileRef = (node: HTMLElement) => {void (isImageRef(node.dataset.pvtaFileRef) ? viewImageRef(node) : fileRefCall('openFileRef', node));};
+  const fileMenu = useObjectMenu<HTMLElement>({
+    contextKey: `md-file-ref:${chatId ?? ''}`,
+    commands: node => isImageRef(node.dataset.pvtaFileRef) ? [
+      {id: 'view', label: uiText('Xem ảnh lớn'), group: 'open', run: () => viewImageRef(node)},
+      {id: 'open', label: uiText('Mở bằng ứng dụng ngoài'), group: 'open', run: () => fileRefCall('openFileRef', node)},
+      {id: 'open-vscode', label: uiText('Mở bằng Visual Studio Code'), group: 'open', run: () => fileRefCall('openFileRef', node, 'vscode')},
+      {id: 'reveal', label: uiText('Mở thư mục chứa tệp'), group: 'open', run: () => fileRefCall('revealFileRef', node)},
+    ] : [
+      {id: 'open', label: uiText('Mở tệp'), group: 'open', run: () => fileRefCall('openFileRef', node)},
+      ...(/\.(?:docx?|xlsx?|pptx?|docm|xlsm|pptm|dotx|xltx|potx|pdf)$/i.test(node.dataset.pvtaFileRef ?? '') ? [{id: 'open-chitup', label: uiText('Mở bằng CHITUP OFFICE'), group: 'open', run: () => fileRefCall('openFileRef', node, 'chitup')}] : []),
+      {id: 'open-vscode', label: uiText('Mở bằng Visual Studio Code'), group: 'open', run: () => fileRefCall('openFileRef', node, 'vscode')},
+      {id: 'reveal', label: uiText('Mở thư mục chứa tệp'), group: 'open', run: () => fileRefCall('revealFileRef', node)},
+    ],
+  });
+  const fileRefNode = (target: EventTarget | null) => target instanceof Element ? target.closest<HTMLElement>('.pvta-file-ref') : null;
+
+  const handleContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
+    const node = fileRefNode(e.target);
+    if (node) fileMenu.handlers(node).onContextMenu(e);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const node = fileRefNode(e.target);
+    if (!node) return;
+    if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) {fileMenu.handlers(node).onKeyDown(e); return;}
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    e.preventDefault(); openFileRef(node);
+  };
+
+  const handleDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const node = fileRefNode(e.target);
+    if (!node) return;
+    e.preventDefault();
+    e.stopPropagation();
+    openFileRef(node);
+  };
+
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
+
+    const fileRef = target.closest<HTMLElement>('.pvta-file-ref');
+    if (fileRef) {
+      // Bấm một lần chỉ chọn; mở tệp bằng nhấp đúp, Enter hoặc menu chuột phải.
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
 
     // Checkbox task list click
     const checkbox = target.closest<HTMLInputElement>('.task-checkbox');
@@ -236,8 +378,11 @@ export function Markdown({text, onToggleTask, className}: MarkdownProps) {
       ref={containerRef}
       className={`markdown ${className ?? ''}`}
       onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
+      onKeyDown={handleKeyDown}
+      onContextMenu={handleContextMenu}
       dangerouslySetInnerHTML={{__html: html}}
-    />{expanded && createPortal(<dialog ref={dialogRef} className="markdown-image-dialog" aria-label="Xem ảnh lớn" onCancel={() => setExpanded(undefined)} onClose={() => setExpanded(undefined)}>
+    />{fileMenu.menu}{expanded && createPortal(<dialog ref={dialogRef} className="markdown-image-dialog" aria-label="Xem ảnh lớn" onCancel={() => setExpanded(undefined)} onClose={() => setExpanded(undefined)}>
       <header><strong>{expanded.alt || 'Ảnh'}</strong><button autoFocus onClick={() => setExpanded(undefined)} aria-label="Đóng ảnh">Đóng</button></header>
       <img src={expanded.src} alt={expanded.alt}/>
     </dialog>, document.body)}</>

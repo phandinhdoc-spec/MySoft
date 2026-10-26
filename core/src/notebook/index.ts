@@ -64,10 +64,10 @@ export interface Notebook {
 
 /** Model chọn cho sổ (cùng dạng ModelChoice của desktop). */
 export interface NbChoice {
-  backend: "agy" | "claude" | "codex" | "api";
+  backend: "agy" | "claude" | "codex" | "opencode" | "api";
   model: string;
 }
-const NB_BACKENDS = new Set(["agy", "claude", "codex", "api"]);
+const NB_BACKENDS = new Set(["agy", "claude", "codex", "opencode", "api"]);
 /** Làm sạch lựa chọn model gửi từ giao diện; sai dạng hoặc "auto" = undefined. */
 export function normalizeNbChoice(v: unknown): NbChoice | undefined {
   if (!v || typeof v !== "object") return undefined;

@@ -8,7 +8,7 @@ import type { InvokeOptions } from "./backends/types.js";
 import { cleanEnv } from "./env.js";
 import { classifyError, EngineError, extractBadFlag } from "./errors.js";
 import { probeCli, type ProbeStore } from "./probe.js";
-import { buildSpawn, launch, resolveWin, WIN_ARG_LIMIT, WinShellNewlineError, type SpawnPlan, type WinTarget } from "./spawn.js";
+import { buildSpawn, launch, resolveWin, WIN_ARG_LIMIT, WIN_SHELL_ARG_LIMIT, WinShellNewlineError, type SpawnPlan, type WinTarget } from "./spawn.js";
 import type { ChildProcess } from "node:child_process";
 import { Stopwatch } from "./timing.js";
 
@@ -154,7 +154,7 @@ export class Engine {
     return backend.env ? { ...env, ...backend.env } : env;
   }
 
-  /** Dựng đối số cho một lần gọi. prompt chỉ cần thật với backend nhận prompt qua đối số (agy). */
+  /** Dựng đối số cho một lần gọi. */
   private prepare(req: Omit<CliRunRequest, "buildPrompt">, ctx: AttemptCtx, prompt: string) {
     const backend = BACKENDS[req.backend];
     const platform = this.deps.platform ?? process.platform;
@@ -289,7 +289,8 @@ export class Engine {
     const { backend, args, platform, bin, systemSent } = pre;
     const inv = { ...pre.inv, stdin: pre.inv.stdin === undefined ? undefined : prompt };
 
-    if (inv.stdin === undefined && platform === "win32" && prompt.length > WIN_ARG_LIMIT) {
+    const limit = pre.target?.kind === "shell" ? WIN_SHELL_ARG_LIMIT : WIN_ARG_LIMIT;
+    if (inv.stdin === undefined && platform === "win32" && prompt.length > limit) {
       throw new EngineError(
         "other",
         `Prompt dài ${prompt.length} ký tự, vượt giới hạn dòng lệnh của ${req.backend} trên Windows. Hãy chọn model của claude hoặc rút ngắn yêu cầu.`,
@@ -443,7 +444,11 @@ function deniedMessage(backend: string, denied: unknown[]): string {
     .filter((x): x is string => typeof x === "string" && x.length > 0)
     .slice(0, 5);
   const what = names.length ? ` (${names.join(", ")})` : "";
-  return `${backend} đã tự từ chối một thao tác${what} vì chạy nền không hỏi lại được quyền. Hãy kiểm tra thư mục làm việc của bước và quyền của CLI, rồi chạy lại từ khâu lỗi.`;
+  const base = `${backend} đã tự từ chối một thao tác${what} vì chạy nền không hỏi lại được quyền.`;
+  if (backend === "agy") {
+    return `${base} Ở chế độ Chỉ đọc/Hỏi duyệt, PVTA chạy agy với --mode plan --sandbox nên lệnh và công cụ ngoài (như CHITUP) bị chặn. Hãy chuyển phiên sang "Tự sửa" (biểu tượng cây bút) rồi gửi lại.`;
+  }
+  return `${base} Hãy kiểm tra thư mục làm việc của bước và quyền của CLI, rồi chạy lại từ khâu lỗi.`;
 }
 
 function warmKey(cwd: string, plan: SpawnPlan): string {

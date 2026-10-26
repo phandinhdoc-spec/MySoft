@@ -8,7 +8,7 @@ export interface TemplateOrigin {templateId:string;group:string}
 /** Nguồn gốc bền vững của bản sao chèn; không dùng màu insertGroup để quyết định quyền biên tập. */
 export interface WorkflowStep {templateCopy?:true;origin?:TemplateOrigin;promptFormat?:'yaml-v1';/** Dấu nội bộ khi trải phẳng nút gốc của Plan. */planPrompt?:true}
 export interface PlanStep {templateCopy?:true;origin?:TemplateOrigin;promptFormat?:'yaml-v1'}
-export interface Chat { planningDraft?:Plan; planningSession?:'plan'|'pro' }
+export interface Chat { planningDraft?:Plan; planningSession?:'plan'|'pro'; pendingPrompts?:import('./prompt-queue.js').PendingPrompt[]; promptQueuePaused?:boolean }
 export interface WorkflowRun {approvedPrompts?:import('./workflow-prompts.js').ApprovedPrompts}
 export interface Workflow {functions?:import('./workflow-language.js').FunctionImplementation[];/** Hội thoại được tạo khi mở chat của quy trình độc lập. */chatId?:string}
 export interface WorkflowStepRun {transfer?:import('./workflow-expression.js').Value}
@@ -25,7 +25,7 @@ export interface Project {/** Quy tắc đặt tên chỉ áp dụng trong dự 
 export interface Attachment {extractionVersion?:number;id:string;name:string;path:string;scopeId:string;scope:'chat'|'project';purpose?:'learning';fingerprint:string;segments:{ref:string;text:string;section?:string;atomic?:boolean}[];image?:boolean;/** Lúc đọc/lập chỉ mục lần gần nhất (ms). */at?:number;/** Dung lượng tệp khi đọc (byte). */bytes?:number}
 export type LearningReview='proposed'|'approved'|'active'|'rejected';
 export interface Learned {id:string;rule:string;source:string;at:number;status?:LearningReview;chatId?:string;edited?:boolean}
-export interface LearnedDraft {activationError?:string;existingHash?:string;id:string;name:string;description:string;body:string;source:string;at:number;status:LearningReview;chatId?:string}
+export interface LearnedDraft {reviewedAt?:number;activationError?:string;existingHash?:string;id:string;name:string;description:string;body:string;source:string;at:number;status:LearningReview;chatId?:string}
 export interface LearningLast {at:number;state:'running'|'done'|'error'|'interrupted';message:string}
 /** Quy tắc đặt tên riêng, gọi bằng #khóa trong ô chat. always = luôn áp dụng cho mọi yêu cầu. */
 export interface Rule {id:string;key:string;title:string;text:string;always:boolean;at:number}
@@ -49,7 +49,7 @@ export interface WorkflowStep extends PlanStepContract {/** Mã nhóm bước v�
 /** Mã AI sinh trong khung có biến/hàm: cảnh báo của phản biện và quyết định của giáo viên. */
 export interface CodeReview {lang:string;code:string;file?:string;findings:{level:'high'|'medium'|'low';text:string;source:'scan'|'ai'}[];canRun:boolean;/** waiting = đang chờ giáo viên duyệt. */ decision:'waiting'|'approved'|'forced'|'rejected'|'not-run';exitCode?:number|null}
 export interface WorkflowStepRun {code?:CodeReview;fingerprint?:string;handoff?:string;checkpoint?:import('./plan-recovery.js').PlanCheckpoint;outputFiles?:string[];stepId:string;name:string;status:'waiting'|'running'|'success'|'error'|'skipped'|'blocked'; logs?:{at:number;text:string}[];startedAt?:number;endedAt?:number;output?:string;error?:string}
-export interface WorkflowRun { /** Thư mục con của lượt chạy mã (nơi làm việc) và số tệp đính kèm đã chép. */ workdir?:string;copied?:number;approvedPlan?:PlanVersion;signature?:string;id:string;startedAt:number;endedAt?:number;status:'running'|'success'|'error'|'cancelled'|'paused';steps:WorkflowStepRun[]}
+export interface WorkflowRun { generatedFiles?:string[];generatedFileHashes?:Record<string,string>;resetBackup?:{from:string;to:string}[]; /** Thư mục con của lượt chạy mã (nơi làm việc) và số tệp đính kèm đã chép. */ workdir?:string;copied?:number;approvedPlan?:PlanVersion;signature?:string;id:string;startedAt:number;endedAt?:number;status:'running'|'success'|'error'|'cancelled'|'paused';steps:WorkflowStepRun[]}
 export interface WorkflowInput {kind:'folder'|'file'|'chat'|'prompt';value:string}
 /** Liên kết nét đứt do PVTA gợi ý: chưa có hiệu lực khi chạy cho đến khi người dùng chấp nhận (thành phụ thuộc thật). */
 export interface SuggestedLink {id:string;from:string;to:string;reason?:string}
@@ -64,7 +64,7 @@ export interface TemplateStep extends PlanStepContract {id:string;name:string;pr
 export interface TemplateOutput {mode:'fixed'|'ask';text:string}
 export interface WorkflowTemplate {id:string;name:string;description?:string;params:TemplateParam[];steps:TemplateStep[];output:TemplateOutput;createdAt:number;updatedAt:number}
 export interface DesktopData { workflowTemplates?:WorkflowTemplate[];learningLast?:LearningLast;learnedDrafts?:LearnedDraft[]; workflows?:Workflow[];documentsDir?:string;version:1;lastProjectId?:string;lastChatId?:string;chats:Chat[];projects:Project[];attachments:Attachment[];learned:Learned[];ruleBook?:Rule[];preferences:Preferences}
-export interface BackendStatus {id:'agy'|'claude'|'codex';installed:boolean;auth:'ready'|'missing'|'unknown';version:string;efforts:Effort[]}
+export interface BackendStatus {id:'agy'|'claude'|'codex'|'opencode';installed:boolean;auth:'ready'|'missing'|'unknown';version:string;efforts:Effort[]}
 export interface ViewState {/** Cờ việc gấp và áp lực RAM. */urgency?:import('./urgency.js').UrgencyView;/** Bản đồ Brain theo mã dự án: mỗi dòng "đường/dẫn: vai trò". Dùng để chọn công cụ gợi ý ở trang chủ. */homeBrain?:Record<string,string[]>;selfTip?:import('./self-advisor.js').SelfTipView;skillDiscovery?:ReturnType<import('./skill-discovery.js').SkillDiscovery['view']>;activeChatIds?:string[];chatProgress?:Record<string,import('@pvta/shared').AiProgressEntry[]>;modelUsage?:Partial<Record<ModelChoice['backend'],import('@pvta/shared').ProviderUsage>>;learning?:{reflect?:{enabled:boolean;running:boolean;message:string};last?:LearningLast;enabled:boolean;pending:number;running:boolean;message:string;skills:{name:string;description:string;body:string}[]};license?:import('../license/index.js').LicenseStatus;groups?:import('../groups/store.js').GroupsView;toolActivity?:import('./tool-activity.js').ToolActivity;office?:{running:boolean;selected:string;sessions:{id:string;host:string;name:string;launchId?:string}[];manifest:string};version:string;home:string;data:DesktopData;backends:BackendStatus[];catalog:ModelCatalog;modes:CustomMode[];api:{id:string;label:string;configured:boolean;baseUrl:string;model?:string;models:{id:string;label?:string}[]}[];skills:{tier?:1|2|3|4;guide?:{summary:string;body:string};name:string;description:string;load:string;body:string;source?:string}[];prompts:{own:LibraryPrompt[];favorites:string[]};refine:RefineView}
 export interface RpcRequest { id:string; method:string; params?:Record<string,unknown> }
 export type RpcEvent =

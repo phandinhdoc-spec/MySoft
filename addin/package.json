@@ -1,6 +1,6 @@
 {
   "name": "@pvta/addin",
-  "version": "1.5.1",
+  "version": "1.5.3",
   "private": true,
   "type": "module",
   "scripts": {

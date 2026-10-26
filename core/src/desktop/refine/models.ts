@@ -3,7 +3,7 @@ import type {RefineSettings} from '../types.js';
 
 export interface Candidate{choice:ModelChoice;label:string;tier:1|2|3|4}
 export interface ChainInput{
- backends:{id:'agy'|'claude'|'codex';installed:boolean;auth:'ready'|'missing'|'unknown'}[];
+ backends:{id:'agy'|'claude'|'codex'|'opencode';installed:boolean;auth:'ready'|'missing'|'unknown'}[];
  catalog:ModelCatalog;
  api:{id:ApiProvider;configured:boolean;model?:string;models:{id:string;label?:string}[]}[];
 }
@@ -42,6 +42,8 @@ export function refineChain(i:ChainInput):Candidate[]{
  }
  const codex=i.backends.find(b=>b.id==='codex');
  if(usable(codex))add({backend:'codex',model:'default'},'Codex · mặc định',4);
+ const opencode=i.backends.find(b=>b.id==='opencode');
+ if(usable(opencode))add({backend:'opencode',model:'default'},'OpenCode · mặc định',4);
  return out;
 }
 /** Thầy cô chọn model riêng thì chỉ dùng model đó; để Tự động thì đi theo chuỗi ưu tiên. */

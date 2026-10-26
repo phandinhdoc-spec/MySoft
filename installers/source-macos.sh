@@ -83,12 +83,7 @@ if ! mv "$stage/PVTA.app" "$target"; then
  [[ ! -d "$backup" ]] || mv "$backup" "$target"
  exit 1
 fi
-# Office được dựng từ cùng mã nguồn; không kéo gói Office cũ từ Releases.
-if ! PVTA_LOCAL_TGZ="$repo/release/pvta.tar.gz" PVTA_INSTALL_CLI=none PVTA_NO_GUI=1 bash installers/office.sh; then
- rm -rf "$target"
- [[ ! -d "$backup" ]] || mv "$backup" "$target"
- echo 'Cài Office thất bại; đã phục hồi ứng dụng Chat nếu có bản trước.'
- exit 1
-fi
+# Add-in là tùy chọn; cài và mở Desktop không đăng ký Office hay hỏi chứng chỉ.
+# Người dùng chủ động thiết lập kết nối trong mục Office khi cần.
 open "$target"
-echo "Đã cài PVTA. Bản trước (nếu có): $backup. Mở lại bảng PVTA trong Office."
+echo "Đã cài PVTA. Bản trước (nếu có): $backup. Có thể dùng ngay mà không cần Microsoft Office."

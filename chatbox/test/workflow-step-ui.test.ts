@@ -13,10 +13,20 @@ import {WorkflowPanel} from '../src/WorkflowPanel';
 let host:HTMLDivElement,root:Root;
 const report=vi.fn();
 const wf=():Workflow=>({id:'w',name:'Bài học',updatedAt:1,runs:[],steps:['A','B'].map(id=>({id,name:id,prompt:id,choice:'auto',access:'read'}))});
-const render=async(w:Workflow)=>{const state={data:{workflows:[w],chats:[]},prompts:{own:[]},backends:[],api:[],catalog:{}} as unknown as ViewState;await act(async()=>root.render(React.createElement(WorkflowPanel,{state,report,notice:vi.fn(),onAutoCreate:vi.fn(),selectedId:w.id})));};
+const render=async(w:Workflow)=>{const state={data:{workflows:[w],chats:[],projects:[]},skills:[],prompts:{own:[]},backends:[],api:[],catalog:{}} as unknown as ViewState;await act(async()=>root.render(React.createElement(WorkflowPanel,{state,report,notice:vi.fn(),onAutoCreate:vi.fn(),selectedId:w.id})));};
 const stage=(id:string)=>host.querySelector<HTMLButtonElement>(`[aria-label="Duyệt và chạy nấc: ${id}"]`)!;
 beforeEach(()=>{(globalThis as any).IS_REACT_ACT_ENVIRONMENT=true;mocks.rpc.mockReset().mockResolvedValue(true);report.mockReset();host=document.createElement('div');document.body.append(host);root=createRoot(host);});
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();});
+it('resets a failed workflow from the first node and prevents duplicate clicks',async()=>{
+ const w=wf();w.runs=[{id:'old',startedAt:1,status:'error',steps:[{stepId:'A',name:'A',status:'error'}]}];
+ await render(w);
+ const reset=[...host.querySelectorAll('button')].find(b=>b.textContent==='Reset và chạy từ đầu')!;
+ expect(reset.disabled).toBe(false);
+ let finish!:(v:boolean)=>void;mocks.rpc.mockImplementation(()=>new Promise(resolve=>{finish=resolve;}));
+ await act(async()=>{reset.click();reset.click();});
+ expect(mocks.rpc).toHaveBeenCalledExactlyOnceWith('workflowRun',{id:'w',retry:false,reset:true});
+ expect(reset.disabled).toBe(true);await act(async()=>finish(true));
+});
 it('duyệt riêng từng nấc, khóa bước sau và chặn nhấp lặp',async()=>{
  const w=wf();await render(w);expect(stage('A').disabled).toBe(false);expect(stage('B').disabled).toBe(true);
  let finish!:(v:boolean)=>void;mocks.rpc.mockImplementation(()=>new Promise(resolve=>{finish=resolve;}));

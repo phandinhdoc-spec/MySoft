@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       only:
-        description: 'Chỉ build và tải các gói này; để trống = win,mac-arm64. Khóa: win (Studio cho cả x64 và ARM64), mac-arm64, mac-x64, linux-x64, office. Ví dụ: win,mac-arm64'
+        description: 'Chỉ build và tải các gói này; để trống = win-x64. Khóa: win-x64 (Windows x86_64), win (gồm cả x64 và ARM64), mac-arm64, mac-x64, linux-x64, office. Ví dụ: win-x64'
         required: false
         default: ''
         type: string
@@ -35,18 +35,39 @@ jobs:
             {"key":"win-arm64","os":"windows-11-arm","target":"aarch64-pc-windows-msvc","arch":"arm64","bundles":"nsis"},
             {"key":"linux-x64","os":"ubuntu-22.04","target":"x86_64-unknown-linux-gnu","arch":"x64","bundles":"appimage"}
           ]'
-          # Mặc định bản 1.5.1: Studio Windows (x64 + ARM64) và Studio macOS Apple Silicon (gói Office đi kèm tự động). Linux và Intel Mac chỉ khi chọn rõ.
-          ONLY="${ONLY:-win,mac-arm64}"
-          ONLY="$(echo ",${ONLY// /}," | sed 's/,win,/,win-x64,win-arm64,/')"
-          has() { [[ "$ONLY" == *",$1,"* ]]; }
-          if { has win-x64 && ! has win-arm64; } || { has win-arm64 && ! has win-x64; }; then
-            echo "::error::Studio Windows gồm cả x64 và ARM64: chọn 'win', đừng chọn riêng một kiến trúc."; exit 1
+          # Để trống = win-x64 (một tệp .exe Studio, kèm gói Office).
+          REQ="${ONLY:-win-x64}"
+          REQ="$(echo "$REQ" | tr -d '[:space:]')"
+          # Chặn nhầm lẫn hay gặp: dán tên thẻ phát hành (desktop-v1.5.2) hoặc số phiên bản vào ô này.
+          # Trước đây giá trị sai bị bỏ qua im lặng, build 0 nền tảng nhưng vẫn tạo bản phát hành rỗng.
+          if [[ "$REQ" == desktop-v* || "$REQ" =~ ^v?[0-9]+\.[0-9]+ ]]; then
+            echo "::error title=Ô 'only' đang nhận tên thẻ hoặc số phiên bản::Giá trị '$REQ' không phải nền tảng. Để trống (mặc định win-x64) hoặc nhập một trong: win-x64, win, win-arm64, mac-arm64, mac-x64, linux-x64, office."
+            exit 1
           fi
+          ONLY=","
+          IFS=',' read -r -a KEYS <<< "$REQ"
+          for key in "${KEYS[@]}"; do
+            case "$key" in
+              '') ;;
+              win) ONLY="${ONLY}win-x64,win-arm64," ;;
+              win-x64|win-arm64|mac-arm64|mac-x64|linux-x64) ONLY="${ONLY}${key}," ;;
+              office) ONLY="${ONLY}office," ;;
+              *)
+                echo "::error title=Giá trị 'only' không hợp lệ::Khóa '$key' không có trong danh sách. Chỉ nhận: win-x64, win, win-arm64, mac-arm64, mac-x64, linux-x64, office; để trống = win-x64."
+                exit 1
+                ;;
+            esac
+          done
+          has() { [[ "$ONLY" == *",$1,"* ]]; }
           WIN=false; has win-x64 && WIN=true
           MAC=false; { has mac-arm64 || has mac-x64; } && MAC=true
           OFFICE=false; { has office || [[ $WIN == true || $MAC == true ]]; } && OFFICE=true
           SELECTED=$(jq -c --arg only "$ONLY" '[.[] | . as $m | select($only | contains("," + $m.key + ","))]' <<< "$FULL")
           COUNT=$(jq 'length' <<< "$SELECTED")
+          if [[ "$COUNT" -eq 0 && "$OFFICE" != true ]]; then
+            echo "::error title=Không chọn được nền tảng nào::Không có nền tảng hợp lệ trong '$REQ', nên dừng trước khi build."
+            exit 1
+          fi
           echo "Nền tảng được build ($COUNT): $SELECTED; win=$WIN mac=$MAC office=$OFFICE"
           { echo "count=$COUNT"; echo "win=$WIN"; echo "mac=$MAC"; echo "office=$OFFICE"; echo "matrix=$(jq -c '{include: .}' <<< "$SELECTED")"; } >> "$GITHUB_OUTPUT"
   desktop:
@@ -163,9 +184,13 @@ jobs:
         run: |
           $v = node -p "require('./package.json').version"
           New-Item -ItemType Directory -Force release/studio-payload | Out-Null
-          foreach ($f in "PVTA-Chatbox-$v-x64.exe", "PVTA-Chatbox-$v-arm64.exe", 'pvta-office.tar.gz', 'office-latest.json') {
+          # Yêu cầu PVTA Chat x64 và gói Office. Hỗ trợ "PVTA-Chatbox-$v-x64.exe", "PVTA-Chatbox-$v-arm64.exe".
+          foreach ($f in "PVTA-Chatbox-$v-x64.exe", 'pvta-office.tar.gz', 'office-latest.json') {
             if (-not (Test-Path "parts/$f")) { throw "Thiếu $f để đóng gói Studio" }
             Copy-Item "parts/$f" release/studio-payload/
+          }
+          if (Test-Path "parts/PVTA-Chatbox-$v-arm64.exe") {
+            Copy-Item "parts/PVTA-Chatbox-$v-arm64.exe" release/studio-payload/
           }
           if (-not (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe")) { choco install innosetup -y --no-progress }
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DAppVersion=$v" scripts\windows\studio.iss
@@ -216,7 +241,7 @@ jobs:
   publish:
     timeout-minutes: 15
     needs: [plan, desktop, office, studio-win, studio-mac]
-    if: ${{ always() && needs.plan.result == 'success' && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
+    if: ${{ always() && needs.plan.result == 'success' && (needs.plan.outputs.count != '0' || needs.plan.outputs.office == 'true') && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -248,7 +273,7 @@ jobs:
           fi
           # Chỉ đưa lên Releases các gói người dùng cần: Studio (Windows, macOS), AppImage, gói Office.
           # Gói PVTA Chat riêng lẻ chỉ là nguyên liệu đóng gói Studio nên không được công bố.
-          ONLY="${ONLY:-win,mac-arm64}"
+          ONLY="${ONLY:-win-x64}"
           ONLY=",${ONLY// /},"
           has() { [[ "$ONLY" == *",$1,"* ]]; }
           FILES=()
@@ -257,7 +282,11 @@ jobs:
           has mac-x64 && FILES+=("PVTA-Studio-$V-x64.dmg")
           has linux-x64 && FILES+=("PVTA-Chatbox-$V-x64.AppImage")
           if has office || has win || has win-x64 || has mac-arm64 || has mac-x64; then FILES+=("pvta-office.tar.gz" "office-latest.json"); fi
-          for f in "${FILES[@]}"; do test -f "parts/$f" || { echo "Thiếu $f"; exit 1; }; done
+          if [[ ${#FILES[@]} -eq 0 ]]; then
+            echo "::error title=Không có gói nào để công bố::Lần chạy này không tạo ra gói cài nào, nên không tạo bản phát hành."
+            exit 1
+          fi
+          for f in "${FILES[@]}"; do test -f "parts/$f" || { echo "::error title=Thiếu gói $f::Bản phát hành chỉ được tạo khi đủ mọi gói đã chọn."; exit 1; }; done
           if [[ " ${FILES[*]} " == *" office-latest.json "* ]]; then
             node -e 'const fs=require("fs"); if(JSON.parse(fs.readFileSync("parts/office-latest.json")).version!==JSON.parse(fs.readFileSync("package.json")).version)process.exit(1)'
           fi

@@ -154,7 +154,7 @@ describe("engine với agy giả", () => {
     const r = await engine.run({ backend: "agy", model: "m", cwd: projectDir, permission: "read", workspaceWrite: true, buildPrompt: () => "x" });
     expect(fs.realpathSync(r.text)).toBe(fs.realpathSync(projectDir));
     expect(r.attempts).toBe(1);
-    expect(calls()[0]).toEqual(expect.arrayContaining(["-p", "x", "--model", "m", "--dangerously-skip-permissions"]));
+    expect(calls()[0]).toEqual(expect.arrayContaining(["-p", "-", "--model", "m", "--dangerously-skip-permissions"]));
     expect(calls()[0]).not.toContain("--mode");
     expect(calls()[0]).not.toContain("--yolo");
   });
@@ -189,6 +189,15 @@ describe("engine với agy giả", () => {
     expect(err).toBeInstanceOf(EngineError);
     expect(err.message).toContain("không trả về nội dung");
     expect(err.message).toContain("something_else");
+  });
+  it("agy trên Windows không bị giới hạn dòng lệnh vì truyền qua stdin (-p -)", async () => {
+    const { dir, calls } = setup("ok");
+    const probe = new ProbeStore(path.join(dir, "probe.json"));
+    const engine = new Engine({ probe, platform: "win32", env: { ...process.env, PVTA_AGY_BIN: FAKE_AGY, FAKE_MODE: "ok", FAKE_LOG: path.join(dir, "calls.log") } });
+    const longPrompt = "x".repeat(35_000);
+    const r = await engine.run({ backend: "agy", model: "m", cwd: dir, permission: "ask", buildPrompt: () => longPrompt });
+    expect(r.text).toBe("Chào bạn");
+    expect(calls()[0]).toEqual(expect.arrayContaining(["-p", "-"]));
   });
 });
 

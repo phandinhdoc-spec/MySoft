@@ -2,6 +2,21 @@
 import React,{act} from 'react';import {createRoot} from 'react-dom/client';import {it,vi,expect} from 'vitest';
 const rpc=vi.hoisted(()=>vi.fn());vi.mock('../src/ipc',()=>({rpc}));
 import {OfficePanel} from '../src/OfficePanel';import type {ViewState} from '../src/ipc';
+it('does not connect on mount or remount; connects only after the user requests a code',async()=>{
+ (globalThis as any).IS_REACT_ACT_ENVIRONMENT=true;rpc.mockReset();rpc.mockResolvedValue({code:'manual-code'});
+ const el=document.createElement('div');document.body.append(el);const root=createRoot(el);
+ const props={state:{office:{running:false,selected:'',sessions:[]}} as unknown as ViewState,report:vi.fn(),notice:vi.fn(),onUse:vi.fn()};
+ try{
+  await act(async()=>root.render(React.createElement(OfficePanel,props)));
+  expect(rpc).not.toHaveBeenCalled();
+  await act(async()=>root.render(null));
+  await act(async()=>root.render(React.createElement(OfficePanel,props)));
+  expect(rpc).not.toHaveBeenCalled();
+  const connect=[...el.querySelectorAll('button')].find(b=>b.textContent==='Lấy mã kết nối')!;
+  await act(async()=>connect.click());
+  expect(rpc).toHaveBeenCalledExactlyOnceWith('officeStart');
+ }finally{await act(async()=>root.unmount());el.remove();rpc.mockReset();}
+});
 it('opens Office instead of inserting a prompt; connection success requires a matching session',async()=>{
  (globalThis as any).IS_REACT_ACT_ENVIRONMENT=true;const el=document.createElement('div');document.body.append(el);const root=createRoot(el),report=vi.fn(),notice=vi.fn(),onUse=vi.fn();
  const state={office:{running:true,selected:'',sessions:[]}} as unknown as ViewState;

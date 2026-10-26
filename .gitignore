@@ -20,3 +20,6 @@ chatbox/src-tauri/runtime/
 # Brain generated index and atomic write scratch files
 .code_index.jsonl
 .brain-*.tmp
+
+# Bản sao tạm khi hoàn tác thao tác xoá/đặt lại
+.pvta-reset/

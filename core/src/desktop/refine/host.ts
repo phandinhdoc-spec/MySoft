@@ -10,7 +10,7 @@ import {loadCatalog} from '../../modelscan.js';
 import {augmentPath,paths,pvtaHome} from '../../paths.js';
 import {ProbeStore} from '../../probe.js';
 import {SkillStore} from '../../skills.js';
-import {autoActivateLearnedSkill} from '../learning-memory.js';
+import {stageLearnedSkill} from '../learning-memory.js';
 import {DesktopStore,uid} from '../storage.js';
 import type {LearnedDraft,RefineSettings} from '../types.js';
 import {defaultRefineSettings} from './settings.js';
@@ -46,7 +46,7 @@ export function createRefiner(home=pvtaHome(),overrides:Partial<RefineDeps>={}){
  const catalog:ModelCatalog=loadCatalog(path.join(home,'models.json'))??builtinCatalog();
  const settings=():RefineSettings=>{try{return new DesktopStore(home).data.preferences.refine??defaultRefineSettings();}catch{return defaultRefineSettings();}};
  const chainInput=():ChainInput=>({
-  backends:(['agy','claude','codex'] as const).map(id=>({id,installed:probe.get(id)?.installed===true,auth:'unknown' as const})),
+  backends:(['agy','claude','codex','opencode'] as const).map(id=>({id,installed:probe.get(id)?.installed===true,auth:'unknown' as const})),
   catalog,
   api:API_PROVIDER_IDS.map(id=>({id,configured:api.configured(id),model:config.get().api?.[id]?.model,models:config.get().api?.[id]?.models??API_PROVIDERS[id].models})),
  });
@@ -65,7 +65,7 @@ export function createRefiner(home=pvtaHome(),overrides:Partial<RefineDeps>={}){
   appRunning:()=>appRunning(home),
   skills:()=>skills.list().filter(s=>skillTier(skills,s.name)===2&&s.load!=='off').flatMap(s=>{try{return [{name:s.name,md:fs.readFileSync(path.join(s.dir,'SKILL.md'),'utf8')}];}catch{return [];}}),
   learned:()=>{try{return new DesktopStore(home).data.learned.filter(l=>l.status!=='rejected'&&!l.edited).map(l=>({id:l.id,rule:l.rule}));}catch{return [];}},
-  writeSkill:(name,md)=>{const store=new DesktopStore(home);const draft=skillRefinementDraft(name,md);autoActivateLearnedSkill(skills,draft);(store.data.learnedDrafts??=[]).push(draft);store.save();return 'proposed';},
+  writeSkill:(name,md)=>{const store=new DesktopStore(home);const draft=skillRefinementDraft(name,md);stageLearnedSkill(skills,draft);(store.data.learnedDrafts??=[]).push(draft);store.save();return 'proposed';},
   applyRules:(updates,drops)=>{
    const store=new DesktopStore(home);const gone=store.data.learned.filter(l=>drops.includes(l.id));
    if(gone.length){const dir=refinePaths(home).backup;fs.mkdirSync(dir,{recursive:true,mode:0o700});atomicJson(path.join(dir,`learned-${Date.now()}.json`),gone);}

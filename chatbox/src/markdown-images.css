@@ -14,3 +14,15 @@
 .pvta-rich-bar{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;margin-top:6px;font-size:.9em}
 .pvta-rich-frame{display:block;width:100%;min-height:240px;border:1px solid var(--line);border-radius:8px;background:#fff}
 .pvta-rich details pre{max-height:320px;overflow:auto}
+
+/* Tên tệp trong câu trả lời: bấm để mở, giữ nguyên màu/kiểu sẵn có, chỉ thêm gợi ý là nút bấm. */
+.markdown .pvta-file-ref{cursor:pointer;text-decoration:underline;text-underline-offset:3px;border-radius:4px;color:var(--accent,#2563eb)!important}
+.markdown .pvta-file-ref[data-pvta-file-kind=word]{color:#2563eb!important}
+.markdown .pvta-file-ref[data-pvta-file-kind=excel]{color:#059669!important}
+.markdown .pvta-file-ref[data-pvta-file-kind=ppt]{color:#d97706!important}
+.markdown .pvta-file-ref[data-pvta-file-kind=pdf]{color:#dc2626!important}
+.markdown .pvta-file-ref[data-pvta-file-kind=image]{color:#7c3aed!important}
+.markdown .pvta-file-ref[data-pvta-file-kind=text]{color:#0f766e!important}
+.markdown .pvta-file-ref:hover{text-decoration-style:solid;filter:brightness(1.12)}
+.markdown .pvta-file-ref:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.markdown .pvta-file-ref-error{text-decoration:underline wavy var(--danger,#dc2626)}

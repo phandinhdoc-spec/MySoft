@@ -21,6 +21,18 @@ export const BUILTIN_MODELS: Record<CliBackendId, ModelInfo[]> = {
     },
   ],
   codex: [{ id: "default", label: "Mặc định của Codex", hint: "khuyên dùng" }],
+  opencode: [
+    { id: "default", label: "Mặc định của OpenCode", hint: "theo cấu hình opencode" },
+    { id: "opencode/beam-free", label: "Beam Free", hint: "miễn phí" },
+    { id: "opencode/big-pickle", label: "Big Pickle", hint: "miễn phí" },
+    { id: "opencode/deepseek-v4.1-flash-free", label: "DeepSeek V4.1 Flash Free", hint: "miễn phí" },
+    { id: "opencode/flint-40b-free", label: "Flint 40B Free", hint: "miễn phí" },
+    { id: "opencode/glm-5.3-flash-free", label: "GLM 5.3 Flash Free", hint: "miễn phí" },
+    { id: "opencode/mimo-v2.6-flash-free", label: "MiMo V2.6 Flash Free", hint: "miễn phí" },
+    { id: "opencode/nemotron-3-ultra-free", label: "Nemotron 3 Ultra Free", hint: "miễn phí" },
+    { id: "opencode/nemotron-3.5-lightning-free", label: "Nemotron 3.5 Lightning Free", hint: "miễn phí" },
+    { id: "opencode/nemotron-3.5-super-vl-free", label: "Nemotron 3.5 Super VL Free", hint: "miễn phí" },
+  ],
   agy: [
     {
       id: "gemini-3.8-flash",
@@ -37,6 +49,7 @@ export function builtinCatalog(): ModelCatalog {
     claude: { models: BUILTIN_MODELS.claude, live: false },
     codex: { models: BUILTIN_MODELS.codex, live: false },
     agy: { models: BUILTIN_MODELS.agy, live: false },
+    opencode: { models: BUILTIN_MODELS.opencode, live: false },
   };
 }
 

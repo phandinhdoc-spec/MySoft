@@ -8,6 +8,22 @@ const roots:string[]=[],runtimes:DesktopRuntime[]=[];
 afterEach(()=>{runtimes.forEach(r=>r.dispose());runtimes.length=0;roots.forEach(p=>fs.rmSync(p,{recursive:true,force:true}));roots.length=0;vi.restoreAllMocks();vi.useRealTimers();});
 const req=(r:DesktopRuntime,method:string,params:Record<string,unknown>={})=>r.dispatch({id:crypto.randomUUID(),method,params});
 const result=(text:string)=>({text,attempts:1,fullPrompt:true,timings:{totalMs:0}});
+it('workflow reset clears Plan recovery errors, archives partial files and executes every node again',async()=>{
+ const {r,spy,dir}=setup(),p=await plan(r),w=r.store.data.workflows![0]!;
+ const root=path.join(dir,'workspace','desktop');fs.mkdirSync(root,{recursive:true});const file=path.join(root,'partial.txt');
+ p.steps[0]!.outputs=[file];w.steps[0]!.outputs=[file];
+ let fail=true;const tasks:string[]=[];
+ spy.mockImplementation(async o=>{
+  const prompt=o.buildPrompt?.(false,false)??'';
+  const task=prompt.match(/NHIỆM VỤ HIỆN TẠI ĐÃ DUYỆT:\nThực hiện bước đã duyệt: (Nhiệm vụ \d)/)?.[1];
+  if(task){tasks.push(task);if(task==='Nhiệm vụ 0'){expect(fs.existsSync(file)).toBe(false);fs.writeFileSync(file,'partial');}if(task==='Nhiệm vụ 1'&&fail)throw Error('mất wifi');}
+  return result('kết quả bước');
+ });
+ await req(r,'workflowRun',{id:w.id});expect(p.steps.map(s=>s.status)).toEqual(['done','error','blocked']);
+ fail=false;tasks.length=0;await req(r,'workflowRun',{id:w.id,reset:true});
+ expect(tasks).toEqual(['Nhiệm vụ 0','Nhiệm vụ 1','Nhiệm vụ 2']);expect(p.steps.every(s=>s.status==='done')).toBe(true);
+ expect(w.runs[1]!.resetBackup).toHaveLength(1);
+});
 function setup(home?:string, emit:ConstructorParameters<typeof DesktopRuntime>[0]=()=>{}){const dir=home??fs.mkdtempSync(path.join(os.tmpdir(),'pvta-plan-'));if(!home)roots.push(dir);const r=new DesktopRuntime(emit,dir);runtimes.push(r);r.store.data.preferences.choice={backend:'api',model:'mock/mini'};return {r,dir,spy:vi.spyOn(r.engine,'run')};}
 async function plan(r:DesktopRuntime){const chatId=await req(r,'newChat') as string;const p:Plan={id:'plan',chatId,title:'Giáo án',revision:0,approved:false,steps:['Tìm hiểu','Soạn','Kiểm tra'].map((goal,i)=>({id:'s'+i,goal,task:'Nhiệm vụ '+i,files:[],risk:'',status:'waiting'}))};r.store.data.chats[0]!.messages.push({id:'m',role:'assistant',text:'',at:1,plan:p});linkPlan(p,r.store.data.workflows??=[]);return p;}
 it('links plans idempotently and edits preserve only the completed unchanged prefix',()=>{const p:Plan={id:'p',chatId:'c',title:'P',approved:true,steps:[0,1,2].map(i=>({id:''+i,goal:'G'+i,task:'T'+i,files:[],risk:'',status:'done',output:'saved'}))};const list:Workflow[]=[];linkPlan(p,list);linkPlan(p,list);expect(list).toHaveLength(1);editPlanSteps(p,p.steps.map((s,i)=>({...s,task:i===1?'changed':s.task})));expect(p.steps.map(s=>s.status)).toEqual(['done','waiting','waiting']);expect(p.steps[2]?.output).toBeUndefined();expect(p.approved).toBe(false);});

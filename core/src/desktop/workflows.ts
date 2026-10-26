@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import {archiveWorkflowFiles,captureWorkflowFiles,workflowFiles} from './workflow-reset.js';
 import {MAX_WORKFLOW_STEPS} from './workflow-limits.js';
 import {createHash} from 'node:crypto';
 import path from 'node:path';
@@ -17,7 +18,7 @@ import {cleanWorkflowResources,scopedWorkflowResources,workflowResourceText} fro
 import {DEFAULT_CODE_TIMEOUT_MS,copyAttachments,extractCodeBlocks,findInterpreter,hasHigh,makeRunDir,parseReview,reviewPrompt,runCode,scanCode,supportedLanguages,type Finding} from './workflow-code.js';
 
 const STR=(v:unknown,max:number)=>typeof v==='string'?v.slice(0,max):'';
-const BACKENDS=['agy','claude','codex','api'];
+const BACKENDS=['agy','claude','codex','opencode','api'];
 export const MAX_WORKFLOWS=1000,MAX_STEPS=MAX_WORKFLOW_STEPS,MAX_RUNS=15,MAX_OUTPUT=20_000;
 const uid=()=>globalThis.crypto.randomUUID();
 
@@ -128,13 +129,15 @@ export function workflowChatSummary(wf:Workflow,run:WorkflowRun|undefined,error?
  }
  const files=[...new Set(run.steps.flatMap(s=>s.outputFiles??[]))];
  if(files.length)lines.push('',`**Tệp đầu ra:** ${files.map(f=>`\`${f}\``).join(', ')}`);
- if(run.status==='error'||run.status==='cancelled')lines.push('',`Có thể chạy tiếp từ khâu lỗi mà không làm lại các khâu đã xong.`);
+ if(run.status==='error'||run.status==='cancelled')lines.push('',`Mở Quy trình → Reset và chạy từ đầu để bỏ trạng thái lỗi, dọn tệp phát sinh đã theo dõi vào .pvta-reset và chạy lại từ nút 1.`);
  return lines.join('\n');
 }
 
 export interface WorkflowDeps{
  list():Workflow[];
  changed():void;
+ started?():void;
+ observed?(workflow:Workflow,run:WorkflowRun,step:WorkflowStepRun,interrupted:boolean):void;
  /** Gọi một lượt model. cwd/permission chỉ có khi quy trình có thư mục hoặc bước được ghi. */
  /** Đoạn nguồn từ sổ nguồn liên kết với quy trình (và dự án của nó); rỗng nếu không có. */
  grounding?(wf:Workflow,query:string):string;
@@ -232,9 +235,11 @@ export class WorkflowRunner{
   if(!res.ok)throw Error(body.slice(0,2000));
   return {output:body,files:[file]};
  }
- async run(id:string,retry=false,stepId?:string,approvedPrompts?:import('./workflow-prompts.js').ApprovedPrompts):Promise<WorkflowRun>{
+ async run(id:string,retry=false,stepId?:string,approvedPrompts?:import('./workflow-prompts.js').ApprovedPrompts,reset=false):Promise<WorkflowRun>{
   const stored=this.d.list().find(w=>w.id===id);if(!stored)throw Error('Không tìm thấy quy trình.');
   if(this.jobs.has(id))throw Error('Quy trình này đang chạy.');
+  if(reset&&(retry||stepId!==undefined))throw Error('Reset phải chạy toàn bộ quy trình từ đầu.');
+  if(reset&&this.jobs.size)throw Error('Chờ các quy trình đang chạy kết thúc trước khi reset tệp.');
   // Nút chứa quy trình con được trải phẳng; khung cũng được mang theo. Không có nút con thì giữ nguyên hành vi cũ.
   const nested=stored.steps.some(s=>s.subWorkflowId);
   const flat=nested?flattenWorkflow(stored,this.d.list()):{steps:stored.steps,frames:stored.frames??[]};
@@ -268,7 +273,14 @@ export class WorkflowRunner{
    for(const a of wf.attachments??[])try{fs.statSync(a);}catch{throw Error(`Tệp hoặc thư mục đính kèm không còn truy cập được: ${a}`);}
   }
   assertStepFiles(wf.steps);
+  if(reset){
+   if(!previous)throw Error('Chưa có lượt chạy để reset.');
+   const protectedPaths=[...(wf.attachments??[]),...wf.steps.flatMap(s=>s.files??[]),...(wf.input?.kind==='file'?[wf.input.value]:[])];
+   for(const old of stored.runs)archiveWorkflowFiles(old,protectedPaths);
+   this.d.changed();
+  }
   const ctl=new AbortController();this.jobs.set(id,ctl);
+  this.d.started?.();
   const run:WorkflowRun={id:uid(),startedAt:Date.now(),status:'running',steps:wf.steps.map(s=>({stepId:s.id,name:s.name,status:'waiting'}) as WorkflowStepRun)};
   if(approvedPrompts)run.approvedPrompts=structuredClone(approvedPrompts);
   const record=()=>{stored.runs.unshift(run);stored.runs.length=Math.min(stored.runs.length,MAX_RUNS);this.d.changed();};
@@ -335,8 +347,10 @@ export class WorkflowRunner{
    const execute=async(i:number)=>{
     const step=steps[i]!,sr=run.steps[i]!;
     let release:(()=>void)|undefined;
+    let before:string[]|undefined;
     try{
      release=await this.acquire(step.access==='full',ctl.signal);
+     if(step.access==='full')before=workflowFiles(runDir??cwd);
      sr.status='running';sr.startedAt=Date.now();this.d.changed();
      const pending=coreRulesFor();const coreRules=pending?await pending:'';ctl.signal.throwIfAborted();
      const parents=dependencies[i]!.map(id=>run.steps.find(s=>s.stepId===id)!);
@@ -401,7 +415,7 @@ export class WorkflowRunner{
      if(sr.code?.decision==='waiting')sr.code.decision='rejected';
      sr.status='error';sr.error=ctl.signal.aborted?(ctl.signal.reason instanceof Error?ctl.signal.reason.message:'Đã dừng.'):((machine&&!(e instanceof WorkflowLanguageError)?`Nút “${step.name}” (${step.id}): `:'')+(e instanceof Error?e.message:String(e))).slice(0,2000);
      if(!ctl.signal.aborted&&isRateLimit(sr.error))this.d.rateLimited?.();
-    }finally{release?.();sr.endedAt=Date.now();this.d.changed();}
+    }finally{captureWorkflowFiles(run,runDir??cwd,before);release?.();sr.endedAt=Date.now();this.d.changed();this.d.observed?.(stored,run,sr,ctl.signal.aborted);}
    };
    if(stepId!==undefined){
     await execute(steps.findIndex(s=>s.id===stepId));ctl.signal.throwIfAborted();

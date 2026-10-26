@@ -1,7 +1,7 @@
 ; Trình cài đặt PVTA cho Windows (Inno Setup). Biên dịch: iscc /DAppVersion=1.0.0 scripts\windows\pvta.iss
 ; Không cần quyền quản trị: chỉ chép gói vào thư mục tạm rồi chạy install.ps1 (dùng gói có sẵn, không tải).
 #ifndef AppVersion
-  #define AppVersion "1.5.1"
+  #define AppVersion "1.5.3"
 #endif
 
 [Setup]

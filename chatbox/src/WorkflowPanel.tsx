@@ -106,7 +106,7 @@ export function WorkflowPanel({state,report,notice,onAutoCreate,selectedId,navig
   const id=draft.id,version=versionRef.current;
   try{await rpc('workflowSave',{workflow:draft});if(selRef.current===id&&versionRef.current===version)setDirty(false);return true;}catch(e){report(e);return false;}
  }
- async function run(retry=false,targetId?:string){
+ async function run(retry=false,targetId?:string,reset=false){
   if(!draft||operation.current.has(draft.id)||running)return;
   const id=draft.id;
   const risky=targetId?draft.steps.find(s=>s.id===targetId)?.access==='full'&&['error','cancelled'].includes(saved?.runs[0]?.status??''):retry&&draft.steps.some(s=>s.access==='full');
@@ -119,7 +119,7 @@ export function WorkflowPanel({state,report,notice,onAutoCreate,selectedId,navig
    // Nếu người dùng sửa trong lúc lưu, không chạy bản cũ; yêu cầu chạy lại sau khi kiểm tra.
    if(versionRef.current!==version){notice(uiText("Nội dung đã đổi trong lúc lưu. Chưa chạy; hãy kiểm tra rồi chạy lại."));return;}
    if(selRef.current===id)setOpenRun('');
-   await rpc('workflowRun',{id,retry,...(targetId?{stepId:targetId}:{})});
+   await rpc('workflowRun',{id,retry,...(reset?{reset:true}:{}),...(targetId?{stepId:targetId}:{})});
   }catch(e){report(e);}finally{operation.current.delete(id);setRunPending(v=>v.filter(x=>x!==id));}
  }
  async function remove(target=saved){
@@ -164,7 +164,7 @@ export function WorkflowPanel({state,report,notice,onAutoCreate,selectedId,navig
      <input className="wf-name" aria-label={uiText("Tên quy trình")} disabled={running} value={draft.name} maxLength={100} onChange={e=>edit(d=>({...d,name:e.target.value}))}/>
      <div className="wf-actions">
       {running?<ToolButton icon="stop" tone="danger" onClick={()=>void rpc('workflowCancel',{id:draft.id}).catch(report)}>{uiText("Dừng")}</ToolButton>:<ToolButton icon="play" tone="primary" disabled={!draft.steps.length} onClick={()=>void run()}>{uiText("Chạy")}</ToolButton>}
-      <ToolButton icon="retry" disabled={running||!latest||!['error','cancelled'].includes(latest.status)} onClick={()=>void run(true)}>{uiText("Chạy lại phần lỗi")}</ToolButton>
+      <ToolButton icon="retry" tone="danger" title={uiText("Dọn tệp phát sinh đã theo dõi vào .pvta-reset, bỏ trạng thái cũ và chạy lại từ nút 1. Tệp gốc được giữ.")} disabled={running||!latest} onClick={()=>void run(false,undefined,true)}>{uiText("Reset và chạy từ đầu")}</ToolButton>
       <ToolSep/>
       <ToolButton icon="trash" tone="danger" disabled={running} onClick={()=>void remove()} aria-label={uiText("Xóa quy trình")}>{uiText("Xóa")}</ToolButton>
      </div>
@@ -192,6 +192,7 @@ export function WorkflowPanel({state,report,notice,onAutoCreate,selectedId,navig
      </ToolGroup>
     </div>
     {dirty&&<p className="muted small" role="status">{uiText("Có thay đổi chưa lưu. Bấm Lưu thay đổi để lưu cả trạng thái ghim.")}</p>}
+    {saved.runs.some(r=>r.resetBackup?.length)&&<details><summary>{uiText("Tệp đã dọn khi reset (có thể khôi phục)")}</summary>{saved.runs.flatMap(r=>r.resetBackup??[]).map(f=><p key={f.to}><code>{f.from}</code> → <code>{f.to}</code></p>)}</details>}
     {latest&&<div className="wf-progress"><label>{uiText("Tiến độ lần chạy gần nhất")}<progress max={Math.max(1,latest.steps.length)} value={latest.steps.filter(s=>!['running','waiting'].includes(s.status)).length}/></label><span>{latest.steps.filter(s=>s.status==='success').length} {uiText("hoàn tất ·")} {latest.steps.filter(s=>s.status==='error').length} {uiText("lỗi ·")} {latest.steps.filter(s=>s.status==='waiting').length} {uiText("chờ")}</span></div>}
     {!hidden.setup&&<>
     <div className="wf-editor">
