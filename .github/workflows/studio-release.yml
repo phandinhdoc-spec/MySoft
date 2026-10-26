@@ -38,7 +38,7 @@ jobs:
           # Để trống = win-x64 (một tệp .exe Studio, kèm gói Office).
           REQ="${ONLY:-win-x64}"
           REQ="$(echo "$REQ" | tr -d '[:space:]')"
-          # Chặn nhầm lẫn hay gặp: dán tên thẻ phát hành (desktop-v1.5.2) hoặc số phiên bản vào ô này.
+          # Chặn nhầm lẫn hay gặp: dán tên thẻ phát hành (desktop-v1.5.3) hoặc số phiên bản vào ô này.
           # Trước đây giá trị sai bị bỏ qua im lặng, build 0 nền tảng nhưng vẫn tạo bản phát hành rỗng.
           if [[ "$REQ" == desktop-v* || "$REQ" =~ ^v?[0-9]+\.[0-9]+ ]]; then
             echo "::error title=Ô 'only' đang nhận tên thẻ hoặc số phiên bản::Giá trị '$REQ' không phải nền tảng. Để trống (mặc định win-x64) hoặc nhập một trong: win-x64, win, win-arm64, mac-arm64, mac-x64, linux-x64, office."
