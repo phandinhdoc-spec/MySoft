@@ -3,7 +3,7 @@ import type {RefineSettings} from '../types.js';
 /** Mặc định: bật, 22:30 hằng ngày, tự chọn model. Mọi giá trị đều có thể đổi ở Cài đặt → Biên tập nền. */
 export const defaultRefineSettings=():RefineSettings=>({enabled:true,time:'22:30',everyDays:1,model:'auto',autoCatchUp:false});
 export const REFINE_EVERY:readonly RefineSettings['everyDays'][]=[1,3,7,30];
-const BACKENDS=['agy','claude','codex','api'] as const;
+const BACKENDS=['agy','claude','codex','opencode','api'] as const;
 
 /** Kiểm tra và chuẩn hóa cài đặt từ giao diện; sai thì báo lỗi, không lưu một phần. */
 export function normalizeRefine(input:unknown,current:RefineSettings=defaultRefineSettings()):RefineSettings{

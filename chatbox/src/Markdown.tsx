@@ -42,6 +42,18 @@ export function fileRefOf(text: string): string | undefined {
   return FILE_REF.test(t) ? t : undefined;
 }
 
+/** Nhóm màu của liên kết tệp: Word, Excel, PowerPoint, PDF, ảnh, văn bản, khác. */
+export function fileKindOf(ref: string): string {
+  const ext = /\.([a-z0-9]+)$/i.exec(ref)?.[1]?.toLowerCase() ?? '';
+  if (/^docx?$|^docm$|^dotx$/.test(ext)) return 'word';
+  if (/^xlsx?$|^xlsm$|^xltx$|^csv$/.test(ext)) return 'excel';
+  if (/^pptx?$|^pptm$|^potx$/.test(ext)) return 'ppt';
+  if (ext === 'pdf') return 'pdf';
+  if (/^(png|jpe?g|webp)$/.test(ext)) return 'image';
+  if (/^(md|txt|typ)$/.test(ext)) return 'text';
+  return 'other';
+}
+
 // Hook to ensure only checkbox inputs are allowed for security
 if (typeof window !== 'undefined' && DOMPurify.addHook) {
   DOMPurify.addHook('uponSanitizeElement', (node, data) => {
@@ -215,7 +227,8 @@ function MarkdownContent({text, onToggleTask, className, chatId}: MarkdownProps)
       node.classList.add('pvta-file-ref');
       node.setAttribute('role', 'button');
       node.tabIndex = 0;
-      node.title = /\.(?:png|jpe?g|webp)$/i.test(ref) ? `Bấm để xem ảnh lớn: ${ref}` : `Bấm để mở: ${ref}`;
+      node.dataset.pvtaFileKind = fileKindOf(ref);
+      node.title = /\.(?:png|jpe?g|webp)$/i.test(ref) ? `Nhấp đúp để xem ảnh lớn (chuột phải để chọn cách mở): ${ref}` : `Nhấp đúp để mở (chuột phải để chọn cách mở): ${ref}`;
     });
 
     // 4. Resolve local file images for preview
@@ -264,11 +277,11 @@ function MarkdownContent({text, onToggleTask, className, chatId}: MarkdownProps)
   }, [html]);
 
   const isImageRef = (ref?: string) => !!ref && /\.(?:png|jpe?g|webp)$/i.test(ref);
-  const fileRefCall = (method: 'openFileRef' | 'revealFileRef', node: HTMLElement) => {
+  const fileRefCall = (method: 'openFileRef' | 'revealFileRef', node: HTMLElement, app?: 'chitup' | 'vscode') => {
     const ref = node.dataset.pvtaFileRef;
     if (!ref) return Promise.resolve();
     node.classList.remove('pvta-file-ref-error');
-    return rpc(method, {ref, chatId}).catch(error => {
+    return rpc(method, app ? {ref, chatId, app} : {ref, chatId}).catch(error => {
       node.classList.add('pvta-file-ref-error');
       node.title = String((error as Error)?.message ?? error);
     });
@@ -292,9 +305,12 @@ function MarkdownContent({text, onToggleTask, className, chatId}: MarkdownProps)
     commands: node => isImageRef(node.dataset.pvtaFileRef) ? [
       {id: 'view', label: uiText('Xem ảnh lớn'), group: 'open', run: () => viewImageRef(node)},
       {id: 'open', label: uiText('Mở bằng ứng dụng ngoài'), group: 'open', run: () => fileRefCall('openFileRef', node)},
+      {id: 'open-vscode', label: uiText('Mở bằng Visual Studio Code'), group: 'open', run: () => fileRefCall('openFileRef', node, 'vscode')},
       {id: 'reveal', label: uiText('Mở thư mục chứa tệp'), group: 'open', run: () => fileRefCall('revealFileRef', node)},
     ] : [
       {id: 'open', label: uiText('Mở tệp'), group: 'open', run: () => fileRefCall('openFileRef', node)},
+      ...(/\.(?:docx?|xlsx?|pptx?|docm|xlsm|pptm|dotx|xltx|potx|pdf)$/i.test(node.dataset.pvtaFileRef ?? '') ? [{id: 'open-chitup', label: uiText('Mở bằng CHITUP OFFICE'), group: 'open', run: () => fileRefCall('openFileRef', node, 'chitup')}] : []),
+      {id: 'open-vscode', label: uiText('Mở bằng Visual Studio Code'), group: 'open', run: () => fileRefCall('openFileRef', node, 'vscode')},
       {id: 'reveal', label: uiText('Mở thư mục chứa tệp'), group: 'open', run: () => fileRefCall('revealFileRef', node)},
     ],
   });
@@ -313,14 +329,22 @@ function MarkdownContent({text, onToggleTask, className, chatId}: MarkdownProps)
     e.preventDefault(); openFileRef(node);
   };
 
+  const handleDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const node = fileRefNode(e.target);
+    if (!node) return;
+    e.preventDefault();
+    e.stopPropagation();
+    openFileRef(node);
+  };
+
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
 
     const fileRef = target.closest<HTMLElement>('.pvta-file-ref');
     if (fileRef) {
+      // Bấm một lần chỉ chọn; mở tệp bằng nhấp đúp, Enter hoặc menu chuột phải.
       e.preventDefault();
       e.stopPropagation();
-      openFileRef(fileRef);
       return;
     }
 
@@ -354,6 +378,7 @@ function MarkdownContent({text, onToggleTask, className, chatId}: MarkdownProps)
       ref={containerRef}
       className={`markdown ${className ?? ''}`}
       onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
       onKeyDown={handleKeyDown}
       onContextMenu={handleContextMenu}
       dangerouslySetInnerHTML={{__html: html}}

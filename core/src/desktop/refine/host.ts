@@ -46,7 +46,7 @@ export function createRefiner(home=pvtaHome(),overrides:Partial<RefineDeps>={}){
  const catalog:ModelCatalog=loadCatalog(path.join(home,'models.json'))??builtinCatalog();
  const settings=():RefineSettings=>{try{return new DesktopStore(home).data.preferences.refine??defaultRefineSettings();}catch{return defaultRefineSettings();}};
  const chainInput=():ChainInput=>({
-  backends:(['agy','claude','codex'] as const).map(id=>({id,installed:probe.get(id)?.installed===true,auth:'unknown' as const})),
+  backends:(['agy','claude','codex','opencode'] as const).map(id=>({id,installed:probe.get(id)?.installed===true,auth:'unknown' as const})),
   catalog,
   api:API_PROVIDER_IDS.map(id=>({id,configured:api.configured(id),model:config.get().api?.[id]?.model,models:config.get().api?.[id]?.models??API_PROVIDERS[id].models})),
  });

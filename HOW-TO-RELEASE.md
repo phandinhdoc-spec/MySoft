@@ -2,12 +2,12 @@
 
 1. Giải nén ZIP. Tải NỘI DUNG thư mục đã giải nén lên gốc repository phandinhdoc-spec/MySoft, gồm cả thư mục ẩn .github. Finder: Cmd+Shift+. để hiện tệp ẩn. Không đặt source trong một thư mục con trên GitHub.
 2. Xóa hai workflow cũ .github/workflows/chatbox-release.yml và .github/workflows/release.yml nếu còn trên GitHub. Chỉ giữ .github/workflows/studio-release.yml.
-3. Xác nhận package.json là 1.4.1 và .github/workflows/studio-release.yml có tên PVTA Studio — Build & Release.
+3. Xác nhận package.json là 1.5.2 và .github/workflows/studio-release.yml có tên PVTA Studio — Build & Release.
 4. Actions → PVTA Studio — Build & Release → Run workflow → main.
-5. Chờ desktop, office và publish thành công. Có thể lấy từng gói ở Artifacts; Releases sẽ có bản nháp desktop-v1.4.1 khi tất cả thành công.
-6. Cài thử .exe trên Windows (x64, và -arm64.exe nếu có máy Windows ARM), .dmg ARM trên Mac Apple Silicon. Đối chiếu SHA256SUMS nếu cần. Publish bản nháp khi đã kiểm tra.
+5. Chờ desktop, office và publish thành công. Có thể lấy từng gói ở Artifacts; Releases sẽ có bản nháp desktop-v1.5.2 khi tất cả thành công.
+6. Cài thử .exe trên Windows (x64). Đối chiếu SHA256SUMS nếu cần. Publish bản nháp khi đã kiểm tra.
 
-Workflow hỗ trợ đẩy tag desktop-v1.4.1 để chạy tự động. Các lần sau tăng phiên bản chung bằng npm run version:set -- X.Y.Z trước khi commit và tạo tag mới. Không ghi đè bản đã công bố.
+Workflow hỗ trợ đẩy tag desktop-v1.5.2 để chạy tự động. Các lần sau tăng phiên bản chung bằng npm run version:set -- X.Y.Z trước khi commit và tạo tag mới. Không ghi đè bản đã công bố.
 
 Bản phát hành chỉ có các gói người dùng cần:
 
@@ -18,7 +18,7 @@ Bản phát hành chỉ có các gói người dùng cần:
 
 Các gói PVTA Chat riêng lẻ (.exe, .dmg) chỉ là nguyên liệu để đóng gói Studio, không đưa lên Releases. Python, Typst, Tinymist được dựng theo hệ điều hành khi tạo ứng dụng. Bản dựng chưa được cấu hình chứng chỉ ký số Windows hoặc Apple notarization.
 
-Chạy một phần: ô `only` của workflow nhận danh sách khóa `win`, `mac-arm64`, `mac-x64`, `linux-x64`, `office`; để trống = `win,mac-arm64,linux-x64,office`. Windows luôn dựng cả x64 và ARM64 cùng nhau vì chung một tệp Studio.
+Chạy một phần: ô `only` của workflow nhận danh sách khóa `win-x64`, `win`, `mac-arm64`, `mac-x64`, `linux-x64`, `office`; bản 1.5.2 mặc định để trống = `win-x64` (chỉ xuất Studio Setup cho Windows x86_64 kèm tiện ích Office).
 
 ZIP này là mã nguồn để GitHub dựng bộ cài; chưa chứa bộ cài đã biên dịch. Workflow đã được kiểm tra YAML và mã nguồn, chưa chạy thực tế trên GitHub trong phiên này.
 

@@ -22,7 +22,7 @@ function kind(buf: Buffer): "png" | "pdf" | undefined {
 /** Backend nào xem được loại tệp nào. API chưa gửi được tệp; codex chỉ nhận ảnh. */
 export function canView(backend: BackendId, k: "png" | "pdf"): boolean {
   if (backend === "api") return false;
-  if (backend === "codex") return k === "png";
+  if (backend === "codex" || backend === "opencode") return k === "png";
   return true;
 }
 

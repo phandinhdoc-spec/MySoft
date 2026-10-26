@@ -192,7 +192,7 @@ export async function startServer(opts: ServerOptions = {}): Promise<RunningServ
     }
     return c;
   };
-  let caps: Capabilities = toCaps({ agy: probe.get("agy"), claude: probe.get("claude"), codex: probe.get("codex") });
+  let caps: Capabilities = toCaps({ agy: probe.get("agy"), claude: probe.get("claude"), codex: probe.get("codex"), opencode: probe.get("opencode") });
   const modelsFile = path.join(home, "models.json");
   let catalog: ModelCatalog = { ...builtinCatalog(), ...(loadCatalog(modelsFile) ?? {}) };
   const discover = opts.discover ?? !opts.engine;
@@ -250,7 +250,7 @@ export async function startServer(opts: ServerOptions = {}): Promise<RunningServ
         // Đã biết phiên bản từng CLI: lần gọi đầu khỏi phải chạy --version.
         for (const id of CLI_BACKEND_IDS) if (m[id]?.installed !== false && m[id]?.fingerprint) engine.primeVersion?.(id, m[id]!.fingerprint);
         // Hỏi tiếp từng CLI xem có model nào (chạy nền, xong thì báo add-in cập nhật danh sách).
-        void discoverModels(bins, Object.fromEntries(CLI_BACKEND_IDS.map((id) => [id, caps[id]?.installed === true])))
+        void discoverModels(bins, Object.fromEntries(CLI_BACKEND_IDS.map((id) => [id, caps[id]?.installed === true])), process.env, catalog)
           .then((c) => {
             catalog = c;
             saveCatalog(modelsFile, c);

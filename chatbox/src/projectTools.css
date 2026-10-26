@@ -84,3 +84,6 @@
 .chat-tool-manage{align-self:flex-start;margin-top:6px}
 .chat-tool-count{font-style:normal;font-size:11px;color:var(--muted);font-weight:400}
 .chat-tool-filter{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px}.chat-tool-filter button{font-size:12px;padding:2px 8px}.chat-tool-filter button[aria-pressed=true]{background:var(--group-color);color:var(--surface)}
+
+.attachment-chip [data-file-open]{color:var(--accent,#2563eb);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.attachment-chip [data-file-open]:hover{filter:brightness(1.12)}

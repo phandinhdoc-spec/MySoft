@@ -260,6 +260,7 @@ export function cheapestChoice(caps: Capabilities | undefined, catalog: ModelCat
       return { backend: "agy", model: m?.variants?.low ?? m?.id ?? DEFAULT_MODEL.agy };
     }
     if (b === "claude") return { backend: "claude", model: "haiku" };
+    if (b === "opencode") return { backend: "opencode", model: "default" };
     return { backend: "codex", model: "default" };
   }
   return undefined;

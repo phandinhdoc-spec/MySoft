@@ -11,7 +11,7 @@ export const MAX_TEMPLATES=200,MAX_TEMPLATE_STEPS=MAX_WORKFLOW_STEPS,MAX_TEMPLAT
 const KEY=/^[A-Za-z0-9_-]{1,40}$/;
 const RESERVED=new Set(['input','prev']);
 const STR=(v:unknown,max:number)=>typeof v==='string'?v.slice(0,max):'';
-const BACKENDS=['agy','claude','codex','api'];
+const BACKENDS=['agy','claude','codex','opencode','api'];
 /** Model của khâu: 'auto' hoặc {backend,model}; giá trị lạ báo lỗi rõ thay vì bỏ qua âm thầm. */
 export function stepChoice(v:unknown,where:string):ModelChoice|'auto'{
  if(v===undefined||v===null||v==='auto')return 'auto';

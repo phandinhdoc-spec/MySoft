@@ -2477,7 +2477,7 @@ dependencies = [
 
 [[package]]
 name = "pvta-chatbox"
-version = "1.5.1"
+version = "1.5.2"
 dependencies = [
  "portable-pty",
  "serde",
