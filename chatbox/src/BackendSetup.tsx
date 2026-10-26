@@ -68,6 +68,7 @@ export function BackendSetup({state,report,notice,open}:{state:ViewState;report:
   })}
   <div className="row"><button disabled={checking} onClick={()=>void refresh()}>{checking?uiText("Đang kiểm tra…"):uiText("Kiểm tra lại công cụ AI")}</button></div>
   <p className="muted">{uiText("Nếu máy chưa nhận công cụ vừa cài, hãy đóng và mở lại PVTA.")}</p>
+  {(()=>{const oc=state.backends.find(b=>b.id==='opencode');return <article className="backend-card"><div><strong>OpenCode</strong><span className={oc?.installed?'badge success':'badge'}>{oc?.installed?uiText("Đã cài"):uiText("Chưa cài")}</span></div><small>{oc?.installed&&oc.version?`${oc.version} · `:''}{uiText("PVTA không tự cài OpenCode. Cài bằng brew install sst/tap/opencode (hoặc npm install -g opencode-ai), dùng opencode auth login để thêm nhà cung cấp, rồi bấm Kiểm tra lại. Model miễn phí của OpenCode dùng được ngay.")}</small><div className="row"><button onClick={()=>open('opencode')}>{uiText("Mở quản lí OpenCode")}</button><button onClick={()=>void rpc('openLink',{url:'https://opencode.ai/docs'}).catch(report)}>{uiText("Hướng dẫn chính thức ↗")}</button></div></article>;})()}
   <article className="backend-card"><div><strong>CommandCode / API</strong><span className="badge">{state.api.find(a=>a.id==='commandcode')?.configured?uiText("Đã lưu khóa"):uiText("Chưa cấu hình")}</span></div><small>{uiText("Kết nối bằng khóa API, không cần tải ứng dụng.")}</small><button onClick={()=>open('commandcode')}>{uiText("Mở điều khiển CommandCode")}</button></article>
  </div>;
 }

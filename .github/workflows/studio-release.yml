@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       only:
-        description: 'Chỉ build và tải các gói này; để trống = win,mac-arm64. Khóa: win (Studio cho cả x64 và ARM64), mac-arm64, mac-x64, linux-x64, office. Ví dụ: win,mac-arm64'
+        description: 'Chỉ build và tải các gói này; để trống = win-x64. Khóa: win-x64 (Windows x86_64), win (gồm cả x64 và ARM64), mac-arm64, mac-x64, linux-x64, office. Ví dụ: win-x64'
         required: false
         default: ''
         type: string
@@ -35,13 +35,10 @@ jobs:
             {"key":"win-arm64","os":"windows-11-arm","target":"aarch64-pc-windows-msvc","arch":"arm64","bundles":"nsis"},
             {"key":"linux-x64","os":"ubuntu-22.04","target":"x86_64-unknown-linux-gnu","arch":"x64","bundles":"appimage"}
           ]'
-          # Mặc định bản 1.5.1: Studio Windows (x64 + ARM64) và Studio macOS Apple Silicon (gói Office đi kèm tự động). Linux và Intel Mac chỉ khi chọn rõ.
-          ONLY="${ONLY:-win,mac-arm64}"
+          # Mặc định bản 1.5.2: Chỉ xuất cho Windows x86_64 (win-x64) và gói Office đi kèm tự động.
+          ONLY="${ONLY:-win-x64}"
           ONLY="$(echo ",${ONLY// /}," | sed 's/,win,/,win-x64,win-arm64,/')"
           has() { [[ "$ONLY" == *",$1,"* ]]; }
-          if { has win-x64 && ! has win-arm64; } || { has win-arm64 && ! has win-x64; }; then
-            echo "::error::Studio Windows gồm cả x64 và ARM64: chọn 'win', đừng chọn riêng một kiến trúc."; exit 1
-          fi
           WIN=false; has win-x64 && WIN=true
           MAC=false; { has mac-arm64 || has mac-x64; } && MAC=true
           OFFICE=false; { has office || [[ $WIN == true || $MAC == true ]]; } && OFFICE=true
@@ -163,9 +160,13 @@ jobs:
         run: |
           $v = node -p "require('./package.json').version"
           New-Item -ItemType Directory -Force release/studio-payload | Out-Null
-          foreach ($f in "PVTA-Chatbox-$v-x64.exe", "PVTA-Chatbox-$v-arm64.exe", 'pvta-office.tar.gz', 'office-latest.json') {
+          # Yêu cầu PVTA Chat x64 và gói Office. Hỗ trợ "PVTA-Chatbox-$v-x64.exe", "PVTA-Chatbox-$v-arm64.exe".
+          foreach ($f in "PVTA-Chatbox-$v-x64.exe", 'pvta-office.tar.gz', 'office-latest.json') {
             if (-not (Test-Path "parts/$f")) { throw "Thiếu $f để đóng gói Studio" }
             Copy-Item "parts/$f" release/studio-payload/
+          }
+          if (Test-Path "parts/PVTA-Chatbox-$v-arm64.exe") {
+            Copy-Item "parts/PVTA-Chatbox-$v-arm64.exe" release/studio-payload/
           }
           if (-not (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe")) { choco install innosetup -y --no-progress }
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DAppVersion=$v" scripts\windows\studio.iss
@@ -248,7 +249,7 @@ jobs:
           fi
           # Chỉ đưa lên Releases các gói người dùng cần: Studio (Windows, macOS), AppImage, gói Office.
           # Gói PVTA Chat riêng lẻ chỉ là nguyên liệu đóng gói Studio nên không được công bố.
-          ONLY="${ONLY:-win,mac-arm64}"
+          ONLY="${ONLY:-win-x64}"
           ONLY=",${ONLY// /},"
           has() { [[ "$ONLY" == *",$1,"* ]]; }
           FILES=()

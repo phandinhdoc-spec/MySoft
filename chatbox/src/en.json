@@ -267,7 +267,6 @@
   "Tìm theo tên hoặc nội dung…": "Search by title or content…",
   "Đóng": "Close",
   "Tự động chọn AI": "Choose AI automatically",
-  "Chọn agy, Claude, Codex hoặc CommandCode đã cấu hình; sau đó đến API khác.": "Choose configured agy, Claude, Codex or CommandCode, then other APIs.",
   "API khác": "Other APIs",
   "Đã lưu khóa CommandCode": "CommandCode key saved",
   "Chưa cấu hình CommandCode": "CommandCode is not configured",
@@ -2954,5 +2953,18 @@
   "Chuyển sang Plan hoặc Plan Pro để dùng nút Duyệt.": "Switch to Plan or Plan Pro to use Approve.",
   "Dừng bàn kế hoạch, rà lại toàn bộ trao đổi và xuất kế hoạch kèm quy trình.": "Stop planning, review the whole conversation and publish the plan with its workflow.",
   "Đã duyệt: kế hoạch và quy trình đã được lưu.": "Approved: the plan and workflow have been saved.",
-  "Chưa có nội dung trao đổi để duyệt. Hãy bàn kế hoạch với PVTA trước.": "There is no conversation to approve yet. Discuss the plan with PVTA first."
+  "Chưa có nội dung trao đổi để duyệt. Hãy bàn kế hoạch với PVTA trước.": "There is no conversation to approve yet. Discuss the plan with PVTA first.",
+  "Chọn agy, Claude, Codex, OpenCode hoặc CommandCode đã cấu hình; sau đó đến API khác.": "Choose configured agy, Claude, Codex, OpenCode or CommandCode, then other APIs.",
+  "Quản lí OpenCode": "OpenCode manager",
+  "⚙ Quản lí OpenCode": "⚙ OpenCode manager",
+  "Mở quản lí OpenCode": "Open OpenCode manager",
+  "Đã kiểm tra lại OpenCode và danh sách model.": "OpenCode and model list rechecked.",
+  "Đã chọn OpenCode cho cuộc trò chuyện.": "OpenCode selected for this chat.",
+  "PVTA gọi OpenCode ở chế độ tự duyệt quyền (--auto). Chế độ Chỉ đọc vẫn dùng agent plan, không sửa tệp.": "PVTA runs OpenCode with auto-approved permissions (--auto). Read-only mode still uses the plan agent and cannot edit files.",
+  "Cài bằng brew install sst/tap/opencode (hoặc npm install -g opencode-ai), chạy opencode auth login để thêm nhà cung cấp, rồi bấm Kiểm tra lại.": "Install with brew install sst/tap/opencode (or npm install -g opencode-ai), run opencode auth login to add a provider, then press Recheck.",
+  "Kiểm tra lại & tải model": "Recheck & load models",
+  "{0} model · {1}": "{0} models · {1}",
+  "lấy trực tiếp từ opencode models": "read live from opencode models",
+  "danh sách dựng sẵn": "built-in list",
+  "Tên nhà cung cấp hoặc model": "Provider or model name"
 }

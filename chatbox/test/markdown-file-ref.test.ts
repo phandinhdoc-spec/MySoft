@@ -33,19 +33,21 @@ describe('tên tệp trong Markdown', () => {
     expect(fileRefOf('index.ts')).toBeUndefined();
   });
 
-  it('bấm vào code là mở tệp qua openFileRef kèm chatId; code trong khối mã thì không', async () => {
+  it('nhấp đúp vào code là mở tệp qua openFileRef kèm chatId; code trong khối mã thì không', async () => {
     await act(async () => {root.render(React.createElement(Markdown, {text: 'Xem `Giao-an.docx` và `npm test`.\n\n```\nx.docx\n```', chatId: 'c1'}));});
     const refs = host.querySelectorAll<HTMLElement>('.pvta-file-ref');
     expect(refs).toHaveLength(1);
     expect(refs[0]!.getAttribute('role')).toBe('button');
     await act(async () => {refs[0]!.click();});
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    await act(async () => {refs[0]!.dispatchEvent(new MouseEvent('dblclick', {bubbles: true, cancelable: true}));});
     expect(mocks.rpc).toHaveBeenCalledWith('openFileRef', {ref: 'Giao-an.docx', chatId: 'c1'});
   });
 
   it('liên kết cục bộ cũng mở tệp, liên kết web không bị đổi', async () => {
     await act(async () => {root.render(React.createElement(Markdown, {text: '[Đề](/Users/a/de.pdf) và [Web](https://example.com)', chatId: 'c1'}));});
     expect(host.querySelectorAll('.pvta-file-ref')).toHaveLength(1);
-    await act(async () => {host.querySelector<HTMLElement>('.pvta-file-ref')!.click();});
+    await act(async () => {host.querySelector<HTMLElement>('.pvta-file-ref')!.dispatchEvent(new MouseEvent('dblclick', {bubbles: true, cancelable: true}));});
     expect(mocks.rpc).toHaveBeenCalledWith('openFileRef', {ref: '/Users/a/de.pdf', chatId: 'c1'});
   });
 
@@ -65,10 +67,10 @@ describe('tên tệp trong Markdown', () => {
     await act(async () => {host.querySelector('code')!.dispatchEvent(new MouseEvent('contextmenu', {bubbles: true, cancelable: true}));});
     expect(document.querySelector('.object-menu')).toBeNull();
   });
-  it('bấm tên ảnh thì xem trong khung ảnh lớn của chat, không mở ứng dụng ngoài', async () => {
+  it('nhấp đúp tên ảnh thì xem trong khung ảnh lớn của chat, không mở ứng dụng ngoài', async () => {
     mocks.rpc.mockResolvedValue({path: '/x/Anh-bia.png', name: 'Anh-bia.png', data: 'data:image/png;base64,AAAA'});
     await act(async () => {root.render(React.createElement(Markdown, {text: 'Xem `Anh-bia.png`.', chatId: 'c1'}));});
-    await act(async () => {host.querySelector<HTMLElement>('.pvta-file-ref')!.click();});
+    await act(async () => {host.querySelector<HTMLElement>('.pvta-file-ref')!.dispatchEvent(new MouseEvent('dblclick', {bubbles: true, cancelable: true}));});
     expect(mocks.rpc).toHaveBeenCalledWith('previewFileRef', {ref: 'Anh-bia.png', chatId: 'c1'});
     expect(mocks.rpc).not.toHaveBeenCalledWith('openFileRef', expect.anything());
     const dialog = document.querySelector('dialog.markdown-image-dialog');
@@ -80,7 +82,7 @@ describe('tên tệp trong Markdown', () => {
     mocks.rpc.mockRejectedValue(new Error('Ảnh lớn hơn 15 MB'));
     await act(async () => {root.render(React.createElement(Markdown, {text: 'Xem `to.jpg`.', chatId: 'c1'}));});
     const node = host.querySelector<HTMLElement>('.pvta-file-ref')!;
-    await act(async () => {node.click();});
+    await act(async () => {node.dispatchEvent(new MouseEvent('dblclick', {bubbles: true, cancelable: true}));});
     expect(node.classList.contains('pvta-file-ref-error')).toBe(true);
     expect(node.title).toContain('15 MB');
     expect(document.querySelector('dialog.markdown-image-dialog')).toBeNull();
@@ -93,5 +95,22 @@ describe('tên tệp trong Markdown', () => {
     expect(items).toEqual(expect.arrayContaining(['Xem ảnh lớn', 'Mở bằng ứng dụng ngoài', 'Mở thư mục chứa tệp']));
     await act(async () => {Array.from(document.querySelectorAll<HTMLElement>('.object-menu [role="menuitem"]')).find(i => i.textContent === 'Mở bằng ứng dụng ngoài')!.click();});
     expect(mocks.rpc).toHaveBeenCalledWith('openFileRef', {ref: 'a.png', chatId: 'c1'});
+  });
+
+  it('menu chuột phải của tệp Office có «Mở bằng CHITUP OFFICE» và «Mở bằng Visual Studio Code»', async () => {
+    await act(async () => {root.render(React.createElement(Markdown, {text: 'Xem `Bang-diem.xlsx` và `ghi-chu.md`.', chatId: 'c1'}));});
+    const open = async (n: number) => {
+      await act(async () => {host.querySelectorAll<HTMLElement>('.pvta-file-ref')[n]!.dispatchEvent(new MouseEvent('contextmenu', {bubbles: true, cancelable: true, clientX: 5, clientY: 5}));});
+      return Array.from(document.querySelectorAll<HTMLElement>('.object-menu [role="menuitem"]'));
+    };
+    let items = await open(0);
+    expect(host.querySelectorAll<HTMLElement>('.pvta-file-ref')[0]!.dataset.pvtaFileKind).toBe('excel');
+    expect(items.map(i => i.textContent)).toEqual(expect.arrayContaining(['Mở bằng CHITUP OFFICE', 'Mở bằng Visual Studio Code']));
+    await act(async () => {items.find(i => i.textContent === 'Mở bằng CHITUP OFFICE')!.click();});
+    expect(mocks.rpc).toHaveBeenCalledWith('openFileRef', {ref: 'Bang-diem.xlsx', chatId: 'c1', app: 'chitup'});
+    items = await open(1);
+    expect(items.map(i => i.textContent)).not.toContain('Mở bằng CHITUP OFFICE');
+    await act(async () => {items.find(i => i.textContent === 'Mở bằng Visual Studio Code')!.click();});
+    expect(mocks.rpc).toHaveBeenCalledWith('openFileRef', {ref: 'ghi-chu.md', chatId: 'c1', app: 'vscode'});
   });
 });

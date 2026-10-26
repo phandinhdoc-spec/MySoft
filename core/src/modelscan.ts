@@ -35,6 +35,25 @@ export async function scanAgy(bin: string): Promise<ModelInfo[]> {
   return parseAgyModels(r.stdout);
 }
 
+/** opencode: `opencode models` (mỗi dòng "<nhà-cung-cấp>/<model>"). Giới hạn 60 mục đầu cho gọn danh sách. */
+export function parseOpencodeModels(text: string): ModelInfo[] {
+  const seen = new Set<string>();
+  const out: ModelInfo[] = [{ id: "default", label: "Mặc định của OpenCode", hint: "theo cấu hình opencode" }];
+  for (const raw of text.split(/\r?\n/)) {
+    const id = raw.trim();
+    if (!/^[A-Za-z0-9][\w.:@+-]*\/[\w.:/@+-]{1,99}$/.test(id) || seen.has(id)) continue;
+    seen.add(id);
+    out.push({ id, label: id, hint: id.endsWith("-free") ? "miễn phí" : undefined });
+    if (out.length > 60) break;
+  }
+  return out.length > 1 ? out : [];
+}
+
+export async function scanOpencode(bin: string): Promise<ModelInfo[]> {
+  const r = await run(bin, ["models"], 25_000);
+  return parseOpencodeModels(r.stdout);
+}
+
 /**
  * Hỏi từng CLI đã cài xem có những model nào. claude không có lệnh liệt kê model
  * nên dùng danh sách dự phòng (tên rút gọn haiku/sonnet/opus, CLI tự trỏ tới bản mới nhất).
@@ -51,6 +70,9 @@ export async function discoverModels(
   }
   if (installed.agy && bins.agy) {
     jobs.push(scanAgy(bins.agy).then((m) => void (m.length > 0 && (out.agy = { models: m, live: true }))).catch(() => undefined));
+  }
+  if (installed.opencode && bins.opencode) {
+    jobs.push(scanOpencode(bins.opencode).then((m) => void (m.length > 0 && (out.opencode = { models: m, live: true }))).catch(() => undefined));
   }
   await Promise.all(jobs);
   return out;

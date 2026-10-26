@@ -6,7 +6,7 @@ import type { OfficeTheme } from "./officetheme.js";
 import type { RagSegment } from "./rag.js";
 
 /** Backend chạy qua CLI và gói đăng ký. */
-export type CliBackendId = "agy" | "claude" | "codex";
+export type CliBackendId = "agy" | "claude" | "codex" | "opencode";
 /** "api" = gọi thẳng API bằng khóa người dùng tự nhập (phương án dự phòng). */
 export type BackendId = CliBackendId | "api";
 export type ApiProvider = "anthropic" | "openai" | "gemini" | "commandcode" | "compatible";
@@ -17,8 +17,8 @@ export type Effort = "low" | "medium" | "high" | "xhigh" | "max" | "ultra";
 export const EFFORTS: readonly Effort[] = ["low", "medium", "high", "xhigh", "max", "ultra"];
 export const DEFAULT_EFFORT: Effort = "low";
 
-export const CLI_BACKEND_IDS: readonly CliBackendId[] = ["agy", "claude", "codex"];
-export const BACKEND_IDS: readonly BackendId[] = ["agy", "claude", "codex", "api"];
+export const CLI_BACKEND_IDS: readonly CliBackendId[] = ["agy", "claude", "codex", "opencode"];
+export const BACKEND_IDS: readonly BackendId[] = ["agy", "claude", "codex", "opencode", "api"];
 
 export interface ModelChoice {
   backend: BackendId;

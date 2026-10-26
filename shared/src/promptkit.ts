@@ -33,7 +33,8 @@ export function modelFamily(m: ModelChoice | null | undefined): ModelFamily {
   const name = m.model.toLowerCase();
   if (name.includes("claude") || name.includes("sonnet") || name.includes("opus")) return "claude";
   if (name.includes("gpt")) return "gpt";
-  return "gemini";
+  if (name.includes("gemini")) return "gemini";
+  return m.backend === "opencode" ? "gpt" : "gemini";
 }
 
 export interface RequestParts {

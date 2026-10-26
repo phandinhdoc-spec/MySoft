@@ -3,7 +3,7 @@ import type {RefineSettings} from '../types.js';
 
 export interface Candidate{choice:ModelChoice;label:string;tier:1|2|3|4}
 export interface ChainInput{
- backends:{id:'agy'|'claude'|'codex';installed:boolean;auth:'ready'|'missing'|'unknown'}[];
+ backends:{id:'agy'|'claude'|'codex'|'opencode';installed:boolean;auth:'ready'|'missing'|'unknown'}[];
  catalog:ModelCatalog;
  api:{id:ApiProvider;configured:boolean;model?:string;models:{id:string;label?:string}[]}[];
 }

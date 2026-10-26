@@ -192,7 +192,7 @@ export async function startServer(opts: ServerOptions = {}): Promise<RunningServ
     }
     return c;
   };
-  let caps: Capabilities = toCaps({ agy: probe.get("agy"), claude: probe.get("claude"), codex: probe.get("codex") });
+  let caps: Capabilities = toCaps({ agy: probe.get("agy"), claude: probe.get("claude"), codex: probe.get("codex"), opencode: probe.get("opencode") });
   const modelsFile = path.join(home, "models.json");
   let catalog: ModelCatalog = { ...builtinCatalog(), ...(loadCatalog(modelsFile) ?? {}) };
   const discover = opts.discover ?? !opts.engine;

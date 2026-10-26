@@ -444,7 +444,11 @@ function deniedMessage(backend: string, denied: unknown[]): string {
     .filter((x): x is string => typeof x === "string" && x.length > 0)
     .slice(0, 5);
   const what = names.length ? ` (${names.join(", ")})` : "";
-  return `${backend} đã tự từ chối một thao tác${what} vì chạy nền không hỏi lại được quyền. Hãy kiểm tra thư mục làm việc của bước và quyền của CLI, rồi chạy lại từ khâu lỗi.`;
+  const base = `${backend} đã tự từ chối một thao tác${what} vì chạy nền không hỏi lại được quyền.`;
+  if (backend === "agy") {
+    return `${base} Ở chế độ Chỉ đọc/Hỏi duyệt, PVTA chạy agy với --mode plan --sandbox nên lệnh và công cụ ngoài (như CHITUP) bị chặn. Hãy chuyển phiên sang "Tự sửa" (biểu tượng cây bút) rồi gửi lại.`;
+  }
+  return `${base} Hãy kiểm tra thư mục làm việc của bước và quyền của CLI, rồi chạy lại từ khâu lỗi.`;
 }
 
 function warmKey(cwd: string, plan: SpawnPlan): string {

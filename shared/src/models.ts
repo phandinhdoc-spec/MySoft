@@ -21,6 +21,7 @@ export const BUILTIN_MODELS: Record<CliBackendId, ModelInfo[]> = {
     },
   ],
   codex: [{ id: "default", label: "Mặc định của Codex", hint: "khuyên dùng" }],
+  opencode: [{ id: "default", label: "Mặc định của OpenCode", hint: "theo cấu hình opencode" }],
   agy: [
     {
       id: "gemini-3.8-flash",
@@ -37,6 +38,7 @@ export function builtinCatalog(): ModelCatalog {
     claude: { models: BUILTIN_MODELS.claude, live: false },
     codex: { models: BUILTIN_MODELS.codex, live: false },
     agy: { models: BUILTIN_MODELS.agy, live: false },
+    opencode: { models: BUILTIN_MODELS.opencode, live: false },
   };
 }
 

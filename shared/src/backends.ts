@@ -53,6 +53,19 @@ export const BACKEND_INFO: Record<BackendId, BackendInfo> = {
     },
     login: "Chạy agy một lần và đăng nhập tài khoản Google.",
   },
+  opencode: {
+    id: "opencode",
+    label: "OpenCode",
+    product: "OpenCode CLI",
+    plan: "Tự chọn nhà cung cấp: có model miễn phí của OpenCode Zen, hoặc đăng nhập/khóa của nhà cung cấp khác",
+    install: {
+      mac: "brew install sst/tap/opencode",
+      win: "npm install -g opencode-ai",
+      npm: "npm install -g opencode-ai",
+    },
+    login: "Chạy opencode auth login để thêm nhà cung cấp (model miễn phí dùng được ngay).",
+    docs: "https://opencode.ai/docs",
+  },
   api: {
     id: "api",
     label: "API",
@@ -62,13 +75,14 @@ export const BACKEND_INFO: Record<BackendId, BackendInfo> = {
 };
 
 /** Thứ tự ưu tiên khi chọn Auto: nhanh và rẻ trước. */
-export const AUTO_ORDER: readonly CliBackendId[] = ["agy", "claude", "codex"];
+export const AUTO_ORDER: readonly CliBackendId[] = ["agy", "claude", "codex", "opencode"];
 
 /** Model mặc định của từng backend (dùng cho Auto). */
 export const DEFAULT_MODEL: Record<CliBackendId, string> = {
   agy: "gemini-3.8-flash-medium",
   claude: "sonnet",
   codex: "default",
+  opencode: "default",
 };
 
 export interface ApiProviderInfo {
