@@ -4,7 +4,7 @@
 ; pvta-office.tar.gz, office-latest.json. Mot tep chay duoc tren Windows x64 va ARM64, khong can Internet.
 ; Khong can quyen quan tri. Tep chi dung ASCII de Inno Setup doc dung moi ma trang.
 #ifndef AppVersion
-  #define AppVersion "1.5.3"
+  #define AppVersion "1.5.4"
 #endif
 
 [Setup]

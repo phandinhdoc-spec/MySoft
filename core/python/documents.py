@@ -361,8 +361,29 @@ def backup(req):
         return {'backup':str(old),'restored':True}
     finally:shutil.rmtree(staging)
 
+def use_utf8_streams():
+    """Windows: stdin/stdout mặc định theo bảng mã ANSI (cp1252/cp437), không có chữ Việt.
+    Ép UTF-8 để JSON vào/ra không lỗi charmap với các ký tự như Đ, ề, ộ."""
+    for stream in (sys.stdin,sys.stdout,sys.stderr):
+        try: stream.reconfigure(encoding='utf-8',errors='strict')
+        except Exception: pass
+
+def read_request():
+    """Đọc JSON đầu vào theo byte UTF-8, không phụ thuộc bảng mã console."""
+    raw=getattr(sys.stdin,'buffer',None)
+    data=raw.read() if raw is not None else sys.stdin.read()
+    return json.loads(data.decode('utf-8-sig') if isinstance(data,bytes) else data)
+
+def emit(payload):
+    """In JSON UTF-8; nếu console vẫn không nhận (bảng mã lạ) thì lùi về JSON thuần ASCII."""
+    text=json.dumps(payload,ensure_ascii=False)
+    try:
+        sys.stdout.write(text+'\n');sys.stdout.flush()
+    except UnicodeEncodeError:
+        sys.stdout.write(json.dumps(payload)+'\n');sys.stdout.flush()
+
 def main():
-    req=json.load(sys.stdin);op=req.get('op')
+    req=read_request();op=req.get('op')
     if op=='office_blank':
         from office import blank_office
         return blank_office(req)
@@ -388,5 +409,6 @@ def main():
     if op in ['export','import']:return backup(req)
     raise ValueError('Thao tác không hỗ trợ.')
 if __name__=='__main__':
-    try:print(json.dumps(main(),ensure_ascii=False))
-    except Exception as e:print(json.dumps({'error':str(e)},ensure_ascii=False));sys.exit(0)
+    use_utf8_streams()
+    try:emit(main())
+    except Exception as e:emit({'error':str(e)});sys.exit(0)

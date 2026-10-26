@@ -1,4 +1,6 @@
 import hashlib
+import io
+import json
 import sys
 import shutil
 import tempfile
@@ -121,5 +123,31 @@ class DocumentsTests(unittest.TestCase):
             shutil.which=lambda name,*a,**k:None
             self.assertIn('unavailable',documents.ocr_image(Path('x.png')))
         finally:shutil.which=original
+
+    def test_emit_survives_windows_console_code_page(self):
+        """Windows cp1252 không có 'Đ': emit phải lùi về JSON ASCII thay vì ném charmap."""
+        buffer=io.BytesIO()
+        stream=io.TextIOWrapper(buffer,encoding='cp1252')
+        original=sys.stdout
+        sys.stdout=stream
+        try:
+            documents.emit({'ref':'Đoạn 1','text':'Đề bài'})
+        finally:
+            sys.stdout=original
+            stream.detach()
+        payload=json.loads(buffer.getvalue().decode('ascii'))
+        self.assertEqual(payload['ref'],'Đoạn 1')
+        self.assertEqual(payload['text'],'Đề bài')
+
+    def test_read_request_decodes_utf8_bytes(self):
+        """Node gửi JSON bằng UTF-8; đọc theo byte để không phụ thuộc bảng mã console."""
+        class FakeStdin:
+            def __init__(self,data):self.buffer=io.BytesIO(data)
+        original=sys.stdin
+        sys.stdin=FakeStdin(json.dumps({'path':'Đề kiểm tra.docx'},ensure_ascii=False).encode('utf-8'))
+        try:
+            self.assertEqual(documents.read_request()['path'],'Đề kiểm tra.docx')
+        finally:
+            sys.stdin=original
 
 if __name__=='__main__':unittest.main()

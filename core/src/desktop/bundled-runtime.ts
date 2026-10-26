@@ -13,8 +13,17 @@ export function bundledRuntime(){
  };
  return {python:resolve('python'),packages:resolve('packages'),typst:resolve('typst'),tinymist:resolve('tinymist')};
 }
+/**
+ * Windows mặc định dùng bảng mã ANSI của máy (cp1252/cp437) cho stdin/stdout của Python.
+ * Chữ Việt như "Đ" (U+0110) không có trong bảng mã đó nên `print()` ném
+ * `UnicodeEncodeError: 'charmap' codec can't encode character '\u0110'`.
+ * Ép UTF-8 cho mọi tiến trình Python của PVTA, kể cả khi máy không có gói đóng sẵn.
+ */
+export function utf8Env(env:NodeJS.ProcessEnv=process.env):NodeJS.ProcessEnv{
+ return {...env,PYTHONUTF8:'1',PYTHONIOENCODING:'utf-8'};
+}
 export function pythonEnvironment():NodeJS.ProcessEnv{
- const bundle=bundledRuntime();if(!bundle)return process.env;
- const env:NodeJS.ProcessEnv={...process.env,PYTHONPATH:bundle.packages,PYTHONNOUSERSITE:'1',PYTHONDONTWRITEBYTECODE:'1',PVTA_TYPST:bundle.typst};
+ const bundle=bundledRuntime();if(!bundle)return utf8Env();
+ const env:NodeJS.ProcessEnv={...utf8Env(),PYTHONPATH:bundle.packages,PYTHONNOUSERSITE:'1',PYTHONDONTWRITEBYTECODE:'1',PVTA_TYPST:bundle.typst};
  delete env.PYTHONHOME;return env;
 }

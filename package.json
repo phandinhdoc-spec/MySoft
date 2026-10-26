@@ -1,7 +1,7 @@
 {
   "name": "pvta",
   "private": true,
-  "version": "1.5.3",
+  "version": "1.5.4",
   "description": "PVTA — trợ lý AI độc lập và tiện ích Office cho giáo viên",
   "type": "module",
   "workspaces": [

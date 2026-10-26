@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {spawn,spawnSync} from 'node:child_process';
+import {utf8Env} from './bundled-runtime.js';
 
 /**
  * Hạ tầng chạy mã sinh bởi AI trong quy trình. Thư mục con chỉ là nơi làm việc, KHÔNG phải hộp cách ly:
@@ -105,7 +106,7 @@ export interface CodeResult {ok:boolean;exitCode:number|null;timedOut:boolean;ou
 export function runCode(file:string,interp:{cmd:string},cwd:string,timeoutMs:number,signal:AbortSignal):Promise<CodeResult>{
  return new Promise((resolve,reject)=>{
   if(signal.aborted)return reject(signal.reason);
-  const child=spawn(interp.cmd,[file],{cwd,stdio:['ignore','pipe','pipe'],env:{...process.env,PYTHONUNBUFFERED:'1'}});
+  const child=spawn(interp.cmd,[file],{cwd,stdio:['ignore','pipe','pipe'],env:{...utf8Env(),PYTHONUNBUFFERED:'1'}});
   let out='',timedOut=false;
   const add=(b:Buffer)=>{out+=b.toString('utf8');if(out.length>MAX_CODE_OUTPUT*2)out=out.slice(-MAX_CODE_OUTPUT*2);};
   child.stdout.on('data',add);child.stderr.on('data',add);

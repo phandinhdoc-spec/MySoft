@@ -1,4 +1,4 @@
-import {bundledRuntime,pythonEnvironment} from './bundled-runtime.js';
+import {bundledRuntime,pythonEnvironment,utf8Env} from './bundled-runtime.js';
 import fs from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import path from 'node:path';
@@ -27,7 +27,8 @@ const UV_VERSION='0.13.1';
 const pending=new Map<string,Promise<string>>();
 type Python={bin:string;args:string[]};
 function run(bin:string,args:string[],env:NodeJS.ProcessEnv=process.env,timeout=180_000):Promise<string>{
- return new Promise((resolve,reject)=>execFile(bin,args,{env,timeout,maxBuffer:4*1024*1024,windowsHide:true},(error,out)=>error?reject(error):resolve(out.trim())));
+ // utf8Env: lệnh kiểm tra in cả đường dẫn có dấu tiếng Việt (vd print(sys.executable)); Windows cp1252 sẽ lỗi charmap.
+ return new Promise((resolve,reject)=>execFile(bin,args,{env:utf8Env(env),timeout,maxBuffer:4*1024*1024,windowsHide:true},(error,out)=>error?reject(error):resolve(out.trim())));
 }
 // Typst works through the Python module, or (Windows ARM64, where PyPI has no wheel) through the bundled executable.
 const TYPST_PROBE="; import os\ntry:\n import typst\nexcept ImportError:\n assert os.path.isfile(os.environ.get('PVTA_TYPST',''))";
