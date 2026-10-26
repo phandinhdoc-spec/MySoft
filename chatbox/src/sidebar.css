@@ -101,6 +101,7 @@ body.resizing-sidebar{cursor:col-resize;user-select:none;-webkit-user-select:non
 .sidebar-nav-pane{display:flex;flex-direction:column;min-height:0}
 .sidebar-nav-pane.split{flex:none;max-height:calc(100% - 220px);overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-width:thin}
 .sidebar-nav-pane.split .sidebar-nav{flex:none}
+.sidebar-nav-pane.split .side-menu-items,.sidebar-nav-pane.split .side-menu-items.side-items-projects{max-height:none;overflow:visible}
 .sidebar-split{flex:none;position:relative;height:13px;margin:0 0 -6px;cursor:row-resize;touch-action:none;z-index:3}
 .sidebar-split::after{content:"";position:absolute;left:12px;right:12px;top:6px;height:1px;background:var(--line);transition:background .15s,height .15s,top .15s}
 .sidebar-split:hover::after,.sidebar-split:focus-visible::after,body.resizing-split .sidebar-split::after{top:5px;height:3px;border-radius:2px;background:var(--accent);opacity:.6}
