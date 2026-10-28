@@ -9,6 +9,8 @@ export interface Arg {
 }
 
 export interface InvokeOptions {
+  /** Scoped read-only Brain MCP owned by PVTA, independent of external integrations. */
+  brain?: {command:string;args:string[]};
   model: string;
   prompt: string;
   conversationId?: string;
@@ -16,8 +18,11 @@ export interface InvokeOptions {
   /**
    * Chỉ chế độ Chỉnh sửa của PVTA desktop và nút quy trình được bật: cho CLI ghi tệp/chạy lệnh trong cwd.
    * Tách khỏi `permission` (mức "full" của add-in Office vẫn chỉ đọc ở phía CLI).
+   * Ngoại lệ AGY: luôn tự duyệt công cụ theo cấu hình riêng; PVTA quản lý duyệt Plan/Plan Pro.
    */
   workspaceWrite?: boolean;
+  /** Thư mục nguồn bổ sung khi AGY chạy tại workspace riêng của PVTA. */
+  workspaceDirs?: string[];
   /** Mức suy nghĩ (chỉ truyền mức model hỗ trợ: add-in đã chọn theo danh sách của model). */
   effort?: Effort;
   /** Chế độ Nhanh: mã bậc tốc độ từ danh mục model (codex "priority"/"fast", claude "fast"). */
@@ -45,7 +50,7 @@ export interface InvokeOptions {
 export interface Invocation {
   bin: string;
   args: Arg[];
-  /** Nội dung gửi qua stdin (claude). */
+  /** Payload đã mã hóa gửi qua stdin (văn bản hoặc NDJSON tùy backend). */
   stdin?: string;
 }
 

@@ -1,0 +1,31 @@
+.project-workspaces{display:flex;flex-direction:column;gap:12px;min-width:0}
+.project-workspaces .workspace-create{align-self:flex-start}
+.workspace-hint,.workspace-empty{font-size:.85em;opacity:.7;margin:4px 0}
+.project-workspace{border:1px solid var(--line,#d8d5cf);border-radius:10px;padding:10px;min-width:0}
+.project-workspace.drop-active{outline:2px solid var(--accent,#3c8070);background:color-mix(in srgb,var(--accent,#3c8070) 12%,transparent)}
+.workspace-heading{display:flex;align-items:center;gap:4px;min-width:0;margin-bottom:6px}
+.project-workspaces .workspace-toggle{display:flex;align-items:center;gap:8px;flex:1;min-width:0;background:none;border:0;text-align:left;padding:5px}
+.workspace-toggle strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.workspace-toggle small{opacity:.65}
+.project-workspaces .workspace-toggle:disabled{opacity:1}
+.project-workspaces .workspace-action{flex:0 0 26px;padding:3px;width:26px;justify-content:center;background:none;border:0}
+.workspace-edit{display:flex;flex-wrap:wrap;gap:6px}
+.workspace-edit input{width:100%;min-width:0;flex:1 1 130px}
+.workspace-delete{font-size:.85em;padding:8px}
+.workspace-delete button{margin:3px}
+.workspace-project{position:relative;min-width:0;padding-left:24px}
+.project-workspaces .project-drag-handle{position:absolute;left:0;top:10px;width:22px;padding:3px 0;justify-content:center;cursor:grab;touch-action:none;user-select:none;background:none;border:0}
+.project-workspaces .project-drag-handle:active{cursor:grabbing}
+.project-workspace-select{display:block;width:100%;max-width:100%;font-size:.8em;margin-top:4px}
+.project-workspaces.compact{gap:6px}
+.compact .project-workspace{padding:4px;border-radius:6px}
+.compact .workspace-heading{margin-bottom:0}
+.compact .workspace-project{padding-left:18px;margin:5px 0}
+.compact .project-drag-handle{width:16px}
+.compact .workspace-toggle{font-size:.85em;gap:4px}
+.compact .project-workspace-select{max-width:100%;font-size:.75em;padding:2px}
+.compact .workspace-empty{padding:6px;font-size:.75em}
+.sidebar-nav .workspace-project .project-object>button{display:flex;align-items:center;text-align:left;gap:7px;width:100%;min-width:0;min-height:44px;padding:6px;font-size:12px;border-radius:7px}
+.sidebar-nav .workspace-project .project-object>button>span:not(.icon){min-width:0;flex:1;overflow:hidden}
+.sidebar-nav .workspace-project .project-object strong,.sidebar-nav .workspace-project .project-object small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sidebar-nav .workspace-project .project-object small{font-size:10px;opacity:.65}

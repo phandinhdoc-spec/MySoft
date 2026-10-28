@@ -19,6 +19,14 @@ it('reads Codex account limits without starting a thread or turn',async()=>{
  const process=fake(value=>value.id===1?{id:1,result:{}}:value.id===2?{id:2,result:{rateLimits:{primary:{usedPercent:12,windowDurationMins:300},secondary:{usedPercent:30,windowDurationMins:10080}}}}:undefined);
  expect(await readProviderUsage('codex',{spawn:()=>process.child})).toMatchObject({fiveHour:{usedPercent:12},week:{usedPercent:30}});expect(process.sent.map(value=>value.method)).toEqual(['initialize','initialized','account/rateLimits/read']);
 });
+it('reads Antigravity (agy) quota through /usage JSON output without sending a user prompt',async()=>{
+ const child=Object.assign(new EventEmitter(),{stdin:new PassThrough(),stdout:new PassThrough(),stderr:new PassThrough(),kill:vi.fn(()=>true)});
+ queueMicrotask(()=>child.stdout.write(JSON.stringify({status:'SUCCESS',command:{name:'usage',data:{groups:[{name:'Gemini Models',buckets:[{id:'gemini-5h',window:'5h',remaining_fraction:0.8},{id:'gemini-weekly',window:'weekly',remaining_fraction:0.75}]}]}}})+'\n'));
+ const usage=await readProviderUsage('agy',{model:'gemini-3.8-flash',spawn:()=>child as unknown as ChildProcess});
+ expect(usage.fiveHour?.usedPercent).toBeCloseTo(20,5);
+ expect(usage.week?.usedPercent).toBeCloseTo(25,5);
+ expect(child.kill).toHaveBeenCalledOnce();
+});
 it('cancels quota reads and terminates the child on abort',async()=>{
  const process=fake(()=>undefined),controller=new AbortController();const task=readProviderUsage('claude',{spawn:()=>process.child,signal:controller.signal});controller.abort();await expect(task).rejects.toThrow('Đã dừng');expect(process.kill).toHaveBeenCalledOnce();
 });

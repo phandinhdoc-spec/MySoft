@@ -4,7 +4,12 @@ import {createPortal} from 'react-dom';
 import {rpc} from './ipc';
 import './quick-file.css';
 export function requestFileEdit(path:string){window.dispatchEvent(new CustomEvent('pvta-edit-file',{detail:{path}}));}
-export function EditFileButton({path}:{path:string}){return /\.(docx|xlsx|pptx|pdf|md|txt|csv)$/i.test(path)?<button className="primary" onClick={()=>requestFileEdit(path)}>{uiText("Chỉnh sửa tệp này bằng PVTA")}</button>:null;}
+export function EditFileButton({path}:{path:string}){
+ const isOffice=/\.(docx?|xlsx?|pptx?|docm|xlsm|pptm|dotx|xltx|potx)$/i.test(path);
+ const isEditable=/\.(docx|xlsx|pptx|pdf|md|txt|csv)$/i.test(path);
+ if(!isOffice&&!isEditable)return null;
+ return <span className="quick-file-actions" style={{display:'inline-flex',gap:6,flexWrap:'wrap'}}>{isOffice&&<button onClick={()=>void rpc('openFileRef',{ref:path,app:'office'})}>{uiText("Mở bằng Microsoft Office ↗")}</button>}{isEditable&&<button className="primary" onClick={()=>requestFileEdit(path)}>{uiText("Chỉnh sửa tệp này bằng PVTA")}</button>}</span>;
+}
 interface Preview{name:string;segments:{ref:string;text:string}[];image?:boolean;data?:string;draft?:boolean}
 /** Read-only hover view. No working copy is created until the explicit edit button is pressed. */
 export function QuickFile({path,children}:{path:string;children?:React.ReactNode}){

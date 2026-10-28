@@ -12,12 +12,14 @@ import {
   type ClientMessage,
   type CliBackendId,
   type MachineInfo,
+  type OfficeHost,
   type PermissionLevel,
   type RagStatus,
   type ServerMessage,
   type UpdateState,
 } from "@pvta/shared";
 import type { Strings } from "./i18n";
+import { convertEquationToLatexInWordXml, convertLatexInWordXml, normalizeWordXmlInPlace } from "./office/word";
 import { copyText, openUrl } from "./util";
 
 export type SettingsSection = "perm" | "ai" | "api" | "learn";
@@ -36,6 +38,7 @@ export interface ApiModelsResult {
 
 interface Props {
   t: Strings;
+  host?: OfficeHost;
   language?:'vi'|'en';
   onLanguage?:(language:'vi'|'en')=>void;
   machine: MachineInfo | null;
@@ -683,11 +686,86 @@ function IpadSection({ t, ipad, send }: { t: Strings; ipad: IpadState; send(m: C
   );
 }
 
-export function Settings({ t, language, onLanguage, machine, permission, learned, hintsOn, update, community, apiModelsMsg, ipad, rag, ragBusy, onRagRefresh, focus, send, onPermission, onModes, onClose }: Props) {
+export function Settings({ t, host, language, onLanguage, machine, permission, learned, hintsOn, update, community, apiModelsMsg, ipad, rag, ragBusy, onRagRefresh, focus, send, onPermission, onModes, onClose }: Props) {
   const body = useRef<HTMLDivElement>(null);
+  const [latexBusy, setLatexBusy] = useState(false);
+  const [latexNote, setLatexNote] = useState<string | null>(null);
   useEffect(() => {
     if (focus) body.current?.querySelector(`#set-${focus}`)?.scrollIntoView({ block: "start" });
   }, [focus]);
+  const isEn = language === "en";
+  const scopeLabelOf = (sc: "selection" | "document") =>
+    sc === "selection" ? (isEn ? "selection" : "vùng chọn") : (isEn ? "document" : "toàn văn bản");
+  const runLatexToEquation = async () => {
+    if (latexBusy) return;
+    setLatexBusy(true);
+    setLatexNote(null);
+    try {
+      const r = await convertLatexInWordXml("auto");
+      const scopeLabel = scopeLabelOf(r.scope);
+      setLatexNote(
+        r.converted > 0
+          ? isEn
+            ? `Converted ${r.converted} formula(s) across ${r.paragraphs} paragraph(s) (${scopeLabel}) via XML in ${r.ms} ms.`
+            : `Đã chuyển ${r.converted} công thức LaTeX → Equation (${r.paragraphs} đoạn, ${scopeLabel}) bằng XML trong ${r.ms} ms.`
+          : isEn
+            ? `No raw LaTeX ($…$, $$…$$) found in ${scopeLabel}.`
+            : `Không có công thức LaTeX dạng chữ ($…$, $$…$$) nào cần chuyển trong ${scopeLabel}.`,
+      );
+    } catch (e) {
+      setLatexNote(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLatexBusy(false);
+    }
+  };
+  const runEquationToLatex = async () => {
+    if (latexBusy) return;
+    setLatexBusy(true);
+    setLatexNote(null);
+    try {
+      const r = await convertEquationToLatexInWordXml("auto");
+      const scopeLabel = scopeLabelOf(r.scope);
+      setLatexNote(
+        r.converted > 0
+          ? isEn
+            ? `Converted ${r.converted} Equation(s) → LaTeX across ${r.paragraphs} paragraph(s) (${scopeLabel}) via XML in ${r.ms} ms.`
+            : `Đã chuyển ${r.converted} Equation → LaTeX $…$ (${r.paragraphs} đoạn, ${scopeLabel}) bằng XML trong ${r.ms} ms.`
+          : isEn
+            ? `No Word Equation found in ${scopeLabel}.`
+            : `Không có Equation nào trong ${scopeLabel} để chuyển sang LaTeX.`,
+      );
+    } catch (e) {
+      setLatexNote(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLatexBusy(false);
+    }
+  };
+  const runNormalizeXml = async () => {
+    if (latexBusy) return;
+    setLatexBusy(true);
+    setLatexNote(null);
+    try {
+      const r = await normalizeWordXmlInPlace("auto");
+      const scopeLabel = scopeLabelOf(r.scope);
+      if (r.typographyFixed === 0 && r.mathConverted === 0) {
+        setLatexNote(
+          isEn
+            ? `Text and formulas in ${scopeLabel} are already clean.`
+            : `Văn bản và công thức trong ${scopeLabel} đã chuẩn, không cần sửa thêm.`,
+        );
+      } else {
+        setLatexNote(
+          isEn
+            ? `Normalized ${r.typographyFixed} spacing/punctuation issue(s) and ${r.mathConverted} formula(s) (${r.paragraphs} paragraph(s), ${scopeLabel}) via XML in ${r.ms} ms.`
+            : `Đã chuẩn hóa ${r.typographyFixed} lỗi khoảng trắng/dấu câu và chuyển ${r.mathConverted} công thức (${r.paragraphs} đoạn, ${scopeLabel}) bằng XML trong ${r.ms} ms.`,
+        );
+      }
+    } catch (e) {
+      setLatexNote(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLatexBusy(false);
+    }
+  };
   return (
     <div className="sheet-wrap full" onClick={onClose}>
       <div className="sheet" role="dialog" aria-label={t.settings} onClick={(e) => e.stopPropagation()}>
@@ -713,6 +791,30 @@ export function Settings({ t, language, onLanguage, machine, permission, learned
             </div>
             <p className="opt-hint">{t.mm.settingsHint}</p>
           </section>
+          {(host === "word" || !host) && (
+            <section id="set-latex" className="set">
+              <div className="set-head">
+                <h3>{isEn ? "∑ Word XML Quick Tools (Equations & Typography)" : "∑ Công cụ xử lý nhanh bằng XML (Công thức & Chuẩn hóa)"}</h3>
+              </div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", margin: "6px 0" }}>
+                <button className="small" disabled={latexBusy} onClick={() => void runLatexToEquation()}>
+                  {isEn ? "LaTeX ($…$) → Equation" : "LaTeX ($…$) → Equation"}
+                </button>
+                <button className="small" disabled={latexBusy} onClick={() => void runEquationToLatex()}>
+                  {isEn ? "Equation → LaTeX ($…$)" : "Equation → LaTeX ($…$)"}
+                </button>
+                <button className="small" disabled={latexBusy} onClick={() => void runNormalizeXml()}>
+                  {isEn ? "Normalize Text & Chem/Math (XML)" : "Chuẩn hóa dấu câu & Hóa/Toán (XML)"}
+                </button>
+              </div>
+              <p className="opt-hint">
+                {isEn
+                  ? "Processes Word OOXML directly in one pass (applies to selection if highlighted, otherwise the whole document): convert $…$ ↔ Word Equation, or normalize Vietnamese punctuation/spacing and plain formulas (H2SO4, Ca(OH)2, x^2) without slowing down regular chat."
+                  : "Xử lý trực tiếp trên ngôn ngữ XML của Word trong 1 lượt (ưu tiên vùng đang bôi đen, không chọn thì áp cho cả văn bản): đổi qua lại giữa $…$ ↔ Equation chuẩn của Word, hoặc tự xóa khoảng trắng thừa, chuẩn hóa dấu câu và đổi công thức viết thường (H2SO4, Ca(OH)2, x^2) sang Equation."}
+              </p>
+              {latexNote && <p className="opt-hint"><strong>{latexNote}</strong></p>}
+            </section>
+          )}
           <section id="set-hints" className="set">
             <div className="set-head">
               <h3>{t.hint.title}</h3>
@@ -763,7 +865,7 @@ export function Settings({ t, language, onLanguage, machine, permission, learned
               </button>
             </div>
             <p className="opt-hint">
-              {t.upd.version(update?.current ?? "—")}
+              {t.upd.version(update?.current && update.current !== "dev" ? update.current : "2.0.0")}
               {update && !update.canUpdate ? ` · ${t.upd.dev}` : ""}
             </p>
             {update?.available && !update.state && (

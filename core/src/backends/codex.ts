@@ -57,6 +57,10 @@ export const codexBackend: Backend = {
 
   invocation(opts: InvokeOptions): Invocation {
     const args: Invocation["args"] = [];
+    if(opts.brain){
+      const server={command:opts.brain.command,args:opts.brain.args,enabled:true,required:true,startup_timeout_sec:30,tool_timeout_sec:90};
+      for(const [key,value] of Object.entries(server))args.push({flag:'--config',value:`mcp_servers.pvta_brain.${key}=${JSON.stringify(value)}`,essential:true});
+    }
     const eff = codexEffort(opts.effort);
     // --config thuộc lệnh gốc nên đặt trước "exec"; không bắt buộc (CLI không nhận thì bỏ).
     if (eff) args.push({ flag: "--config", value: `model_reasoning_effort="${eff}"` });

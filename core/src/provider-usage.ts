@@ -28,12 +28,14 @@ export function parseProviderUsage(backend:string,line:string,now=Date.now()):Pr
    const usedPercent=percent(window.used_percent??window.usedPercent),resetsAt=timestamp(window.resets_at??window.resetsAt);
    if(usedPercent!==undefined||resetsAt!==undefined)usage[key]={usedPercent,resetsAt,updatedAt:now};
   }
+ }else if(backend==='agy'){
+  return parseUsageSnapshot('agy',event,now);
  }else return;
  return usage.fiveHour||usage.week?usage:undefined;
 }
 
 /** The /usage control reply uses percent units (unlike stream-event fractions). */
-export function parseUsageSnapshot(backend:string,value:unknown,now=Date.now()):ProviderUsage|undefined{
+export function parseUsageSnapshot(backend:string,value:unknown,now=Date.now(),model?:string):ProviderUsage|undefined{
  if(!value||typeof value!=='object')return;
  const raw=value as Record<string,any>;
  if(backend==='claude'){
@@ -45,6 +47,28 @@ export function parseUsageSnapshot(backend:string,value:unknown,now=Date.now()):
    const reset=typeof item.resets_at==='string'?Date.parse(item.resets_at):timestamp(item.resets_at);
    const resetsAt=reset!==undefined&&Number.isFinite(reset)?reset:undefined;
    if(usedPercent!==undefined||resetsAt!==undefined)result[key]={usedPercent,resetsAt,updatedAt:now};
+  }
+  return result.fiveHour||result.week?result:undefined;
+ }
+ if(backend==='agy'){
+  const data=raw.command?.data??raw.result?.command?.data??raw.data??raw;
+  const groups=Array.isArray(data?.groups)?(data.groups as Record<string,any>[]):[];
+  const thirdParty=!!model&&/^(claude|gpt)/i.test(model);
+  const group=groups.find(g=>thirdParty?(/claude|gpt/i.test(String(g?.name??''))||(Array.isArray(g?.buckets)&&g.buckets.some((b:any)=>String(b?.id??'').startsWith('3p-')))):(/gemini/i.test(String(g?.name??''))||(Array.isArray(g?.buckets)&&g.buckets.some((b:any)=>String(b?.id??'').startsWith('gemini-')))))??groups[0];
+  const buckets=Array.isArray(group?.buckets)?group.buckets:Array.isArray(data?.buckets)?data.buckets:[];
+  const result:ProviderUsage={updatedAt:now};
+  for(const b of buckets){
+   if(!b||typeof b!=='object')continue;
+   const w=String(b.window??b.id??b.name??'').toLowerCase();
+   const key=w==='5h'||w.endsWith('-5h')||/five\s*hour|5\s*h/.test(w)?'fiveHour':w==='weekly'||w.endsWith('-weekly')||/week/.test(w)?'week':undefined;
+   if(!key)continue;
+   const rem=number(b.remaining_fraction??b.remainingFraction);
+   const usedPercent=rem!==undefined&&rem>=0&&rem<=1?(1-rem)*100:percent(b.used_percent??b.usedPercent);
+   const resetRaw=b.reset_time??b.resetTime??b.resets_at??b.resetsAt;
+   const reset=typeof resetRaw==='string'?Date.parse(resetRaw):timestamp(resetRaw);
+   const resetsAt=reset!==undefined&&Number.isFinite(reset)?reset:undefined;
+   const status=b.disabled===true||(rem!==undefined&&rem<=0)?'rejected':undefined;
+   if(usedPercent!==undefined||resetsAt!==undefined||status!==undefined)result[key]={usedPercent,resetsAt,...(status?{status}:{}),updatedAt:now};
   }
   return result.fiveHour||result.week?result:undefined;
  }

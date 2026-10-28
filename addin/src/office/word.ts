@@ -25,9 +25,11 @@ export async function put(ctx: Word.RequestContext, range: Word.Range | Word.Bod
     try {
       const eq = await equation();
       if (eq.hasMath(text)) {
+        const isSingleLineReplace = loc === "Replace" && !text.includes("\n") && !/^\s*\$\$[\s\S]+\$\$\s*$/.test(text);
+        const xml = isSingleLineReplace ? eq.inlineTextToOoxml(text) : eq.textToOoxml(text);
         // Range.insertOoxml không nhận "After": chèn vào đầu một vùng rỗng ngay sau.
-        if (loc === "After") (range as Word.Range).getRange("After").insertOoxml(eq.textToOoxml(text), "Start");
-        else range.insertOoxml(eq.textToOoxml(text), loc);
+        if (loc === "After") (range as Word.Range).getRange("After").insertOoxml(xml, "Start");
+        else range.insertOoxml(xml, loc);
         await ctx.sync();
         return;
       }
@@ -38,6 +40,112 @@ export async function put(ctx: Word.RequestContext, range: Word.Range | Word.Bod
   if (loc === "After") (range as Word.Range).insertText(text, "After");
   else range.insertText(text, loc);
   await ctx.sync();
+}
+
+/**
+ * Chuyển đổi nhanh toàn bộ công thức LaTeX dạng text (`$…$`, `$$…$$`, `\(...\)`, `\[...\]`) trong vùng chọn
+ * hoặc toàn văn bản sang Equation chuẩn của Word trực tiếp trên OOXML (chỉ 1 lượt đọc XML + 1 lượt ghi XML).
+ */
+export async function convertLatexInWordXml(
+  scope: "auto" | "selection" | "document" = "auto",
+): Promise<{ converted: number; paragraphs: number; scope: "selection" | "document"; ms: number }> {
+  const t0 = performance.now();
+  const eq = await equation();
+  return Word.run(async (ctx) => {
+    const doc = ctx.document;
+    let usedScope: "selection" | "document" = scope === "selection" ? "selection" : "document";
+    const sel = doc.getSelection();
+    if (scope === "auto") {
+      sel.load("text");
+      await ctx.sync();
+      if (sel.text && sel.text.trim().length > 0) usedScope = "selection";
+    }
+    const target: Word.Range | Word.Body = usedScope === "selection" ? sel : doc.body;
+    const ooxml = target.getOoxml();
+    await ctx.sync();
+    const res = eq.convertOoxmlLatexToEquation(ooxml.value ?? "");
+    if (res.converted > 0) {
+      target.insertOoxml(res.xml, "Replace");
+      await ctx.sync();
+    }
+    return {
+      converted: res.converted,
+      paragraphs: res.paragraphs,
+      scope: usedScope,
+      ms: Math.max(1, Math.round(performance.now() - t0)),
+    };
+  });
+}
+
+/**
+ * Chuyển đổi ngược toàn bộ Equation chuẩn của Word (`<m:oMath>`) trong vùng chọn hoặc toàn văn bản
+ * sang chuỗi LaTeX `$…$` / `$$…$$` trực tiếp trên OOXML (1 lượt đọc XML + 1 lượt ghi XML).
+ */
+export async function convertEquationToLatexInWordXml(
+  scope: "auto" | "selection" | "document" = "auto",
+): Promise<{ converted: number; paragraphs: number; scope: "selection" | "document"; ms: number }> {
+  const t0 = performance.now();
+  const eq = await equation();
+  return Word.run(async (ctx) => {
+    const doc = ctx.document;
+    let usedScope: "selection" | "document" = scope === "selection" ? "selection" : "document";
+    const sel = doc.getSelection();
+    if (scope === "auto") {
+      sel.load("text");
+      await ctx.sync();
+      if (sel.text && sel.text.trim().length > 0) usedScope = "selection";
+    }
+    const target: Word.Range | Word.Body = usedScope === "selection" ? sel : doc.body;
+    const ooxml = target.getOoxml();
+    await ctx.sync();
+    const res = eq.convertOoxmlEquationToLatex(ooxml.value ?? "");
+    if (res.converted > 0) {
+      target.insertOoxml(res.xml, "Replace");
+      await ctx.sync();
+    }
+    return {
+      converted: res.converted,
+      paragraphs: res.paragraphs,
+      scope: usedScope,
+      ms: Math.max(1, Math.round(performance.now() - t0)),
+    };
+  });
+}
+
+/**
+ * Chuẩn hóa nhanh toàn văn bản Word (hoặc vùng chọn) bằng XML trong 1 lượt:
+ * xóa khoảng trắng thừa, chuẩn hóa dấu câu tiếng Việt, và chuyển công thức hóa học / số mũ / `$…$` sang Equation.
+ */
+export async function normalizeWordXmlInPlace(
+  scope: "auto" | "selection" | "document" = "auto",
+): Promise<{ typographyFixed: number; mathConverted: number; paragraphs: number; scope: "selection" | "document"; ms: number }> {
+  const t0 = performance.now();
+  const eq = await equation();
+  return Word.run(async (ctx) => {
+    const doc = ctx.document;
+    let usedScope: "selection" | "document" = scope === "selection" ? "selection" : "document";
+    const sel = doc.getSelection();
+    if (scope === "auto") {
+      sel.load("text");
+      await ctx.sync();
+      if (sel.text && sel.text.trim().length > 0) usedScope = "selection";
+    }
+    const target: Word.Range | Word.Body = usedScope === "selection" ? sel : doc.body;
+    const ooxml = target.getOoxml();
+    await ctx.sync();
+    const res = eq.normalizeOoxmlTypographyAndMath(ooxml.value ?? "");
+    if (res.typographyFixed > 0 || res.mathConverted > 0) {
+      target.insertOoxml(res.xml, "Replace");
+      await ctx.sync();
+    }
+    return {
+      typographyFixed: res.typographyFixed,
+      mathConverted: res.mathConverted,
+      paragraphs: res.paragraphs,
+      scope: usedScope,
+      ms: Math.max(1, Math.round(performance.now() - t0)),
+    };
+  });
 }
 
 /** Giới hạn PDF xem trước gửi cho model (văn bản dài quá thì chỉ báo, không gửi). */
@@ -200,21 +308,230 @@ export async function wordTool(tool: string, a: Args): Promise<unknown> {
         return "đã chèn";
       }
       case "office_word_insert_equation": {
-        const latex = str(a.latex, "latex").replace(/^\s*\$+|\$+\s*$/g, "").trim();
-        if (!latex) throw new Error("'latex' đang trống.");
         const eq = await equation();
-        try {
-          eq.latexToOmml(latex); // kiểm tra trước để báo lỗi cú pháp cho model sửa, không chèn chữ thô
-        } catch (e) {
-          throw new Error(`LaTeX chưa đúng cú pháp: ${e instanceof Error ? e.message : String(e)}. Công thức hóa học viết \\ce{H2O}, \\ce{CaCO3 -> CaO + CO2 ^}.`);
+        const validateAndBuildXml = (rawLatex: unknown, inlineMode: boolean): { clean: string; xml: string } => {
+          const clean = str(rawLatex, "latex").replace(/^\s*\$+|\$+\s*$/g, "").trim();
+          if (!clean) throw new Error("'latex' đang trống.");
+          try {
+            eq.latexToOmml(clean); // kiểm tra trước để báo lỗi cú pháp cho model sửa, không chèn chữ thô
+          } catch (e) {
+            throw new Error(`LaTeX chưa đúng cú pháp (${clean}): ${e instanceof Error ? e.message : String(e)}. Công thức hóa học viết \\ce{H2O}, \\ce{CaCO3 -> CaO + CO2 ^}.`);
+          }
+          return { clean, xml: inlineMode ? eq.inlineEquationToOoxml(clean) : eq.equationToOoxml(clean) };
+        };
+
+        // Chế độ 0: Chuyển đổi trực tiếp trên OOXML toàn văn/vùng chọn khi truyền `auto: true` hoặc `toLatex: true`
+        if (a.auto === true || a.toLatex === true) {
+          const sc = a.scope === "selection" ? "selection" : a.scope === "document" ? "document" : "auto";
+          const target: Word.Range | Word.Body = sc === "selection" ? doc.getSelection() : doc.body;
+          const ooxml = target.getOoxml();
+          await ctx.sync();
+          const res = a.toLatex === true ? eq.convertOoxmlEquationToLatex(ooxml.value ?? "") : eq.convertOoxmlLatexToEquation(ooxml.value ?? "");
+          if (res.converted > 0) {
+            target.insertOoxml(res.xml, "Replace");
+            await ctx.sync();
+          }
+          return a.toLatex === true
+            ? `đã chuyển ${res.converted} Equation sang LaTeX (trong ${res.paragraphs} đoạn) bằng XML`
+            : `đã chuyển ${res.converted} công thức (trong ${res.paragraphs} đoạn) bằng XML`;
         }
+
+        // Chế độ 1: Tìm kiếm và thay thế tự động (đơn lẻ hoặc hàng loạt qua `items` / `find`) — gom 1 lượt search + 1 lượt insertOoxml
+        if (Array.isArray(a.items) || (typeof a.find === "string" && a.find.trim())) {
+          const rawItems = (Array.isArray(a.items) ? a.items : [a]).slice(0, 80) as Args[];
+          const needParas = rawItems.some((it) => typeof it.index === "number");
+          const ps = needParas ? doc.body.paragraphs : null;
+          if (ps) {
+            ps.load("items");
+            await ctx.sync();
+          }
+          const report: string[] = [];
+          const searches: Array<{ find: string; xml: string; occ: number; res: Word.RangeCollection }> = [];
+          for (const it of rawItems) {
+            const find = String(it.find ?? "").trim();
+            if (!find) {
+              report.push("bỏ qua mục thiếu 'find'");
+              continue;
+            }
+            const inline = it.inline !== false; // mặc định inline=true khi thay thế cụm từ giữa câu
+            const { xml } = validateAndBuildXml(it.latex, inline);
+            let scope: Word.Body | Word.Paragraph = doc.body;
+            if (typeof it.index === "number" && ps) {
+              const p = ps.items[it.index];
+              if (!p) {
+                report.push(`${find.slice(0, 30)}: index đoạn ${it.index} không hợp lệ`);
+                continue;
+              }
+              scope = p;
+            }
+            const res = scope.search(find.slice(0, 250), { matchCase: it.matchCase === true });
+            res.load("items");
+            const occ = typeof it.occurrence === "number" && it.occurrence >= 1 ? it.occurrence : 0;
+            searches.push({ find, xml, occ, res });
+          }
+          if (searches.length > 0) await ctx.sync();
+          let lastInserted: Word.Range | null = null;
+          let anyReplaced = false;
+          for (const s of searches) {
+            const list = s.res.items ?? [];
+            const targets = s.occ > 0 ? (list[s.occ - 1] ? [list[s.occ - 1]!] : []) : list;
+            for (let i = targets.length - 1; i >= 0; i--) {
+              lastInserted = targets[i]!.insertOoxml(s.xml, "Replace");
+              anyReplaced = true;
+            }
+            report.push(`${s.find.slice(0, 40)}: ${targets.length} chỗ`);
+          }
+          if (a.select === true && lastInserted) {
+            lastInserted.select("Select");
+            anyReplaced = true;
+          }
+          if (anyReplaced) await ctx.sync();
+          return `đã chèn công thức (${report.join("; ")})`;
+        }
+
+        // Chế độ 2: Chèn theo tọa độ đoạn (`index`) hoặc vị trí (`where`: cursor | replace | start | end)
+        const inline = a.inline === true;
+        const { xml } = validateAndBuildXml(a.latex, inline);
         const where = a.where === "start" ? "start" : a.where === "end" ? "end" : a.where === "replace" ? "replace" : "cursor";
-        const xml = eq.equationToOoxml(latex);
-        if (where === "replace") doc.getSelection().insertOoxml(xml, "Replace");
-        else if (where === "cursor") doc.getSelection().getRange("After").insertOoxml(xml, "Start");
-        else doc.body.insertOoxml(xml, where === "start" ? "Start" : "End");
+        let inserted: Word.Range;
+        if (typeof a.index === "number") {
+          const ps = doc.body.paragraphs;
+          ps.load("items");
+          await ctx.sync();
+          const p = ps.items[a.index];
+          if (!Number.isInteger(a.index) || !p) throw new Error("index đoạn không hợp lệ.");
+          const loc = where === "replace" ? "Replace" : where === "start" ? "Start" : "End";
+          inserted = p.getRange(loc === "Replace" ? "Content" : loc).insertOoxml(xml, loc === "Replace" ? "Replace" : loc);
+        } else if (where === "replace") {
+          inserted = doc.getSelection().insertOoxml(xml, "Replace");
+        } else if (where === "cursor") {
+          inserted = doc.getSelection().getRange("After").insertOoxml(xml, "Start");
+        } else {
+          inserted = doc.body.insertOoxml(xml, where === "start" ? "Start" : "End");
+        }
+        if (a.select === true) inserted.select("Select");
         await ctx.sync();
         return "đã chèn công thức";
+      }
+      case "office_word_replace_find": {
+        const items = (Array.isArray(a.items) ? a.items : [a]).slice(0, 80) as Args[];
+        const needParas = items.some((it) => typeof it.index === "number" || it.paragraphStart === true);
+        const ps = needParas ? doc.body.paragraphs : null;
+        if (ps) {
+          ps.load("items/text");
+          await ctx.sync();
+        }
+        const needEq = items.some((it) => maybeMath(String(it.replace ?? it.text ?? "")));
+        const eq = needEq ? await equation() : null;
+        const buildReplacement = (raw: string): { kind: "ooxml" | "text"; payload: string } => {
+          if (eq && maybeMath(raw) && eq.hasMath(raw)) {
+            const singleLine = !raw.includes("\n") && !/^\s*\$\$[\s\S]+\$\$\s*$/.test(raw);
+            return { kind: "ooxml", payload: singleLine ? eq.inlineTextToOoxml(raw) : eq.textToOoxml(raw) };
+          }
+          return { kind: "text", payload: raw };
+        };
+        const applyReplace = (rng: Word.Range, rep: { kind: "ooxml" | "text"; payload: string }) => {
+          if (rep.kind === "ooxml") rng.insertOoxml(rep.payload, "Replace");
+          else rng.insertText(rep.payload, "Replace");
+        };
+        const norm = (t: string) => t.replace(/\s+/g, " ").trim();
+        const report: string[] = [];
+        const searches: Array<{ reportIdx: number; find: string; rep: { kind: "ooxml" | "text"; payload: string }; occ: number; res: Word.RangeCollection }> = [];
+        let anyChanged = false;
+        for (const it of items) {
+          const find = String(it.find ?? "").trim();
+          if (!find) {
+            report.push("bỏ qua mục thiếu 'find'");
+            continue;
+          }
+          const replace = str(it.replace ?? it.text, "replace");
+          const rep = buildReplacement(replace);
+          if (it.paragraphStart === true && ps) {
+            const needle = norm(find);
+            let n = 0;
+            for (const p of ps.items) {
+              if (norm(p.text).startsWith(needle)) {
+                applyReplace(p.getRange("Content"), rep);
+                anyChanged = true;
+                n++;
+              }
+            }
+            report.push(`${find.slice(0, 40)}: ${n} đoạn`);
+            continue;
+          }
+          let scope: Word.Body | Word.Paragraph = doc.body;
+          if (typeof it.index === "number" && ps) {
+            const p = ps.items[it.index];
+            if (!p) {
+              report.push(`${find.slice(0, 30)}: index đoạn ${it.index} không hợp lệ`);
+              continue;
+            }
+            scope = p;
+          }
+          const res = scope.search(find.slice(0, 250), { matchCase: it.matchCase === true });
+          res.load("items");
+          const occ = typeof it.occurrence === "number" && it.occurrence >= 1 ? it.occurrence : 0;
+          const reportIdx = report.length;
+          report.push("");
+          searches.push({ reportIdx, find, rep, occ, res });
+        }
+        if (searches.length > 0) await ctx.sync();
+        for (const s of searches) {
+          const list = s.res.items ?? [];
+          const targets = s.occ > 0 ? (list[s.occ - 1] ? [list[s.occ - 1]!] : []) : list;
+          for (let i = targets.length - 1; i >= 0; i--) {
+            applyReplace(targets[i]!, s.rep);
+            anyChanged = true;
+          }
+          report[s.reportIdx] = `${s.find.slice(0, 40)}: ${targets.length} chỗ`;
+        }
+        if (anyChanged) await ctx.sync();
+        return `đã tìm và thay thế (${report.join("; ")})`;
+      }
+      case "office_word_select": {
+        const modeRaw = String(a.mode ?? "select").toLowerCase();
+        const selMode: "Start" | "End" | "Select" = modeRaw === "start" ? "Start" : modeRaw === "end" ? "End" : "Select";
+        const find = typeof a.find === "string" ? a.find.trim() : "";
+        const hasIndex = typeof a.index === "number" && Number.isInteger(a.index);
+        if (!find && !hasIndex) throw new Error("Cần truyền 'find' (từ khóa cần tìm) hoặc 'index' (số thứ tự đoạn).");
+        let ps: Word.ParagraphCollection | null = null;
+        if (hasIndex) {
+          ps = doc.body.paragraphs;
+          ps.load("items/text");
+          await ctx.sync();
+        }
+        let target: Word.Range;
+        if (find) {
+          let scope: Word.Body | Word.Paragraph = doc.body;
+          if (hasIndex && ps) {
+            const p = ps.items[a.index as number];
+            if (!p) throw new Error(`index đoạn ${a.index} không hợp lệ.`);
+            scope = p;
+          }
+          const res = scope.search(find.slice(0, 250), { matchCase: a.matchCase === true });
+          res.load("items/text");
+          await ctx.sync();
+          if (!res.items.length) throw new Error(`Không tìm thấy '${find}' trong văn bản.`);
+          const occ = typeof a.occurrence === "number" && a.occurrence >= 1 ? a.occurrence : 1;
+          const hit = res.items[occ - 1];
+          if (!hit) throw new Error(`Chỉ có ${res.items.length} kết quả cho '${find}', không có lần xuất hiện thứ ${occ}.`);
+          target = hit;
+        } else {
+          const idx = a.index as number;
+          const p = ps!.items[idx];
+          if (!p) throw new Error(`index đoạn ${idx} không hợp lệ (tổng ${ps!.items.length} đoạn).`);
+          if (typeof a.toIndex === "number" && Number.isInteger(a.toIndex) && a.toIndex >= idx) {
+            const pEnd = ps!.items[Math.min(a.toIndex, ps!.items.length - 1)]!;
+            target = p.getRange("Start").expandTo(pEnd.getRange("End"));
+          } else {
+            target = p.getRange("Content");
+          }
+        }
+        target.load("text");
+        target.select(selMode);
+        await ctx.sync();
+        const actionLabel = selMode === "Start" ? "đặt con trỏ ở đầu" : selMode === "End" ? "đặt con trỏ ở cuối" : "bôi đen vùng chọn";
+        return `đã ${actionLabel}: "${(target.text || "").slice(0, 80)}"`;
       }
       case "office_word_insert_table": {
         const values = a.values;

@@ -4,6 +4,7 @@
 //! Phạm vi: thư mục hiện tại (dự án) hoặc chỉ các tệp `--file`/`PVTA_BRAIN_ONLY` (tệp lẻ, không đọc lân cận).
 
 mod lang;
+mod mcp;
 mod scope;
 mod search;
 mod store;
@@ -280,6 +281,8 @@ fn run() -> Result<()> {
     let command = a.pos.first().map(String::as_str).unwrap_or("help");
     let arg = |i: usize| a.pos.get(i).map(String::as_str).ok_or_else(|| fail("Missing argument"));
     match command {
+        "capabilities" => println!("{}", json!({"version": env!("CARGO_PKG_VERSION"), "mcp": true, "overview": true, "projectScopes": true})),
+        "mcp" => mcp::serve(arg(1)?)?,
         "guide" => println!("{}", include_str!("../../brain.md")),
         "help" | "--help" | "-h" => println!("{HELP}"),
         _ => {

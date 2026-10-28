@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // CLI giả dùng cho kiểm thử: mô phỏng `claude -p --output-format stream-json`.
 import fs from "node:fs";
+import {spawn} from 'node:child_process';
 
 const args = process.argv.slice(2);
 const mode = process.env.FAKE_MODE || "ok";
@@ -21,6 +22,22 @@ if (args.includes("--help")) {
 let stdin = "";
 process.stdin.setEncoding("utf8");
 for await (const c of process.stdin) stdin += c;
+
+if(mode==='process-tree'){
+  const child=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'inherit'});
+  fs.writeFileSync(process.env.FAKE_PID_FILE,String(child.pid));
+  setInterval(()=>{},1000);
+  await new Promise(()=>{});
+}
+if(mode==='oversize-line'){
+  process.stdout.write('x'.repeat(25*1024*1024));
+  setInterval(()=>{},1000);
+  await new Promise(()=>{});
+}
+if(mode==='noisy-error'){
+  process.stderr.write('x'.repeat(1024*1024)+'\nFINAL DIAGNOSTIC\n',()=>process.exit(1));
+  await new Promise(()=>{});
+}
 
 const has = (f) => args.includes(f);
 const val = (f) => args[args.indexOf(f) + 1];

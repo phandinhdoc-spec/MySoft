@@ -21,6 +21,11 @@ function setup(opts:{fail?:string;delay?:number}={}){
 }
 
 describe('workflows',()=>{
+ it('keeps project identity in model calls even when no working folder is selected',async()=>{
+  const {runner,wf,calls}=setup();wf.folder=undefined;wf.projectId='project-a';wf.steps.forEach(s=>s.access='read');
+  expect((await runner.run(wf.id)).status).toBe('success');
+  for(const call of calls)expect(call.run).toMatchObject({projectId:'project-a',permission:'read'});
+ });
  it.each(['chat','prompt'] as const)('chạy với đầu vào %s mà không cần thư mục',async kind=>{
   const {runner,wf,calls}=setup();wf.folder=undefined;
   wf.steps.forEach(s=>s.access='read');
@@ -75,15 +80,24 @@ describe('workflows',()=>{
 
 describe('quyền ghi của CLI',()=>{
  const flat=(inv:{args:{flag:string;value?:string}[]})=>inv.args.flatMap(a=>a.value===undefined?[a.flag]:[a.flag,a.value]);
- it('mức "full" của add-in vẫn chỉ đọc; chỉ workspaceWrite mới mở quyền ghi',()=>{
+ it('Claude/Codex cần workspaceWrite; AGY luôn được tự duyệt công cụ',()=>{
   const base={model:'m',prompt:'p'};
   expect(flat(codexBackend.invocation({...base,permission:'full'}))).toContain('read-only');
   expect(flat(claudeBackend.invocation({...base,permission:'full'}))).not.toContain('Read,Edit,Write,Glob,Grep,Bash');
-  expect(flat(agyBackend.invocation({...base,permission:'full'}))).toContain('plan');
+  expect(flat(agyBackend.invocation({...base,permission:'full'}))).toContain('--dangerously-skip-permissions');
   expect(flat(codexBackend.invocation({...base,permission:'read',workspaceWrite:true}))).toContain('workspace-write');
   const c=flat(claudeBackend.invocation({...base,permission:'read',workspaceWrite:true}));
   expect(c).toContain('--allowedTools');expect(c).toContain('Read,Edit,Write,Glob,Grep,Bash');
   expect(flat(agyBackend.invocation({...base,permission:'read',workspaceWrite:true}))).not.toContain('plan');
+ });
+ it('agy: prompt rỗng, ngắn và dài đều dùng NDJSON stdin, kể cả plain fallback',()=>{
+  for(const prompt of ['', 'Câu hỏi ngắn', 'x'.repeat(200_000)]){
+   const inv=agyBackend.invocation({model:'m',prompt,permission:'read',plain:true});
+   expect(flat(inv)).not.toContain('-p');
+   expect(flat(inv)).toEqual(expect.arrayContaining(['--input-format','--output-format','stream-json']));
+   expect(JSON.parse(inv.stdin!)).toEqual({event:'user',message:{content:prompt}});
+   expect(inv.stdin!.endsWith('\n')).toBe(true);
+  }
  });
 });
 it('only lists result paths that exist, preserving paths with spaces',async()=>{

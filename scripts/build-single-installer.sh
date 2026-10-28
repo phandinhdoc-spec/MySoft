@@ -44,7 +44,7 @@ cat installers/studio.ps1
 } | sed 's/$/\r/' > "$bat"
 
 # ASCII thuan: cmd.exe va PowerShell 5.1 doc dung moi ma trang.
-if LC_ALL=C grep -q -P '[^\x00-\x7F]' "$bat"; then echo "$bat co ky tu khong phai ASCII." >&2; exit 1; fi
+if ! LC_ALL=C perl -ne 'exit 1 if /[^\x00-\x7F]/' "$bat"; then echo "$bat co ky tu khong phai ASCII." >&2; exit 1; fi
 
 echo "Da dung:"
 ls -l "$out" "$bat"

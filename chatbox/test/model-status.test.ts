@@ -55,3 +55,25 @@ it('shows the countdown to each quota reset next to the remaining percentage',as
  expect([...host.querySelectorAll('.model-quota-reset')].map(e=>e.textContent)).toEqual(['1h30','2d 5h']);
  expect(host.querySelector('.model-quota')?.textContent).toContain('52%');
 });
+it('fetches Antigravity (agy) model quota and supports reasoning effort variants',async()=>{
+ const s=state();delete s.modelUsage;s.data.preferences.choice={backend:'agy',model:'gemini-3.8-flash'};s.backends=[{id:'agy',installed:true,auth:'ready',version:'1.4.8',efforts:['low','medium','high']}];
+ mocks.rpc.mockResolvedValue({fiveHour:{usedPercent:4},week:{usedPercent:5},updatedAt:Date.now(),checkedAt:Date.now()});
+ await render(s);
+ expect(host.querySelector('.model-control')?.textContent).toContain('Gemini 3.8 Flash (Medium)');
+ expect(mocks.rpc).toHaveBeenCalledWith('providerUsage',{backend:'agy',model:'gemini-3.8-flash'});
+ expect(host.textContent).toContain('96%');expect(host.textContent).toContain('95%');
+});
+it('immediately displays the resolved model variant in auto mode and when switching variants',async()=>{
+ const s=state();delete s.modelUsage;
+ s.backends=[{id:'agy',installed:true,auth:'ready',version:'1.4.8',efforts:['low','medium','high']}];
+ s.data.preferences={...s.data.preferences,choice:'auto',resolvedChoice:{backend:'agy',model:'gemini-3.8-flash-low'},effort:undefined};
+ mocks.rpc.mockResolvedValue({fiveHour:{usedPercent:10},week:{usedPercent:15},updatedAt:Date.now(),checkedAt:Date.now()});
+ await render(s);
+ expect(host.querySelector('.model-control')?.textContent).toContain('Tự động chọn AI · Gemini 3.8 Flash (Low)');
+ expect(host.querySelector<HTMLSelectElement>('[aria-label="Mức suy nghĩ của model"]')?.value).toBe('low');
+ expect(mocks.rpc).toHaveBeenCalledWith('providerUsage',{backend:'agy',model:'gemini-3.8-flash-low'});
+ s.data.preferences={...s.data.preferences,choice:{backend:'agy',model:'claude-opus-5-5-high'},resolvedChoice:{backend:'agy',model:'claude-opus-5-5-high'},effort:'high'};
+ await render(s);
+ expect(host.querySelector('.model-control')?.textContent).toContain('Claude Opus 5.5 (High)');
+ expect(host.querySelector<HTMLSelectElement>('[aria-label="Mức suy nghĩ của model"]')?.value).toBe('high');
+});

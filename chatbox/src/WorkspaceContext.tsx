@@ -6,6 +6,7 @@ import {DEFAULT_QUERY,EMPTY_QUERY,SCOPE_LABEL,bookCounts,originLabel,SORT_LABEL,
 import './projectTools.css';
 import type {ContextFile} from './notebook-files';
 import {MESSAGE_DRAG_TYPE,type MessageDraft} from './message-to-project';
+import {useObjectMenu,type ObjectCommand} from './ObjectMenu';
 export type {ContextFile};
 interface SourceIndexInfo{indexing:boolean;roots:{root:string;files:number;at:number;method:string;truncated:boolean}[]}
 /** Kéo một tệp trong danh sách nguồn thả vào ô soạn tin để tham chiếu tới tệp đó. */
@@ -63,6 +64,15 @@ export function SourceContext({files,office,rag,onOffice,chatId,projectId='',onP
   return [...map].map(([key,items])=>({key,label:key.split(/[\\/]/).filter(Boolean).slice(-2).join('/')||key,items}));
  },[shown,grouped]);
  const file=shown.find(f=>f.id===selectedId)??shown[0];
+ const sourceMenu=useObjectMenu<string>({contextKey:`${chatId}:${projectId}`,onError:e=>{if(report)report(e);else notice?.(e instanceof Error?e.message:String(e));},commands:id=>{
+  const target=files.find(f=>f.id===id);if(!target)return [];
+  const disabledReason=target.notebook?uiText('Nguồn trong sổ không phải tệp đính kèm trên máy.'):!target.path?uiText('Tài liệu chưa có đường dẫn trên máy.'):undefined;
+  const open=(app:'default'|'office'|'vscode')=>rpc('openFileRef',{ref:target.path,chatId,app});
+  const commands:ObjectCommand[]=[{id:'open',label:uiText('Mở bằng ứng dụng mặc định'),disabledReason,run:()=>open('default')}];
+  if(/\.(docx?|docm|dotx|xlsx?|xlsm|xltx|pptx?|pptm|potx)$/i.test(target.name))commands.push({id:'office',label:uiText('Mở bằng Microsoft Office'),disabledReason,run:()=>open('office')});
+  commands.push({id:'vscode',label:uiText('Mở bằng Visual Studio Code'),disabledReason,run:()=>open('vscode')});
+  return commands;
+ }});
  const patch=(p:Partial<SourceQuery>)=>setQ(v=>({...v,...p}));
  const filtered=isFiltered(q);
  async function refresh(){
@@ -103,12 +113,13 @@ export function SourceContext({files,office,rag,onOffice,chatId,projectId='',onP
   <div className="source-body source-split">
    <div className="source-list" aria-label={uiText("Danh sách nguồn")} onKeyDown={e=>{if(e.key==='ArrowDown')move(1,e);else if(e.key==='ArrowUp')move(-1,e);}}>
     {selected&&<button onClick={onOffice}>{selected.host} · {selected.name} ↗</button>}
-    {groups.map(g=><React.Fragment key={g.key}>{grouped&&<div className="source-group" title={g.key}>📁 {g.label} <small>({g.items.length})</small></div>}{g.items.map(f=>{const meta=[originLabel(f,SCOPE_META),f.notebook&&!f.notebook.on?uiText("đang tắt"):f.notebook&&f.notebook.state!=='san-sang'?(f.notebook.state==='loi'?uiText("lỗi đọc"):uiText("đang đọc")):'',sizeText(f.bytes),ageText(f.at)].filter(Boolean).join(' · ');return <button className={`source-item ${file?.id===f.id?'selected':''}`} id={'source-item-'+f.id} key={f.id} draggable onDragStart={e=>{e.dataTransfer.setData(SOURCE_REF_TYPE,JSON.stringify({name:f.name,path:f.notebook?'':f.path}));e.dataTransfer.setData('text/plain',f.notebook?f.name:f.path);e.dataTransfer.effectAllowed='copy';}} onMouseEnter={()=>setSelectedId(f.id)} onFocus={()=>setSelectedId(f.id)} onClick={()=>setSelectedId(f.id)} aria-pressed={file?.id===f.id}><span>▤</span><span><strong>{f.name}{isFresh(f)&&<span className="source-new">{uiText("Mới")}</span>}</strong><small className="source-meta">{meta}</small></span></button>;})}</React.Fragment>)}
+    {groups.map(g=><React.Fragment key={g.key}>{grouped&&<div className="source-group" title={g.key}>📁 {g.label} <small>({g.items.length})</small></div>}{g.items.map(f=>{const meta=[originLabel(f,SCOPE_META),f.notebook&&!f.notebook.on?uiText("đang tắt"):f.notebook&&f.notebook.state!=='san-sang'?(f.notebook.state==='loi'?uiText("lỗi đọc"):uiText("đang đọc")):'',sizeText(f.bytes),ageText(f.at)].filter(Boolean).join(' · ');return <button className={`source-item ${file?.id===f.id?'selected':''}`} id={'source-item-'+f.id} key={f.id} {...sourceMenu.handlers(f.id)} draggable onDragStart={e=>{e.dataTransfer.setData(SOURCE_REF_TYPE,JSON.stringify({name:f.name,path:f.notebook?'':f.path}));e.dataTransfer.setData('text/plain',f.notebook?f.name:f.path);e.dataTransfer.effectAllowed='copy';}} onMouseEnter={()=>setSelectedId(f.id)} onFocus={()=>setSelectedId(f.id)} onClick={()=>setSelectedId(f.id)} aria-pressed={file?.id===f.id}><span>▤</span><span><strong>{f.name}{isFresh(f)&&<span className="source-new">{uiText("Mới")}</span>}</strong><small className="source-meta">{meta}</small></span></button>;})}</React.Fragment>)}
     {!files.length&&<p>{uiText("Đính kèm tài liệu để bắt đầu.")}</p>}
     {files.length>0&&!shown.length&&<p className="source-empty">{uiText("Không có tài liệu khớp bộ lọc.")}<button type="button" onClick={()=>setQ(EMPTY_QUERY)}>{uiText("Xóa bộ lọc")}</button></p>}
     {files.length>0&&!rag&&<p>{uiText("Tra cứu tự động đang tắt.")}</p>}
    </div>
    <FilePreview file={file} chatId={chatId} query={q.content?q.query:''}/>
+   {sourceMenu.menu}
   </div>
  </details>;
 }

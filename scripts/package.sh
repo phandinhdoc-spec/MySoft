@@ -7,7 +7,7 @@ npm run build >/dev/null
 rm -rf release && mkdir -p release/pvta
 cp bridge/dist/pvta-bridge.mjs release/pvta/
 # Bộ đọc tài liệu (PDF, Word…, OCR) cho Sổ nguồn của add-in; bridge tìm tệp này cạnh pvta-bridge.mjs.
-cp core/python/documents.py release/pvta/
+cp core/python/*.py release/pvta/
 cp -r addin/dist release/pvta/web
 cp -r skills release/pvta/skills
 # Cua so huong dan cai cong cu AI tren Windows (install.ps1 goi sau khi giai nen).

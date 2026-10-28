@@ -2,7 +2,7 @@ import {describe, expect, it} from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import {openResultFile, revealInFinder} from '../src/docs.js';
+import {openOffice, openResultFile, revealInFinder} from '../src/docs.js';
 
 describe('mở tệp kết quả', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pvta-open-'));
@@ -70,18 +70,46 @@ describe('mở tệp kết quả', () => {
     }
   });
 
-  it('mở bằng CHITUP OFFICE (open -a) cho tệp Office; từ chối đuôi không hỗ trợ', () => {
-    const f = touch('bai.docx');
+  it('mở bằng Microsoft Office (open -a) cho tệp Word/Excel/PowerPoint; từ chối đuôi không hỗ trợ', () => {
+    const docx = touch('bai.docx');
+    const xlsx = touch('bang.xlsx');
+    const pptx = touch('trinh-chieu.pptx');
     const calls: [string, string[]][] = [];
     const orig = fs.existsSync;
-    (fs as any).existsSync = (p: string) => p.includes('CHITUP OFFICE.app') || orig(p);
+    (fs as any).existsSync = (p: string) =>
+      p.includes('Microsoft Word.app') || p.includes('Microsoft Excel.app') || p.includes('Microsoft PowerPoint.app') || orig(p);
     try {
-      const r = openResultFile(f, {platform: 'darwin', app: 'chitup', opener: (c: string, a: string[]) => {calls.push([c, a]);}} as any);
-      expect(r).toEqual({ok: true, file: f});
+      expect(openResultFile(docx, {platform: 'darwin', app: 'office', opener: (c: string, a: string[]) => {calls.push([c, a]);}} as any)).toEqual({ok: true, file: docx});
+      expect(openResultFile(xlsx, {platform: 'darwin', app: 'office', opener: (c: string, a: string[]) => {calls.push([c, a]);}} as any)).toEqual({ok: true, file: xlsx});
+      expect(openResultFile(pptx, {platform: 'darwin', app: 'office', opener: (c: string, a: string[]) => {calls.push([c, a]);}} as any)).toEqual({ok: true, file: pptx});
       expect(calls[0]?.[0]).toBe('open');
       expect(calls[0]?.[1]?.[0]).toBe('-a');
-      expect(calls[0]?.[1]?.[1]).toContain('CHITUP OFFICE');
-      expect(openResultFile(touch('a.png'), {platform: 'darwin', app: 'chitup', opener: () => {}} as any).ok).toBe(false);
+      expect(calls[0]?.[1]?.[1]).toContain('Microsoft Word.app');
+      expect(calls[1]?.[1]?.[1]).toContain('Microsoft Excel.app');
+      expect(calls[2]?.[1]?.[1]).toContain('Microsoft PowerPoint.app');
+      expect(openResultFile(touch('a.png'), {platform: 'darwin', app: 'office', opener: () => {}} as any).ok).toBe(false);
+    } finally {
+      (fs as any).existsSync = orig;
+    }
+  });
+
+  it('openOffice ưu tiên mở bằng Microsoft Office (open -a) trên macOS khi đã cài đặt', () => {
+    const docx = touch('hop-dong.docx');
+    const xlsx = touch('so-lieu.xlsx');
+    const pptx = touch('bai-giang.pptx');
+    const calls: [string, string[]][] = [];
+    const orig = fs.existsSync;
+    (fs as any).existsSync = (p: string) =>
+      p.includes('Microsoft Word.app') || p.includes('Microsoft Excel.app') || p.includes('Microsoft PowerPoint.app') || orig(p);
+    try {
+      expect(openOffice(docx, {platform: 'darwin', opener: (c, a) => {calls.push([c, a]);}})).toEqual({ok: true, file: docx});
+      expect(openOffice(xlsx, {platform: 'darwin', opener: (c, a) => {calls.push([c, a]);}})).toEqual({ok: true, file: xlsx});
+      expect(openOffice(pptx, {platform: 'darwin', opener: (c, a) => {calls.push([c, a]);}})).toEqual({ok: true, file: pptx});
+      expect(calls).toEqual([
+        ['open', ['-a', '/Applications/Microsoft Word.app', docx]],
+        ['open', ['-a', '/Applications/Microsoft Excel.app', xlsx]],
+        ['open', ['-a', '/Applications/Microsoft PowerPoint.app', pptx]],
+      ]);
     } finally {
       (fs as any).existsSync = orig;
     }

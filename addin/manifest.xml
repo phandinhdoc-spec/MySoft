@@ -6,11 +6,11 @@
            xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides"
            xsi:type="TaskPaneApp">
   <Id>6d1f3b52-8e0a-4c53-9a47-2f6f0f6a11d0</Id>
-  <Version>1.5.4.0</Version>
+  <Version>2.1.0.0</Version>
   <ProviderName>PVTA</ProviderName>
   <DefaultLocale>vi-VN</DefaultLocale>
   <DisplayName DefaultValue="PVTA"/>
-  <Description DefaultValue="Trợ lý Office cho giáo viên: nhanh, nhẹ, chạy qua gói đăng ký agy/claude."/>
+  <Description DefaultValue="PVTA 2.0 — Trợ lý Office cho giáo viên: đồng bộ trực tiếp với PVTA Chat, nhanh, gọn."/>
   <IconUrl DefaultValue="https://localhost:3000/icon-32.png?v=2"/>
   <HighResolutionIconUrl DefaultValue="https://localhost:3000/icon-64.png?v=2"/>
   <SupportUrl DefaultValue="https://github.com/phandinhdoc-spec/MySoft"/>

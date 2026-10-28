@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {execFile} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
 
 /**
  * Cầu nối tới CLI native `pvta-brain` (một lần chạy rồi thoát; không daemon, không watcher).
@@ -17,7 +18,8 @@ import {execFile} from 'node:child_process';
  * Chỉ mục bền, tăng dần, nằm trong thư mục cache của hệ điều hành (không ghi vào dự án);
  * lần gọi sau chỉ phân tích lại tệp đã đổi.
  */
-export interface BrainScope{root:string;files?:string[];/** Mô tả phạm vi cho lời nhắc (Brain PVTA tự hiểu, Brain của sổ nguồn). */ label?:string}
+export interface BrainScope{root:string;files?:string[];label?:string;indexPath?:string;sources?:BrainSource[]}
+export interface BrainSource extends Omit<BrainScope,'sources'>{id:string}
 
 const MAX_SCOPE_FILES=200;
 /** Định dạng nhị phân/Office: Brain không phân tích, không đưa vào phạm vi tệp. */
@@ -25,16 +27,53 @@ const BINARY=/\.(png|jpe?g|gif|webp|bmp|heic|tiff?|ico|icns|svgz|pdf|docx?|xlsx?
 
 export function brainBinary():string|undefined {
  const name=process.platform==='win32'?'pvta-brain.exe':'pvta-brain';
- return [process.env.PVTA_BRAIN,path.join(path.dirname(process.execPath),name),path.resolve('brain/target/release',name)].find((p):p is string=>!!p&&fs.existsSync(p));
+ const installed=[process.env.PVTA_BRAIN,path.join(path.dirname(process.execPath),name)].find((p):p is string=>!!p&&fs.existsSync(p));
+ if(installed)return installed;
+ // build:sidecar builds with --target, while cargo build uses target/release.
+ // Both are valid dev candidates: prefer the most recently built native executable.
+ const arch=process.arch==='arm64'?'aarch64':process.arch==='x64'?'x86_64':undefined;
+ const os=process.platform==='darwin'?'apple-darwin':process.platform==='win32'?'pc-windows-msvc':process.platform==='linux'?'unknown-linux-gnu':undefined;
+ const triple=arch&&os?`${arch}-${os}`:undefined;
+ const roots=[process.cwd(),path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../../..')];
+ const candidates=roots.flatMap(root=>{
+  const target=process.env.CARGO_TARGET_DIR?path.resolve(process.env.CARGO_TARGET_DIR):path.join(root,'brain/target');
+  return [path.join(target,'release',name),...(triple?[path.join(target,triple,'release',name),path.join(root,'chatbox/src-tauri/binaries',`pvta-brain-${triple}${process.platform==='win32'?'.exe':''}`)]:[])];
+ });
+ return [...new Set(candidates)].filter(p=>fs.existsSync(p)).sort((a,b)=>fs.statSync(b).mtimeMs-fs.statSync(a).mtimeMs)[0];
+}
+
+/** One invocation owns this descriptor; no global CLI config or scope is changed. */
+export async function prepareBrainMcp(home:string,scope:BrainScope,signal:AbortSignal){
+ const binary=brainBinary();if(!binary)throw Error('Brain CLI chưa được cài.');
+ const capabilities=await runBrain(binary,{root:scope.root},['capabilities'],signal);
+ let supported=false;try{const caps=JSON.parse(capabilities);supported=caps.mcp===true&&(!scope.sources||caps.projectScopes===true);}catch{/* old CLI prints help */}
+ if(!supported)throw Error('CLI Brain chưa hỗ trợ công cụ MCP. Hãy dựng/cập nhật PVTA để dùng Brain trong Codex.');
+ signal.throwIfAborted();
+ const parent=path.join(home,'workspace','brain-mcp');
+ await fs.promises.mkdir(parent,{recursive:true,mode:0o700});
+ const dir=await fs.promises.mkdtemp(path.join(parent,'session-'));
+ const dispose=()=>fs.promises.rm(dir,{recursive:true,force:true});
+ try{
+  const file=path.join(dir,'scope.json');
+  await fs.promises.writeFile(file,JSON.stringify(scope),{mode:0o600});
+  signal.throwIfAborted();
+  return {config:{command:binary,args:['mcp',file]},dispose};
+ }catch(error){await dispose();throw error;}
 }
 
 const asScope=(s:BrainScope|string):BrainScope=>typeof s==='string'?{root:s}:s;
 
 export async function runBrain(binary:string,scope:BrainScope|string,args:string[],signal?:AbortSignal,maxBuffer=4*1024*1024):Promise<string>{
  const s=asScope(scope);
+ if(s.sources){
+  if(args[0]!=='overview')throw Error('Brain nhiều nguồn: chọn scope bằng brain_read/brain_find.');
+  const overviews=await Promise.all(s.sources.map(async source=>`[${source.id}] ${source.label??source.root}\n${await runBrain(binary,source,args,signal,maxBuffer)}`));
+  return 'TẦNG 1 · BRAIN RIÊNG CỦA DỰ ÁN\n'+overviews.join('\n');
+ }
  const env:NodeJS.ProcessEnv={...process.env};
  // Không kế thừa phạm vi/chỉ mục từ môi trường cha: phạm vi chỉ do PVTA quyết định.
  delete env.PVTA_BRAIN_ONLY;delete env.PVTA_BRAIN_INDEX;
+ if(s.indexPath)env.PVTA_BRAIN_INDEX=s.indexPath;
  if(s.files?.length)env.PVTA_BRAIN_ONLY=s.files.join('\n');
  return new Promise<string>((resolve,reject)=>execFile(binary,args,{cwd:s.root,signal,env,timeout:60_000,maxBuffer,windowsHide:true},(error,stdout,stderr)=>error?reject(new Error(String(stderr).trim()||error.message)):resolve(String(stdout).trim())));
 }
@@ -90,9 +129,10 @@ export async function brainContext(scope:BrainScope|string|undefined,signal?:Abo
   const mode=s.label?s.label:s.files?.length
    ?`PHẠM VI TỆP: chỉ ${s.files.length} tệp được đính kèm (gốc ${JSON.stringify(s.root)}); Brain không đọc tệp khác, kể cả tệp cùng thư mục.`
    :`PHẠM VI DỰ ÁN: thư mục ${JSON.stringify(s.root)}.`;
+  const sources=s.sources?`\nNGUỒN RIÊNG CỦA DỰ ÁN (dữ liệu): ${JSON.stringify(s.sources.map(({id,root,label,files})=>({scope:id,root,label,fileCount:files?.length})))}\nbrain_find/brain_refs/brain_overview mặc định tra mọi nguồn trên; thêm args.scope để chọn một nguồn. brain_read/brain_outline bắt buộc args.scope và file tương đối trong nguồn đó. Không suy ra quyền đọc thư mục cha hoặc dự án khác.\n`:'';
   if(o.tools===false)return `${OK_PREFIX} đã lập chỉ mục (chỉ đọc). ${mode}
 Lượt này không có công cụ gọi Brain: chỉ dùng TẦNG 1 nạp sẵn dưới đây để định hướng.
-${overview}`+digest;
+${overview}`+sources+digest;
   return `${OK_PREFIX} tra cứu chỉ đọc (không cấp quyền ghi hay chạy lệnh), chỉ mục tăng dần nằm ngoài dự án. ${mode}
 Công cụ qua pvta-read:
 - brain_overview args {} — TẦNG 1: hiểu toàn dự án (vùng mã, ký hiệu chính, điểm vào, tệp trung tâm). Bản đã nạp sẵn ở dưới.
@@ -101,7 +141,7 @@ Công cụ qua pvta-read:
 - brain_refs args {name} — ứng viên tham chiếu theo từ (định nghĩa, import, dùng); phải đọc nguồn trước khi khẳng định.
 - brain_read args {file,start,end} (tối đa 500 dòng) hoặc {file,symbol} (trọn thân ký hiệu); trả SHA-256 toàn tệp.
 Đường dẫn file là đường dẫn tương đối theo gốc ở trên, dấu /. Dòng là số thật từ chỉ mục; không đoán phạm vi.
-${overview}`+digest;
+${overview}`+sources+digest;
  } catch(error){if(signal?.aborted)throw signal.reason??error;return '\nBRAIN chưa lập được chỉ mục: '+String(error).slice(0,1200)+'. Báo rõ giới hạn trước khi dùng cách tra cứu khác.';}
 }
 /** true khi khối Brain đã lập chỉ mục được (không phải thông báo thiếu CLI hoặc lỗi). */
@@ -112,7 +152,16 @@ export function isBrainTool(tool:string):boolean{return (BRAIN_TOOLS as readonly
 
 const parse=(s:string)=>{try{return JSON.parse(s);}catch{return s;}};
 
-export async function brainRead(scope:BrainScope|string,tool:string,args:Record<string,unknown>,signal?:AbortSignal){
+export async function brainRead(scope:BrainScope|string,tool:string,args:Record<string,unknown>,signal?:AbortSignal):Promise<unknown>{
+ const scoped=asScope(scope);
+ if(scoped.sources){
+  if(args.scope!==undefined){
+   const selected=scoped.sources.find(s=>s.id===args.scope);if(!selected)throw Error('Nguồn Brain không thuộc dự án này.');
+   return brainRead(selected,tool,args,signal);
+  }
+  if(tool==='brain_read'||tool==='brain_outline')throw Error('Chọn args.scope từ brain_overview để đọc đúng nguồn.');
+  return Promise.all(scoped.sources.map(async source=>({scope:source.id,result:await brainRead(source,tool,args,signal)})));
+ }
  const binary=brainBinary();if(!binary)throw Error('Brain CLI chưa được cài.');
  const str=(key:string)=>{const v=args[key];if(typeof v!=='string'||!v||v.length>1000)throw Error('Brain: tham số không hợp lệ '+key);return v;};
  if(tool==='brain_overview')return runBrain(binary,scope,['overview','--text'],signal);

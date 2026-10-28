@@ -2,7 +2,7 @@ import {afterEach,describe,expect,it,vi} from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import {brainContext,brainRead,runBrain,brainProjectRoot,brainScope,brainAvailable,isBrainTool} from '../src/desktop/brain.js';
+import {brainBinary,brainContext,brainRead,runBrain,brainProjectRoot,brainScope,brainAvailable,isBrainTool} from '../src/desktop/brain.js';
 
 afterEach(()=>vi.restoreAllMocks());
 describe('Brain host',()=>{
@@ -24,6 +24,16 @@ describe('Brain host',()=>{
  it('exposes both tiers as tools',()=>{
   for(const t of ['brain_overview','brain_outline','brain_find','brain_refs','brain_read'])expect(isBrainTool(t)).toBe(true);
   expect(isBrainTool('office_web_search')).toBe(false);
+ });
+ it('prefers the newer target build over a stale target/release fallback',()=>{
+  const previous=process.env.PVTA_BRAIN;delete process.env.PVTA_BRAIN;
+  const old=path.resolve('brain/target/release/pvta-brain');
+  const os=process.platform==='darwin'?'apple-darwin':process.platform==='win32'?'pc-windows-msvc':'unknown-linux-gnu';
+  const arch=process.arch==='arm64'?'aarch64':'x86_64';
+  const fresh=path.resolve(`brain/target/${arch}-${os}/release/pvta-brain${process.platform==='win32'?'.exe':''}`);
+  vi.spyOn(fs,'existsSync').mockImplementation(p=>String(p)===old||String(p)===fresh);
+  vi.spyOn(fs,'statSync').mockImplementation(p=>({mtimeMs:String(p)===fresh?2:1}) as fs.Stats);
+  try{expect(brainBinary()).toBe(fresh);}finally{if(previous!==undefined)process.env.PVTA_BRAIN=previous;}
  });
 });
 
@@ -64,8 +74,7 @@ it('falls back to a file-only scope for attached text files, never to their fold
 
 // Chạy với binary thật khi đã biên dịch (PVTA_BRAIN hoặc brain/target/release); bỏ qua nếu chưa có.
 // Chọn bản mới nhất: thư mục target mặc định có thể còn bản dựng cũ.
-const real=[process.env.PVTA_BRAIN,path.resolve('../brain/target/release/pvta-brain'),process.env.CARGO_TARGET_DIR&&path.join(process.env.CARGO_TARGET_DIR,'release/pvta-brain')]
- .filter((p):p is string=>!!p&&fs.existsSync(p)).sort((a,b)=>fs.statSync(b).mtimeMs-fs.statSync(a).mtimeMs)[0];
+const real=brainBinary();
 describe.skipIf(!real)('Brain CLI thật',()=>{
  it('tầng 1, tầng 2, tìm, đọc theo ký hiệu; phạm vi tệp không đọc tệp lân cận',async()=>{
   const root=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'brain-real-')));

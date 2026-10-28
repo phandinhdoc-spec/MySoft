@@ -393,6 +393,9 @@ def main():
     if op in ['office_editor_read','office_editor_save']:
         from office import editor_job
         return editor_job(req)
+    if op=='office_direct_tool':
+        from office import office_direct_tool
+        return office_direct_tool(req)
     if op=='extract':return extract(Path(req['path']))
     if op=='ocr':return ocr(Path(req['path']))
     if op=='ocr_image':return ocr_image(Path(req['path']))

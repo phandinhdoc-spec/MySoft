@@ -28,15 +28,13 @@ function errText(e: unknown, fallback: string): string {
 }
 
 /**
- * Backend `agy` (Antigravity CLI, chạy -p), theo tài liệu chính thức:
+ * Backend `agy` (Antigravity CLI, stream-json qua stdin), theo tài liệu chính thức:
  * - `--output-format stream-json`: init → step_update… → result.
  * - `--effort low|medium|high`; mã model có hậu tố -low/-medium/-high thì đã gồm mức suy nghĩ.
- * - Chế độ chỉnh sửa workspace (toàn quyền, đã được chủ phần mềm duyệt ngày 22/10) dùng
- *   `--dangerously-skip-permissions`: agy tự duyệt mọi công cụ, kể cả chạy lệnh shell, không cần hỏi lại
- *   khi chạy nền. Thay cho `--mode accept-edits` (khi đó agy bị chặn RunCommand).
- *   Không dùng `--mode auto`: ở chế độ headless agy tự từ chối write_file (kiểm chứng ngày 22/10).
- * - Các chế độ còn lại dùng --mode plan và --sandbox.
- * Prompt đi qua stdin (`-p -`): không giới hạn độ dài, tránh lỗi spawn ENAMETOOLONG trên Windows.
+ * - Luôn dùng `--dangerously-skip-permissions` theo cấu hình AGY của PVTA:
+ *   AGY tự duyệt mọi công cụ; hỏi đáp/duyệt Plan và Plan Pro do PVTA quản lý.
+ * - Mỗi dòng stdin là một sự kiện user; đóng stdin sau lượt cuối để CLI thoát.
+ *   Không truyền -p trong chế độ này: AGY sẽ bỏ qua prompt trong đối số.
  */
 export const agyBackend: Backend = {
   id: "agy",
@@ -44,18 +42,19 @@ export const agyBackend: Backend = {
   envVar: "PVTA_AGY_BIN",
 
   invocation(opts: InvokeOptions): Invocation {
-    const full = opts.workspaceWrite === true;
-    const args: Invocation["args"] = full
-      ? [{ flag: "-p", value: "-", essential: true }, { flag: "--dangerously-skip-permissions", essential: true }]
-      : [{ flag: "-p", value: "-", essential: true }, {flag: '--mode', value:'plan', essential:true}, {flag:'--sandbox',essential:true}];
-    if (!opts.plain) args.push({ flag: "--output-format", value: "stream-json", essential: true });
+    const args: Invocation["args"] = [
+      { flag: "--input-format", value: "stream-json", essential: true },
+      { flag: "--output-format", value: "stream-json", essential: true },
+      { flag: "--dangerously-skip-permissions", essential: true },
+    ];
     if (opts.model) args.push({ flag: "--model", value: opts.model, essential: true });
+    for (const dir of opts.workspaceDirs ?? []) args.push({ flag: "--add-dir", value: dir, essential: true });
     if (opts.conversationId) args.push({ flag: "--conversation", value: opts.conversationId, essential: true });
     const eff = agyEffort(opts.effort);
     if (eff && !slugHasEffort(opts.model)) args.push({ flag: "--effort", value: eff });
     args.push({ flag: "--print-timeout", value: "15m" });
     args.push({ flag: "--disable-slash-commands" });
-    return { bin: "", args, stdin: opts.prompt };
+    return { bin: "", args, stdin: JSON.stringify({ event: "user", message: { content: opts.prompt } }) + "\n" };
   },
 
   parseLine(line: string, st: ParseState): string | undefined {

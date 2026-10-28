@@ -30,7 +30,7 @@ export interface Config {
 }
 
 export const DEFAULT_PORT = 52731;
-export const DEFAULT_ORIGINS = ["https://localhost:3000", "https://localhost:52730"];
+export const DEFAULT_ORIGINS = ["https://localhost:3000", "https://localhost:52730", "https://localhost:52734"];
 
 export class ConfigStore {
   private data: Config = {};

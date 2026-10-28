@@ -28,12 +28,38 @@ export function readChatRules(home: string): ChatRules {
   if (hit?.key === key) return hit.value;
   let value: ChatRules = { text: "", rules: [] };
   try {
-    const d = JSON.parse(fs.readFileSync(file, "utf8")) as { preferences?: { rules?: unknown }; ruleBook?: unknown };
+    const d = JSON.parse(fs.readFileSync(file, "utf8")) as {
+      preferences?: { rules?: unknown };
+      ruleBook?: unknown;
+      projects?: Array<{ name?: unknown; ruleBook?: unknown }>;
+      chats?: Array<{ title?: unknown; ruleBook?: unknown }>;
+    };
     const text = typeof d.preferences?.rules === "string" ? d.preferences.rules.slice(0, 10_000) : "";
-    const rules = (Array.isArray(d.ruleBook) ? d.ruleBook : [])
-      .filter((r): r is Rule => !!r && typeof r === "object" && typeof (r as Rule).key === "string" && typeof (r as Rule).text === "string")
-      .slice(0, 100)
-      .map((r) => ({ key: r.key, title: String(r.title ?? r.key).slice(0, 80), text: r.text.slice(0, 20000), always: r.always === true }));
+    const seen = new Set<string>();
+    const rules: SharedRule[] = [];
+    const pushRules = (list: unknown, scopePrefix?: string) => {
+      if (!Array.isArray(list)) return;
+      for (const r of list) {
+        if (!r || typeof r !== "object" || typeof (r as Rule).key !== "string" || typeof (r as Rule).text !== "string") continue;
+        const rule = r as Rule;
+        if (seen.has(rule.key) || rules.length >= 100) continue;
+        seen.add(rule.key);
+        const baseTitle = String(rule.title ?? rule.key).slice(0, 80);
+        rules.push({
+          key: rule.key,
+          title: scopePrefix ? `${baseTitle} (${scopePrefix.slice(0, 30)})` : baseTitle,
+          text: rule.text.slice(0, 20000),
+          always: scopePrefix ? false : rule.always === true,
+        });
+      }
+    };
+    pushRules(d.ruleBook);
+    if (Array.isArray(d.projects)) {
+      for (const p of d.projects) pushRules(p?.ruleBook, typeof p?.name === "string" ? p.name : undefined);
+    }
+    if (Array.isArray(d.chats)) {
+      for (const c of d.chats) pushRules(c?.ruleBook, typeof c?.title === "string" ? c.title : undefined);
+    }
     value = { text, rules };
   } catch {
     /* đang ghi dở hoặc hỏng: dùng bản trống, lần sau đọc lại */

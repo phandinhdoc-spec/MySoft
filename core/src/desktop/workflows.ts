@@ -141,11 +141,11 @@ export interface WorkflowDeps{
  /** Gọi một lượt model. cwd/permission chỉ có khi quy trình có thư mục hoặc bước được ghi. */
  /** Đoạn nguồn từ sổ nguồn liên kết với quy trình (và dự án của nó); rỗng nếu không có. */
  grounding?(wf:Workflow,query:string):string;
- model(text:string,system:string,signal:AbortSignal,choice:ModelChoice|undefined,run?:{cwd:string;permission:'read'|'full';timeoutMs:number},images?:string[]):Promise<string>;
+ model(text:string,system:string,signal:AbortSignal,choice:ModelChoice|undefined,run?:{cwd?:string;projectId?:string;permission:'read'|'full';timeoutMs:number},images?:string[]):Promise<string>;
  /** Skill và quy tắc cho tài nguyên riêng của nút (/tên, #khóa). Thiếu thì bỏ qua phần này. */
  resources?(wf:Workflow):Omit<StepResourceDeps,'extract'>;
  /** Quy tắc lõi PVTA (Brain, gợi ý, harness) cho cả lượt chạy; tính một lần, lỗi thì chạy tiếp không có khối này. */
- coreRules?(cwd:string|undefined,signal:AbortSignal):Promise<string>;
+ coreRules?(cwd:string|undefined,signal:AbortSignal,projectId?:string):Promise<string>;
  /** Cờ việc gấp: số bước song song tối đa ngay lúc này (tính lại trước mỗi lần mở bước mới). */
  concurrency?(requested:number):Promise<number>;
  /** Nhà cung cấp báo quá nhiều yêu cầu (429). */
@@ -317,7 +317,7 @@ export class WorkflowRunner{
    }else if(hasCode){runDir=previous!.workdir;run.workdir=runDir;}
    const frameLang=new Map<string,string>(),frameCode=new Map<string,string[]>();
    let coreRulesOnce:Promise<string>|undefined;
-   const coreRulesFor=()=>this.d.coreRules?(coreRulesOnce??=this.d.coreRules(cwd,ctl.signal).catch(()=>'')):undefined;
+   const coreRulesFor=()=>this.d.coreRules?(coreRulesOnce??=this.d.coreRules(cwd,ctl.signal,wf.projectId).catch(()=>'')):undefined;
    run.signature=createHash('sha256').update(JSON.stringify({name:wf.name,steps,source,input:wf.input,folder:cwd,mode:wf.mode??'sequential',maxConcurrency:wf.maxConcurrency??2})).digest('hex');
    // Dấu vân tay theo từng nút: sửa nút nào thì chỉ nút đó và các nút sau nó chạy lại; nút trước vẫn giữ kết quả thành công.
    // Tài nguyên (nội dung tệp, skill, quy tắc) được băm cùng, nên đổi nội dung mà giữ nguyên đường dẫn vẫn buộc chạy lại.
@@ -397,7 +397,7 @@ export class WorkflowRunner{
       +(step.access==='full'&&(runDir??cwd)?`\nQUYỀN: CHỈNH SỬA. Thư mục làm việc: ${runDir??cwd}. Được sửa tệp và chạy lệnh tại đây; không xóa tệp ngoài yêu cầu, báo lại những gì đã đổi.`:'\nQUYỀN: CHỈ ĐỌC. Không ghi hay sửa tệp.')+coreRules;
      const where=runDir??cwd;
      const choice=step.choice==='auto'?undefined:step.choice;
-     let out=parsed&&!parsed.text?'':await this.d.model(text,system,ctl.signal,choice,where?{cwd:where,permission:step.access==='full'?'full':'read',timeoutMs:900_000}:undefined,extra.images.length?extra.images:undefined);
+     let out=parsed&&!parsed.text?'':await this.d.model(text,system,ctl.signal,choice,where||wf.projectId?{cwd:where,projectId:wf.projectId,permission:step.access==='full'?'full':'read',timeoutMs:900_000}:undefined,extra.images.length?extra.images:undefined);
      ctl.signal.throwIfAborted();
      let extraFiles:string[]=[];
      if(decl){

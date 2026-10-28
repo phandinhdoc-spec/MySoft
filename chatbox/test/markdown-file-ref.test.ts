@@ -97,7 +97,7 @@ describe('tên tệp trong Markdown', () => {
     expect(mocks.rpc).toHaveBeenCalledWith('openFileRef', {ref: 'a.png', chatId: 'c1'});
   });
 
-  it('menu chuột phải của tệp Office có «Mở bằng CHITUP OFFICE» và «Mở bằng Visual Studio Code»', async () => {
+  it('menu chuột phải của tệp Office có «Mở bằng Microsoft Office» và «Mở bằng Visual Studio Code»', async () => {
     await act(async () => {root.render(React.createElement(Markdown, {text: 'Xem `Bang-diem.xlsx` và `ghi-chu.md`.', chatId: 'c1'}));});
     const open = async (n: number) => {
       await act(async () => {host.querySelectorAll<HTMLElement>('.pvta-file-ref')[n]!.dispatchEvent(new MouseEvent('contextmenu', {bubbles: true, cancelable: true, clientX: 5, clientY: 5}));});
@@ -105,12 +105,32 @@ describe('tên tệp trong Markdown', () => {
     };
     let items = await open(0);
     expect(host.querySelectorAll<HTMLElement>('.pvta-file-ref')[0]!.dataset.pvtaFileKind).toBe('excel');
-    expect(items.map(i => i.textContent)).toEqual(expect.arrayContaining(['Mở bằng CHITUP OFFICE', 'Mở bằng Visual Studio Code']));
-    await act(async () => {items.find(i => i.textContent === 'Mở bằng CHITUP OFFICE')!.click();});
-    expect(mocks.rpc).toHaveBeenCalledWith('openFileRef', {ref: 'Bang-diem.xlsx', chatId: 'c1', app: 'chitup'});
+    expect(items.map(i => i.textContent)).toEqual(expect.arrayContaining(['Mở bằng Microsoft Office', 'Mở bằng Visual Studio Code', 'Xem & chỉnh sửa trong PVTA']));
+    await act(async () => {items.find(i => i.textContent === 'Mở bằng Microsoft Office')!.click();});
+    expect(mocks.rpc).toHaveBeenCalledWith('openFileRef', {ref: 'Bang-diem.xlsx', chatId: 'c1', app: 'office'});
     items = await open(1);
-    expect(items.map(i => i.textContent)).not.toContain('Mở bằng CHITUP OFFICE');
+    expect(items.map(i => i.textContent)).not.toContain('Mở bằng Microsoft Office');
+    expect(items.map(i => i.textContent)).toContain('Xem & chỉnh sửa trong PVTA');
     await act(async () => {items.find(i => i.textContent === 'Mở bằng Visual Studio Code')!.click();});
     expect(mocks.rpc).toHaveBeenCalledWith('openFileRef', {ref: 'ghi-chu.md', chatId: 'c1', app: 'vscode'});
+  });
+
+  it('bấm chuột một lần vào tên tệp mở ngay menu Xem + Chỉnh sửa; chọn Xem & chỉnh sửa trong PVTA gọi resolveFileRef và mở trình sửa', async () => {
+    mocks.rpc.mockResolvedValue({path: '/Users/a/Giao-an.docx', name: 'Giao-an.docx'});
+    const edited: string[] = [];
+    const onEdit = (e: Event) => edited.push((e as CustomEvent).detail.path);
+    window.addEventListener('pvta-edit-file', onEdit);
+    try {
+      await act(async () => {root.render(React.createElement(Markdown, {text: 'Đã tạo `Giao-an.docx`.', chatId: 'c1'}));});
+      const node = host.querySelector<HTMLElement>('.pvta-file-ref')!;
+      await act(async () => {node.click();});
+      const items = Array.from(document.querySelectorAll<HTMLElement>('.object-menu [role="menuitem"]'));
+      expect(items.map(i => i.textContent)).toEqual(expect.arrayContaining(['Mở tệp', 'Xem & chỉnh sửa trong PVTA', 'Mở bằng Microsoft Office']));
+      await act(async () => {items.find(i => i.textContent === 'Xem & chỉnh sửa trong PVTA')!.click();});
+      expect(mocks.rpc).toHaveBeenCalledWith('resolveFileRef', {ref: 'Giao-an.docx', chatId: 'c1'});
+      expect(edited).toEqual(['/Users/a/Giao-an.docx']);
+    } finally {
+      window.removeEventListener('pvta-edit-file', onEdit);
+    }
   });
 });

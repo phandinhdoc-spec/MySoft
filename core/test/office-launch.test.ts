@@ -1,6 +1,6 @@
 import {it,expect,vi} from 'vitest';
 import {zipSync,unzipSync,strToU8,strFromU8} from 'fflate';
-import {embedDesktopAddin,matchesOfficeDocument,DESKTOP_ADDIN_ID,OFFICE_APPS} from '../src/desktop/office-launch';
+import {embedDesktopAddin,ensureDocumentAddin,matchesOfficeDocument,DESKTOP_ADDIN_ID,OFFICE_APPS} from '../src/desktop/office-launch';
 import {OfficeLive} from '../src/desktop/office-live';
 import * as launcher from '../src/desktop/office-launch';
 import fs from 'node:fs';import os from 'node:os';import path from 'node:path';
@@ -26,4 +26,32 @@ it('launch creates a unique file after setup, rejects duplicate clicks and relea
   setup.mockResolvedValue({installed:true});create.mockRejectedValueOnce(Error('Tạo tệp thất bại'));await expect(live.createAndOpen('excel')).rejects.toThrow('Tạo tệp');expect(open).toHaveBeenCalledTimes(1);await expect(live.createAndOpen('powerpoint')).resolves.toMatchObject({host:'powerpoint'});
   await expect(live.createAndOpen('shell')).rejects.toThrow('không hợp lệ');
  }finally{check.mockRestore();create.mockRestore();open.mockRestore();live.stop();fs.rmSync(home,{recursive:true,force:true});}
+});
+it('embeds AutoShowTaskpaneWithDocument idempotently into an existing Office file without requiring a ticket',()=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'pvta-existing-doc-'));
+ const file=path.join(dir,'bai-cu.docx');
+ const rels='<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Target="document.xml" Type="original"/></Relationships>';
+ fs.writeFileSync(file,zipSync({'_rels/.rels':strToU8(rels),'[Content_Types].xml':strToU8('<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"></Types>'),'document.xml':strToU8('noi-dung')}));
+ try{
+  expect(ensureDocumentAddin(file)).toBe(true);
+  expect(ensureDocumentAddin(file)).toBe(true);
+  const parts=unzipSync(fs.readFileSync(file));
+  expect(strFromU8(parts['word/webextensions/webextension1.xml']!)).toContain('Office.AutoShowTaskpaneWithDocument');
+  expect(strFromU8(parts['word/webextensions/webextension1.xml']!)).not.toContain('PVTA.LaunchTicket');
+  expect(strFromU8(parts['_rels/.rels']!).match(/pvtaTaskpanes/g)).toHaveLength(1);
+ }finally{fs.rmSync(dir,{recursive:true,force:true});}
+});
+it('falls back to clean wef-free direct file connection when macOS blocks wef',async()=>{
+ const home=fs.mkdtempSync(path.join(os.tmpdir(),'pvta-direct-launch-')),live=new OfficeLive(home,'assets',()=>{});
+ const check=vi.spyOn(launcher,'assertOfficeInstalled').mockImplementation(()=>{});
+ const cleanCreate=vi.spyOn(launcher,'createCleanOfficeDocument').mockImplementation(async file=>{fs.writeFileSync(file,'clean-doc');});
+ const open=vi.spyOn(launcher,'openOfficeDocument').mockResolvedValue();
+ vi.spyOn(live,'installMac').mockRejectedValue(Error('macOS đang chặn PVTA ghi tệp đăng ký vào thư mục wef'));
+ try{
+  const result=await live.createAndOpen('word');
+  expect(result).toMatchObject({host:'word',direct:true});
+  expect(cleanCreate).toHaveBeenCalledWith(result.path);
+  expect(open).toHaveBeenCalledWith(result.path,'word');
+  expect(live.selectedSession()).toMatchObject({host:'word',name:path.basename(result.path),mode:'direct'});
+ }finally{check.mockRestore();cleanCreate.mockRestore();open.mockRestore();live.stop();fs.rmSync(home,{recursive:true,force:true});}
 });

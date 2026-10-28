@@ -1,4 +1,5 @@
 mod terminal;
+mod command_session;
 use std::{collections::HashMap, sync::{Arc, Mutex}, time::Duration};
 use serde_json::Value;
 use tauri::{Emitter, Manager};
@@ -44,7 +45,7 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .manage(CoreState {child:Arc::new(Mutex::new(None)),pending:Arc::new(Mutex::new(HashMap::new())),error:Arc::new(Mutex::new(None))})
         .manage(terminal::TerminalState::default())
-        .invoke_handler(tauri::generate_handler![rpc, terminal::terminal_open, terminal::terminal_write, terminal::terminal_resize, terminal::terminal_close])
+        .invoke_handler(tauri::generate_handler![rpc, terminal::terminal_open, terminal::terminal_write, terminal::terminal_close])
         .setup(|app| {
             let handle = app.handle().clone();
             let state = app.state::<CoreState>();

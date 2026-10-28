@@ -201,7 +201,7 @@ export type ClientMessage =
   | { type: "ws_delete"; id: string }
   | { type: "ws_project"; project: { id?: string; name?: string; rules?: string } }
   | { type: "ws_project_delete"; id: string }
-  | { type: "ws_rules"; rules: string }
+  | { type: "ws_rules"; rules: string; scope?: "global" | "host" | "doc" | "chat"; host?: OfficeHost; id?: string; doc?: string }
   | { type: "ws_link"; link: boolean }
   /** Tệp đính kèm (đã trích chữ ở add-in) vào một hội thoại (id = mã hội thoại) hoặc một dự án (id = mã dự án). */
   | { type: "file_add"; scope: "chat" | "project"; id: string; name: string; text: string }
@@ -260,6 +260,10 @@ export interface ChatMeta {
   updatedAt: number;
   /** Tóm tắt ngắn do PVTA viết cho hội thoại trong dự án (bộ nhớ của dự án). */
   digest?: string;
+  /** Quy tắc riêng cho hội thoại / văn bản cụ thể này. */
+  rules?: string;
+  /** Tên tệp tài liệu gắn với hội thoại (nếu có). */
+  docName?: string;
 }
 /**
  * Gợi ý cho tệp đang mở. Chỉ gửi mã (id); add-in tự tra tên hiển thị. `source`: local = luật cục bộ (tức thì, không tốn hạn mức),
@@ -322,6 +326,14 @@ export interface WorkspaceState {
   chats: ChatMeta[];
   projects: ProjectMeta[];
   globalRules: string;
+  /** Quy tắc riêng cho từng ứng dụng Office (Word khác, Excel khác, PowerPoint khác). */
+  hostRules?: Partial<Record<OfficeHost, string>>;
+  /** Quy tắc riêng cho văn bản / hội thoại đang soạn thảo ở cửa sổ này. */
+  docRules?: string;
+  /** Bản đồ quy tắc theo từng tệp tài liệu hoặc mã hội thoại trên Office. */
+  documentRules?: Record<string, string>;
+  /** Tên tài liệu đang mở ở cửa sổ này. */
+  activeDoc?: string;
   /** Hội thoại dùng chung giữa Word, Excel, PowerPoint. */
   link: boolean;
   /** Hội thoại đang mở ở cửa sổ này. */

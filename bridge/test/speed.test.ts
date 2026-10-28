@@ -15,13 +15,13 @@ const FAKE = path.join(here, "fixtures", "fake-cli.mjs");
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "pvta-speed-"));
 const lines = (f: string) => (fs.existsSync(f) ? fs.readFileSync(f, "utf8").trim().split("\n").filter(Boolean) : []);
 
-function engineWith(mode = "ok") {
+function engineWith(mode = "ok", allowPrewarm = false) {
   const dir = tmp();
   const log = path.join(dir, "calls.log");
   const sys = path.join(dir, "sys.log");
   const stdin = path.join(dir, "stdin.log");
   const env = { ...process.env, PVTA_CLAUDE_BIN: FAKE, FAKE_MODE: mode, FAKE_LOG: log, FAKE_SYS_LOG: sys, FAKE_STDIN_LOG: stdin };
-  const engine = new Engine({ probe: new ProbeStore(path.join(dir, "p.json")), env });
+  const engine = new Engine({ probe: new ProbeStore(path.join(dir, "p.json")), env, allowPrewarm });
   const calls = () => lines(log).map((l) => JSON.parse(l) as string[]).filter((a) => !a.includes("--version") && !a.includes("--help"));
   return { dir, engine, calls, sysLog: () => (fs.existsSync(sys) ? fs.readFileSync(sys, "utf8") : ""), stdinLog: () => (fs.existsSync(stdin) ? fs.readFileSync(stdin, "utf8") : "") };
 }
@@ -64,7 +64,7 @@ describe("tốc độ: engine", () => {
   });
 
   it("khởi động sẵn: lần gọi dùng tiến trình đã chờ, không khởi động thêm", async () => {
-    const t = engineWith();
+    const t = engineWith('ok',true);
     const base = { backend: "claude" as const, model: "sonnet", cwd: t.dir, permission: "ask" as const, effort: "low" as const, system: "S" };
     expect(await t.engine.prewarm(base)).toBe(true);
     expect(await t.engine.prewarm(base)).toBe(true); // gọi lại: dùng tiến trình cũ, không thêm
@@ -135,13 +135,14 @@ describe("tốc độ và cách ứng xử: qua server", () => {
     t.ws.close();
   });
 
-  it("đang gõ thì khởi động sẵn; tin nhắn gửi đi dùng tiến trình đó", async () => {
+  it("đang gõ không giữ CLI chờ; chỉ khởi động khi gửi tin nhắn", async () => {
     const t = await boot();
     t.send({ type: "prewarm", kind: "chat", model: SONNET, effort: "low" });
     await new Promise((r) => setTimeout(r, 400));
+    expect(t.calls()).toHaveLength(0);
     t.send({ type: "chat", id: "1", text: "chào", model: SONNET, effort: "low" });
     const done = await t.until("done");
-    expect(done.timings.warm).toBe(true);
+    expect(done.timings.warm).not.toBe(true);
     expect(t.calls()).toHaveLength(1);
     t.ws.close();
   });

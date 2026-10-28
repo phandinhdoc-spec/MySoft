@@ -234,19 +234,19 @@ describe("chế độ Nhanh của claude", () => {
 });
 
 describe("backend agy", () => {
-  it("prompt qua stdin (-p -), luôn dùng Plan và sandbox; không bỏ qua quyền", () => {
+  it("prompt qua NDJSON stdin, giữ chính sách tự duyệt AGY và mã hội thoại", () => {
     const ask = agyBackend.invocation({ model: "m", prompt: "P", permission: "ask" });
     const full = agyBackend.invocation({ model: "m", prompt: "P", permission: "full", conversationId: "c1" });
-    expect(ask.args.find((a) => a.flag === "-p")?.value).toBe("-");
-    expect(ask.stdin).toBe("P");
-    expect(ask.args.some((a) => a.flag === "--dangerously-skip-permissions")).toBe(false);
-    expect(full.args.some((a) => a.flag === "--dangerously-skip-permissions")).toBe(false);
-    expect(full.args.find((a) => a.flag === "--mode")).toMatchObject({value:"plan",essential:true});
+    expect(ask.args.find((a) => a.flag === "-p")).toBeUndefined();
+    expect(JSON.parse(ask.stdin!)).toEqual({event:'user',message:{content:'P'}});
+    expect(ask.args.some((a) => a.flag === "--dangerously-skip-permissions")).toBe(true);
+    expect(full.args.some((a) => a.flag === "--dangerously-skip-permissions")).toBe(true);
+    expect(full.args.find((a) => a.flag === "--mode")).toBeUndefined();
     const write = agyBackend.invocation({ model: "m", prompt: "P", permission: "full", workspaceWrite: true });
     expect(write.args.some((a) => a.flag === "--mode")).toBe(false);
     expect(write.args.find((a) => a.flag === "--dangerously-skip-permissions")).toMatchObject({essential:true});
     expect(write.args.some((a) => a.flag === "--sandbox")).toBe(false);
-    expect(full.args.find((a) => a.flag === "--sandbox")).toMatchObject({essential:true});
+    expect(full.args.find((a) => a.flag === "--sandbox")).toBeUndefined();
     expect(full.args.find((a) => a.flag === "--conversation")?.value).toBe("c1");
   });
   it("phân tích init / step_update / result có denied_actions", () => {

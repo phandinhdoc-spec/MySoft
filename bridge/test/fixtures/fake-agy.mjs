@@ -8,9 +8,19 @@ if (args.includes("--yolo")) {
   process.exit(2);
 }
 const mode = process.env.FAKE_MODE || "ok";
+if (!args.includes('--input-format') || args[args.indexOf('--input-format') + 1] !== 'stream-json' || args.includes('-p')) {
+  process.stderr.write('Expected stream-json stdin without -p\n');
+  process.exit(2);
+}
+let input = '';
+for await (const chunk of process.stdin) input += chunk;
+const message = JSON.parse(input);
+if (message.event !== 'user' || typeof message.message?.content !== 'string') throw Error('Invalid user event');
 const out = (o) => process.stdout.write(JSON.stringify(o) + "\n");
 out({ type: "init" });
-if (mode === "cwd") {
+if (mode === "echo-prompt") {
+  out({ type: "result", status: "COMPLETED", conversation_id: "conv-9", response: message.message.content });
+} else if (mode === "cwd") {
   out({ type: "result", status: "COMPLETED", conversation_id: "conv-9", response: process.cwd() });
 } else if (mode === "denied") {
   out({ type: "result", status: "COMPLETED", conversation_id: "conv-9", response: "", denied_actions: [{ action: "write", path: "/x" }] });

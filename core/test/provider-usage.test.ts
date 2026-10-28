@@ -17,3 +17,16 @@ it('reads the full Claude usage snapshot before any model turn, where utilizatio
  const {parseUsageSnapshot}=await import('../src/provider-usage');
  expect(parseUsageSnapshot('claude',{rate_limits_available:true,rate_limits:{five_hour:{utilization:32,resets_at:'2027-01-15T08:00:00Z'},seven_day:{utilization:64,resets_at:'2027-01-19T08:00:00Z'}}},123)).toMatchObject({fiveHour:{usedPercent:32},week:{usedPercent:64}});
 });
+it('reads Antigravity (agy) quota groups and matches the selected model family',async()=>{
+ const {parseUsageSnapshot}=await import('../src/provider-usage');
+ const payload={status:'SUCCESS',command:{name:'usage',data:{groups:[
+  {name:'Gemini Models',buckets:[{id:'gemini-weekly',window:'weekly',remaining_fraction:0.95,reset_time:'2027-01-19T08:00:00Z'},{id:'gemini-5h',window:'5h',remaining_fraction:0.9,reset_time:'2027-01-15T08:00:00Z'}]},
+  {name:'Claude and GPT models',buckets:[{id:'3p-weekly',window:'weekly',remaining_fraction:0.5,reset_time:'2027-01-19T08:00:00Z'},{id:'3p-5h',window:'5h',remaining_fraction:1,reset_time:'2027-01-15T08:00:00Z'}]}
+ ]}}};
+ const gemini=parseUsageSnapshot('agy',payload,123,'gemini-3.8-flash');
+ expect(gemini?.fiveHour?.usedPercent).toBeCloseTo(10,5);
+ expect(gemini?.week?.usedPercent).toBeCloseTo(5,5);
+ const thirdParty=parseUsageSnapshot('agy',payload,123,'claude-sonnet-5-5');
+ expect(thirdParty?.fiveHour?.usedPercent).toBeCloseTo(0,5);
+ expect(thirdParty?.week?.usedPercent).toBeCloseTo(50,5);
+});

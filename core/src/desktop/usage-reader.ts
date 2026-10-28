@@ -7,11 +7,11 @@ import {parseUsageSnapshot} from '../provider-usage.js';
 import type {ProviderUsage} from '@pvta/shared';
 
 /** Read quota through the installed CLI's own authentication. Never send a user/model turn. */
-export async function readProviderUsage(backend:'claude'|'codex',options:{signal?:AbortSignal;env?:NodeJS.ProcessEnv;spawn?:(backend:string)=>ChildProcess;timeoutMs?:number}={}):Promise<ProviderUsage>{
+export async function readProviderUsage(backend:'agy'|'claude'|'codex',options:{model?:string;signal?:AbortSignal;env?:NodeJS.ProcessEnv;spawn?:(backend:string)=>ChildProcess;timeoutMs?:number}={}):Promise<ProviderUsage>{
  const child=options.spawn?options.spawn(backend):(()=>{
   const env=cleanEnv(options.env??process.env),bin=resolveBin(BACKENDS[backend],env);
   if(backend==='claude'){env.CLAUDE_CODE_DISABLE_CLAUDE_MDS='1';env.CLAUDE_CODE_DISABLE_AUTO_MEMORY='1';}
-  const args=backend==='claude'?['--print','--verbose','--input-format','stream-json','--output-format','stream-json','--no-session-persistence','--tools','','--strict-mcp-config','--mcp-config','{"mcpServers":{}}','--disable-slash-commands','--settings','{"disableAllHooks":true}']:['app-server','--listen','stdio://'];
+  const args=backend==='claude'?['--print','--verbose','--input-format','stream-json','--output-format','stream-json','--no-session-persistence','--tools','','--strict-mcp-config','--mcp-config','{"mcpServers":{}}','--disable-slash-commands','--settings','{"disableAllHooks":true}']:backend==='agy'?['--print','/usage','--output-format','json']:['app-server','--listen','stdio://'];
   return launch(buildSpawn(process.platform,bin,args.map(flag=>({flag})),process.platform==='win32'?{target:resolveWin(bin,env)}:undefined),{cwd:os.tmpdir(),env});
  })();
  return new Promise((resolve,reject)=>{
@@ -29,7 +29,12 @@ export async function readProviderUsage(backend:'claude'|'codex',options:{signal
    received+=chunk.length;if(received>2_000_000){finish(Error('Phản hồi hạn mức quá lớn.'));return;}
    buffer+=chunk;let newline:number;
    while((newline=buffer.indexOf('\n'))>=0){const line=buffer.slice(0,newline);buffer=buffer.slice(newline+1);let event:any;try{event=JSON.parse(line);}catch{continue;}
-    if(backend==='claude'){
+    if(backend==='agy'){
+     if(event.status==='ERROR'||event.event==='error'){finish(Error(event.error?.message??event.message??'Antigravity chưa trả số liệu hạn mức.'));return;}
+     const usage=parseUsageSnapshot('agy',event,Date.now(),options.model);
+     if(usage)finish(undefined,usage);
+     else if(event.status||event.event==='result')finish(Error('Antigravity chưa cung cấp số phần trăm hạn mức cho phiên đăng nhập hiện tại.'));
+    }else if(backend==='claude'){
      const response=event.type==='control_response'?event.response:undefined;
      if(response?.request_id==='usage-init'){
       if(response.subtype==='error'){finish(Error('CLI chưa hỗ trợ truy vấn hạn mức.'));return;}
@@ -46,7 +51,8 @@ export async function readProviderUsage(backend:'claude'|'codex',options:{signal
    }
   });
   if(options.signal?.aborted){abort();return;}options.signal?.addEventListener('abort',abort,{once:true});
-  if(backend==='claude')send({type:'control_request',request_id:'usage-init',request:{subtype:'initialize',hooks:{}}});
+  if(backend==='agy')child.stdin?.end();
+  else if(backend==='claude')send({type:'control_request',request_id:'usage-init',request:{subtype:'initialize',hooks:{}}});
   else send({id:1,method:'initialize',params:{clientInfo:{name:'pvta_usage',version:'1.4.2'},capabilities:{experimentalApi:true}}});
  });
 }

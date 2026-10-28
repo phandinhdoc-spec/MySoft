@@ -11,6 +11,12 @@ interface Props {
   t: Strings;
   host: OfficeHost;
   ws: WorkspaceState;
+  /** Mã hội thoại hiện tại ở cửa sổ này (kể cả khi mới tạo chưa có tin nhắn). */
+  activeChatId?: string;
+  /** Tên tài liệu đang mở ở cửa sổ này. */
+  docName?: string;
+  /** Mở thẳng khung sửa quy tắc cho phạm vi chỉ định ("__doc", "__global", mã dự án, mã hội thoại). */
+  initialRulesFor?: string | null;
   send(m: ClientMessage): boolean;
   /** Mở hội thoại; không id = hội thoại mới (trong dự án nếu có). */
   onOpen(id?: string, projectId?: string): void;
@@ -25,6 +31,30 @@ interface Props {
 
 const NO_PROJECT = "__none";
 
+/** Các mẫu quy tắc văn bản 1 chạm thường dùng cho giáo viên phổ thông. */
+export const DOC_RULE_PRESETS: ReadonlyArray<{ id: string; label: string; text: string }> = [
+  {
+    id: "exam2018",
+    label: "📝 Đề thi GDPT 2018",
+    text: "Chuẩn đề kiểm tra CTGDPT 2018 (Trắc nghiệm 4 lựa chọn, Đúng/Sai 4 ý a-b-c-d, Trả lời ngắn, Tự luận). Phông Times New Roman 13pt, giãn dòng 1.2, nhãn 'Câu 1.' in đậm, mọi công thức Toán/Lý/Hóa viết thành Equation chuẩn, dùng đơn vị SI.",
+  },
+  {
+    id: "khbd5512",
+    label: "📘 KHBD 5512",
+    text: "Biên soạn Kế hoạch bài dạy chuẩn Công văn 5512/BGDĐT-GDTrH: đủ 4 hoạt động (Mở đầu, Hình thành kiến thức mới, Luyện tập, Vận dụng); mỗi hoạt động đủ 4 mục (a. Mục tiêu, b. Nội dung, c. Sản phẩm, d. Tổ chức thực hiện trình bày bảng 2 cột: Hoạt động của GV & HS | Dự kiến sản phẩm).",
+  },
+  {
+    id: "nd30",
+    label: "🏛 Công văn / Kế hoạch NĐ 30",
+    text: "Chuẩn thể thức văn bản hành chính Nghị định 30/2020/NĐ-CP: Quốc hiệu - Tiêu ngữ, tên cơ quan, số ký hiệu, nơi nhận, chữ ký; phông Times New Roman 13-14pt, căn đều hai bên (Justify), lề trái 3cm, trên/dưới 2cm, phải 1.5cm.",
+  },
+  {
+    id: "skkn",
+    label: "💡 SKKN / Báo cáo",
+    text: "Văn phong khoa học sư phạm: cấu trúc Đặt vấn đề - Giải pháp thực hiện (kèm bảng số liệu minh chứng trước/sau áp dụng tính chính xác bằng office_calc) - Kết luận & Kiến nghị; phân cấp đề mục rõ ràng, không dùng từ khẩu ngữ.",
+  },
+];
+
 function ago(ts: number, now: number, t: Strings): string {
   const m = Math.max(0, Math.floor((now - ts) / 60000));
   if (m < 1) return t.ws.justNow;
@@ -34,15 +64,36 @@ function ago(ts: number, now: number, t: Strings): string {
   return new Date(ts).toLocaleDateString();
 }
 
-/** Ngăn "Hội thoại & dự án": hội thoại gom theo dự án; quy tắc chung và quy tắc từng dự án; liên kết giữa các ứng dụng. */
-export function SessionsDrawer({ standardized, t, host, ws, send, onOpen, onClose, note, onNote, noteOf, ocr }: Props) {
+/** Ngăn "Hội thoại & dự án": hội thoại gom theo dự án; quy tắc chung, quy tắc dự án và quy tắc riêng cho từng văn bản/hội thoại; liên kết giữa các ứng dụng. */
+export function SessionsDrawer({ standardized, t, host, ws, activeChatId, docName, initialRulesFor, send, onOpen, onClose, note, onNote, noteOf, ocr }: Props) {
   const [confirm, setConfirm] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
-  const [rulesFor, setRulesFor] = useState<string | null>(null); // "__global" hoặc mã dự án
-  const [rulesDraft, setRulesDraft] = useState("");
+  const currentDocLabel = docName || ws.activeDoc || "";
+  const hostLabel = host === "word" ? "Word" : host === "excel" ? "Excel" : "PowerPoint";
+  const currentHostRules = ws.hostRules?.[host] ?? "";
+  const resolveRulesText = (target: string | null | undefined): string => {
+    if (!target) return "";
+    if (target === "__global") return ws.globalRules;
+    if (target === "__host") return currentHostRules;
+    if (target === "__doc") return ws.docRules ?? "";
+    const proj = ws.projects.find((p) => p.id === target);
+    if (proj) return proj.rules;
+    const chat = ws.chats.find((c) => c.id === target);
+    if (chat) return chat.rules ?? ws.documentRules?.[`chat:${chat.id}`] ?? "";
+    return "";
+  };
+  const [rulesFor, setRulesFor] = useState<string | null>(() => initialRulesFor ?? null); // "__doc", "__global", mã dự án, hoặc mã hội thoại
+  const [rulesDraft, setRulesDraft] = useState(() => resolveRulesText(initialRulesFor));
   const [newProject, setNewProject] = useState(false);
   const [now] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (initialRulesFor) {
+      setRulesFor(initialRulesFor);
+      setRulesDraft(resolveRulesText(initialRulesFor));
+    }
+  }, [initialRulesFor]);
 
   useEffect(() => {
     if (!confirm) return;
@@ -54,13 +105,22 @@ export function SessionsDrawer({ standardized, t, host, ws, send, onOpen, onClos
   const chats = useMemo(() => ws.chats.filter((c) => ws.link || c.host === host || c.id === ws.active), [ws.chats, ws.link, host, ws.active]);
   const byProject = (pid: string | undefined) => chats.filter((c) => (c.projectId ?? NO_PROJECT) === (pid ?? NO_PROJECT));
 
-  const openRules = (key: string, current: string) => {
+  const openRules = (key: string, current?: string) => {
     setRulesFor(key);
-    setRulesDraft(current);
+    setRulesDraft(current !== undefined ? current : resolveRulesText(key));
   };
   const saveRules = () => {
-    if (rulesFor === "__global") send({ type: "ws_rules", rules: rulesDraft });
-    else if (rulesFor) send({ type: "ws_project", project: { id: rulesFor, rules: rulesDraft } });
+    if (rulesFor === "__global") {
+      send({ type: "ws_rules", scope: "global", rules: rulesDraft });
+    } else if (rulesFor === "__host") {
+      send({ type: "ws_rules", scope: "host", host, rules: rulesDraft });
+    } else if (rulesFor === "__doc") {
+      send({ type: "ws_rules", scope: "doc", rules: rulesDraft, id: activeChatId || ws.active, doc: currentDocLabel || undefined });
+    } else if (rulesFor && ws.projects.some((p) => p.id === rulesFor)) {
+      send({ type: "ws_project", project: { id: rulesFor, rules: rulesDraft } });
+    } else if (rulesFor) {
+      send({ type: "ws_rules", scope: "chat", id: rulesFor, rules: rulesDraft });
+    }
     setRulesFor(null);
   };
   const del = (key: string, run: () => void) => {
@@ -117,6 +177,14 @@ export function SessionsDrawer({ standardized, t, host, ws, send, onOpen, onClos
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </select>
+          <button
+            className="icon sm"
+            aria-label={`${t.ws.rules}: ${c.title}`}
+            title={`${t.ws.rules}${c.rules ? ` · ${t.ws.rulesHas}` : ""}`}
+            onClick={() => openRules(c.id, c.rules ?? "")}
+          >
+            {c.rules ? "📏" : "⚖"}
+          </button>
           <button
             className="icon sm"
             aria-label={t.ws.rename}
@@ -213,7 +281,24 @@ export function SessionsDrawer({ standardized, t, host, ws, send, onOpen, onClos
     );
   };
 
-  const rulesTitle = rulesFor === "__global" ? t.ws.rulesGlobal : ws.projects.find((p) => p.id === rulesFor)?.name;
+  const rulesTitle =
+    rulesFor === "__global"
+      ? t.ws.rulesGlobal
+      : rulesFor === "__host"
+        ? t.ws.rulesHost(hostLabel)
+        : rulesFor === "__doc"
+          ? `${t.ws.rulesDoc}${currentDocLabel ? ` (${currentDocLabel})` : ""}`
+          : ws.projects.find((p) => p.id === rulesFor)?.name ?? ws.chats.find((c) => c.id === rulesFor)?.title ?? t.ws.rules;
+  const rulesHint =
+    rulesFor === "__global"
+      ? t.ws.rulesGlobalHint
+      : rulesFor === "__host"
+        ? t.ws.rulesHostHint(hostLabel)
+        : rulesFor === "__doc"
+          ? t.ws.rulesDocHint
+          : ws.projects.some((p) => p.id === rulesFor)
+            ? t.ws.rulesProjectHint
+            : t.ws.rulesChatHint;
 
   return (
     <div className="sheet-wrap" onClick={onClose}>
@@ -228,6 +313,14 @@ export function SessionsDrawer({ standardized, t, host, ws, send, onOpen, onClos
             onClick={() => send({ type: "ws_link", link: !ws.link })}
           >
             🔗
+          </button>
+          <button
+            className={`icon${ws.docRules ? " on" : ""}`}
+            aria-label={t.ws.rulesDoc}
+            title={`${t.ws.rulesDoc}${currentDocLabel ? `: ${currentDocLabel}` : ""}`}
+            onClick={() => openRules("__doc")}
+          >
+            📄
           </button>
           <button className="icon" aria-label={t.ws.rulesGlobal} title={t.ws.rulesGlobal} onClick={() => openRules("__global", ws.globalRules)}>
             {ws.globalRules ? "📏" : "✎"}
@@ -254,13 +347,66 @@ export function SessionsDrawer({ standardized, t, host, ws, send, onOpen, onClos
               <button type="submit" className="link">{t.ws.save}</button>
             </form>
           )}
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+            <button
+              type="button"
+              className={`pill ${rulesFor === "__doc" || (!rulesFor && ws.docRules) ? "on" : ""}`}
+              onClick={() => openRules("__doc")}
+              title={t.ws.rulesDocHint}
+            >
+              📄 {t.ws.rulesDoc}{ws.docRules ? " · 📏" : ""}
+            </button>
+            {ws.activeProject && (
+              <button
+                type="button"
+                className={`pill ${rulesFor === ws.activeProject ? "on" : ""}`}
+                onClick={() => openRules(ws.activeProject!)}
+                title={t.ws.rulesProjectHint}
+              >
+                📁 {ws.projects.find((p) => p.id === ws.activeProject)?.name ?? t.ws.rules}
+              </button>
+            )}
+            <button
+              type="button"
+              className={`pill ${rulesFor === "__host" ? "on" : ""}`}
+              onClick={() => openRules("__host", currentHostRules)}
+              title={t.ws.rulesHostHint(hostLabel)}
+            >
+              {t.ws.hostTag[host]} {t.ws.rulesHost(hostLabel)}{currentHostRules ? " · 📏" : ""}
+            </button>
+            <button
+              type="button"
+              className={`pill ${rulesFor === "__global" ? "on" : ""}`}
+              onClick={() => openRules("__global", ws.globalRules)}
+              title={t.ws.rulesGlobalHint}
+            >
+              🌐 {t.ws.rulesGlobal}{ws.globalRules ? " · 📏" : ""}
+            </button>
+          </div>
           {rulesFor && (
             <div className="ws-rules">
               <strong>{t.ws.rules}: {rulesTitle}</strong>
-              <p className="sub">{rulesFor === "__global" ? t.ws.rulesGlobalHint : t.ws.rulesProjectHint}</p>
+              <p className="sub">{rulesHint}</p>
+              <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 6 }}>
+                {DOC_RULE_PRESETS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    className="pill"
+                    title={preset.text}
+                    onClick={() =>
+                      setRulesDraft((prev) =>
+                        prev.includes(preset.text) ? prev : prev.trim() ? `${prev.trim()}\n${preset.text}` : preset.text,
+                      )
+                    }
+                  >
+                    + {preset.label}
+                  </button>
+                ))}
+              </div>
               <textarea rows={4} maxLength={2000} value={rulesDraft} onChange={(e) => setRulesDraft(e.target.value)} aria-label={t.ws.rules} />
               <StandardizePreviewBox key={rulesFor} kind="rule" text={rulesDraft} reply={standardized} send={send} onApply={setRulesDraft}/>
-              {rulesFor === "__global" && ws.chatRules && (ws.chatRules.text.trim() || ws.chatRules.rules.length > 0) && (
+              {ws.chatRules && (ws.chatRules.text.trim() || ws.chatRules.rules.length > 0) && (
                 <details className="ws-chat-rules">
                   <summary>
                     {t.nb.chatRules} · {ws.chatRules.rules.length + (ws.chatRules.text.trim() ? 1 : 0)}
@@ -269,9 +415,23 @@ export function SessionsDrawer({ standardized, t, host, ws, send, onOpen, onClos
                   {ws.chatRules.text.trim() && <p className="sub" style={{ whiteSpace: "pre-wrap" }}>{ws.chatRules.text}</p>}
                   <ul>
                     {ws.chatRules.rules.map((r) => (
-                      <li key={r.key}>
-                        <code>#{r.key}</code> <strong>{r.title}</strong>
-                        {r.always ? ` (${t.nb.always})` : ""}: {r.text}
+                      <li key={r.key} style={{ display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap" }}>
+                        <span>
+                          <code>#{r.key}</code> <strong>{r.title}</strong>
+                          {r.always ? ` (${t.nb.always})` : ""}: {r.text}
+                        </span>
+                        <button
+                          type="button"
+                          className="link"
+                          onClick={() =>
+                            setRulesDraft((prev) => {
+                              const line = `- [#${r.key}] ${r.title}: ${r.text}`;
+                              return prev.includes(r.text) ? prev : prev.trim() ? `${prev.trim()}\n${line}` : line;
+                            })
+                          }
+                        >
+                          + Đưa vào văn bản này
+                        </button>
                       </li>
                     ))}
                   </ul>

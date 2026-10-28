@@ -107,14 +107,18 @@ export function checkOpenable(p: unknown): { ok: true; file: string } | { ok: fa
   return { ok: true, file };
 }
 
-/** Nhờ hệ điều hành mở tệp bằng ứng dụng mặc định (Word/Excel/PowerPoint). Không chạy lệnh nào do người khác đặt: chỉ mở tệp. */
+/** Nhờ hệ điều hành mở tệp bằng Microsoft Office (trên macOS nếu đã cài) hoặc ứng dụng mặc định. Không chạy lệnh nào do người khác đặt: chỉ mở tệp. */
 export function openOffice(p: unknown, opts: { platform?: NodeJS.Platform; opener?: Opener } = {}): { ok: true; file: string } | { ok: false; error: string } {
   const c = checkOpenable(p);
   if (!c.ok) return c;
   const platform = opts.platform ?? process.platform;
   const open = opts.opener ?? defaultOpener;
   try {
-    if (platform === "darwin") open("open", [c.file]);
+    if (platform === "darwin") {
+      const appPath = officeAppPath(path.extname(c.file).toLowerCase());
+      if (appPath) open("open", ["-a", appPath, c.file]);
+      else open("open", [c.file]);
+    }
     else if (platform === "win32") open("explorer.exe", [c.file]);
     else open("xdg-open", [c.file]);
   } catch (e) {
@@ -139,17 +143,28 @@ const RESULT_OPENABLE = new Set([
   ".png", ".jpg", ".jpeg", ".webp",
 ]);
 
-/** Ứng dụng người dùng chọn để mở tệp: mặc định của hệ điều hành, CHITUP OFFICE hoặc Visual Studio Code. */
-export type OpenApp = "default" | "chitup" | "vscode";
-const CHITUP_EXTS = new Set([".docx", ".doc", ".docm", ".dotx", ".xlsx", ".xls", ".xlsm", ".xltx", ".pptx", ".ppt", ".pptm", ".potx", ".pdf"]);
+/** Ứng dụng người dùng chọn để mở tệp: mặc định của hệ điều hành, Microsoft Office hoặc Visual Studio Code. */
+export type OpenApp = "default" | "office" | "vscode";
+const WORD_EXTS = new Set([".docx", ".doc", ".docm", ".dotx"]);
+const EXCEL_EXTS = new Set([".xlsx", ".xls", ".xlsm", ".xltx"]);
+const PPT_EXTS = new Set([".pptx", ".ppt", ".pptm", ".potx"]);
 
 export function normalizeOpenApp(v: unknown): OpenApp {
-  return v === "chitup" || v === "vscode" ? v : "default";
+  return v === "office" || v === "vscode" ? v : "default";
 }
 
-function chitupAppPath(): string | undefined {
+function officeAppName(ext: string): "Microsoft Word" | "Microsoft Excel" | "Microsoft PowerPoint" | undefined {
+  if (WORD_EXTS.has(ext)) return "Microsoft Word";
+  if (EXCEL_EXTS.has(ext)) return "Microsoft Excel";
+  if (PPT_EXTS.has(ext)) return "Microsoft PowerPoint";
+  return undefined;
+}
+
+function officeAppPath(ext: string): string | undefined {
+  const appName = officeAppName(ext);
+  if (!appName) return undefined;
   const home = process.env.HOME ?? "";
-  for (const p of ["/Applications/CHITUP OFFICE.app", `${home}/Applications/CHITUP OFFICE.app`]) {
+  for (const p of [`/Applications/${appName}.app`, `${home}/Applications/${appName}.app`]) {
     if (fs.existsSync(p)) return p;
   }
   return undefined;
@@ -157,11 +172,12 @@ function chitupAppPath(): string | undefined {
 
 /** Mở tệp bằng đúng ứng dụng được chọn; trả về lỗi dễ hiểu nếu ứng dụng chưa cài. */
 function openWithApp(app: OpenApp, file: string, ext: string, platform: NodeJS.Platform, open: Opener): void {
-  if (app === "chitup") {
-    if (!CHITUP_EXTS.has(ext)) throw new Error("CHITUP OFFICE chỉ mở tệp Word, Excel, PowerPoint và PDF.");
-    if (platform !== "darwin") throw new Error("Mở bằng CHITUP OFFICE hiện chỉ hỗ trợ trên macOS.");
-    const appPath = chitupAppPath();
-    if (!appPath) throw new Error("Chưa thấy CHITUP OFFICE trong thư mục Applications.");
+  if (app === "office") {
+    const appName = officeAppName(ext);
+    if (!appName) throw new Error("Microsoft Office chỉ mở tệp Word, Excel và PowerPoint.");
+    if (platform !== "darwin") throw new Error("Mở bằng Microsoft Office hiện chỉ hỗ trợ trên macOS.");
+    const appPath = officeAppPath(ext);
+    if (!appPath) throw new Error(`Chưa thấy ${appName} trong thư mục Applications.`);
     open("open", ["-a", appPath, file]);
     return;
   }
@@ -198,13 +214,15 @@ export function openResultFile(p: unknown, opts: { platform?: NodeJS.Platform; o
   const platform = opts.platform ?? process.platform;
   const open = opts.opener ?? defaultOpener;
   try {
-    if (opts.app === "chitup" || opts.app === "vscode") {
+    if (opts.app === "office" || opts.app === "vscode") {
       openWithApp(opts.app, file, ext, platform, open);
     } else if (TEXT_EXTS.has(ext)) {
       // Tệp văn bản: mở bằng VS Code / editor thay vì app mặc định OS.
       openTextFile(file, platform, open);
     } else if (platform === "darwin") {
-      open("open", [file]);
+      const appPath = officeAppPath(ext);
+      if (appPath) open("open", ["-a", appPath, file]);
+      else open("open", [file]);
     } else if (platform === "win32") {
       open("explorer.exe", [file]);
     } else {

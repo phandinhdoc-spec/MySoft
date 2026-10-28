@@ -109,6 +109,7 @@ export function App({ host: officeHost }: { host: Office.HostType | undefined })
   const sid = useMemo(sessionId, []);
 
   const [online, setOnline] = useState(false);
+  const [chatLinked, setChatLinked] = useState(false);
   const [pdfPreview,setPdfPreview]=useState<File|null>(null);
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -151,6 +152,11 @@ export function App({ host: officeHost }: { host: Office.HostType | undefined })
   const [ws, setWs] = useState<WorkspaceState | null>(null);
   const [standardized, setStandardized] = useState<Extract<ServerMessage, {type: "standardized"}> | null>(null);
   const [drawer, setDrawer] = useState(false);
+  const [drawerRulesFor, setDrawerRulesFor] = useState<string | null>(null);
+  const openDocRules = () => {
+    setDrawerRulesFor("__doc");
+    setDrawer(true);
+  };
   /** Chủ đề có sẵn của Office (đọc ở bridge, theo phần mềm đang mở). */
   const [themeCat, setThemeCat] = useState<ThemeCatalogMsg | null>(null);
   /** Kết quả lần thêm tệp gần nhất (hiện ở ô soạn và ngăn dự án). */
@@ -251,6 +257,98 @@ export function App({ host: officeHost }: { host: Office.HostType | undefined })
     },
     [host, client],
   );
+
+  // Tự động ghép nối trực tiếp với PVTA Chat (cổng 52734) không cần mã key.
+  useEffect(() => {
+    let ws: WebSocket | undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let disposed = false;
+    let working = false;
+    const connect = () => {
+      if (disposed) return;
+      try {
+        const socket = new WebSocket("wss://localhost:52734/office");
+        ws = socket;
+        const docUrl = typeof Office !== "undefined" ? (Office.context?.document?.url ?? "") : "";
+        let ticket: string | undefined;
+        try {
+          const raw = typeof Office !== "undefined" ? Office.context?.document?.settings?.get?.("PVTA.LaunchTicket") : undefined;
+          if (typeof raw === "string" && /^[a-f0-9]{64}$/.test(raw)) ticket = raw;
+        } catch {
+          /* ignore */
+        }
+        socket.onopen = () => {
+          if (disposed || ws !== socket) return;
+          socket.send(
+            JSON.stringify({
+              type: "pair",
+              launchTicket: ticket,
+              documentUrl: docUrl,
+              host,
+              name: currentDocName() || `${HOST_NAME[host]} · tài liệu đang mở`,
+            }),
+          );
+        };
+        socket.onmessage = async (e) => {
+          if (disposed || ws !== socket) return;
+          let m: { type?: string; id?: string; call?: ToolCall } | undefined;
+          try {
+            m = JSON.parse(String(e.data));
+          } catch {
+            return;
+          }
+          if (!m) return;
+          if (m.type === "paired") {
+            setChatLinked(true);
+            if (ticket) {
+              try {
+                Office.context?.document?.settings?.remove?.("PVTA.LaunchTicket");
+                Office.context?.document?.settings?.saveAsync?.();
+              } catch {
+                /* ignore */
+              }
+            }
+            return;
+          }
+          if (m.type === "execute" && m.id && m.call) {
+            const reply = (payload: Record<string, unknown>) => {
+              if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: "result", id: m.id, ...payload }));
+            };
+            if (working) {
+              reply({ error: "Office đang xử lý thao tác trước." });
+              return;
+            }
+            working = true;
+            try {
+              const result = await executeTool(host, m.call);
+              if (!isReadTool(m.call.tool)) {
+                ragDirty.current = true;
+                setTimeout(() => void syncRag(), 400);
+              }
+              reply({ result });
+            } catch (err) {
+              reply({ error: err instanceof Error ? err.message : String(err) });
+            } finally {
+              working = false;
+            }
+          }
+        };
+        socket.onclose = () => {
+          if (ws === socket) setChatLinked(false);
+          if (!disposed) timer = setTimeout(connect, 3500);
+        };
+        socket.onerror = () => socket.close();
+      } catch {
+        if (!disposed) timer = setTimeout(connect, 3500);
+      }
+    };
+    connect();
+    return () => {
+      disposed = true;
+      if (timer) clearTimeout(timer);
+      ws?.close();
+    };
+  }, [host, syncRag]);
 
   // Mới nối mà bridge chưa có chỉ mục: dựng ngay lúc rảnh (đọc tài liệu không chặn việc gõ câu hỏi).
   useEffect(() => {
@@ -492,12 +590,14 @@ export function App({ host: officeHost }: { host: Office.HostType | undefined })
         case "ready": {
           const { type: _t, permission: p, model, effort: e, busy: b, mode: md, temperature: tp, ...info } = m;
           setMachine(info);
-          setPermission(p);
+          const effPerm: PermissionLevel = p ?? "full";
+          setPermission(effPerm);
+          if (p === null) client.send({ type: "set_permission", level: "full" });
           setEffort(e);
           setPermLoaded(true);
           setMode(md);
           setTemperature(tp);
-          if (p === null) setFirstRun(true);
+          setFirstRun(false);
 
           if (!modelRestored.current) {
             modelRestored.current = true; // model được ghim cho đến khi người dùng chọn lại
@@ -947,7 +1047,7 @@ export function App({ host: officeHost }: { host: Office.HostType | undefined })
       title={`${t.m.title}: ${curMode.name}`}
       aria-label={`${t.m.title}: ${curMode.name}`}
     >
-      <span aria-hidden>{curMode.icon}</span>
+      <Icon name="pen" size={14} />
       <span className="pill-main">{curMode.name}</span>
     </button>
   );
@@ -965,69 +1065,38 @@ export function App({ host: officeHost }: { host: Office.HostType | undefined })
             else box.current?.focus();
           }}
         >
-          PVTA
+          PVTA <span className="ver-pill">2.0</span>
         </button>
-        <span className={online ? "dot on" : "dot"} role="status" aria-label={online ? t.online : t.offline} title={online ? t.online : t.offline} />
+        <span className={online || chatLinked ? "dot on" : "dot"} role="status" aria-label={online || chatLinked ? t.online : t.offline} title={online || chatLinked ? t.online : t.offline} />
         <span className="host-name">{HOST_NAME[host]}</span>
-        {rag?.enabled && (
-          <button
-            className={`icon rag-icon ${ragBusy ? "busy" : rag.ready ? "on" : ""}`}
-            title={ragBusy ? t.rag.building : rag.ready ? t.rag.ready(rag.chunks ?? 0) : t.rag.notReady}
-            aria-label={t.rag.button}
-            disabled={!online || ragBusy}
-            onClick={() => void syncRag(true)}
-          >
-            <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z" />
-              <path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5" />
-              <circle cx="12.5" cy="9.5" r="2.4" />
-              <path d="M14.3 11.3l2.4 2.4" />
-            </svg>
-          </button>
-        )}
+        {chatLinked && <span className="chat-link-badge" title="Đã kết nối trực tiếp với PVTA Chat 2.0">Chat</span>}
         {busy && <span className="typing sm" role="status" aria-label={t.running(elapsed)} title={t.running(elapsed)}><i /><i /><i /></span>}
+        <span className="spacer" />
         {ws?.activeProject && (
           <button className="proj-badge" title={t.ws.open} onClick={() => setDrawer(true)}>
-            📁 {ws.projects.find((p) => p.id === ws.activeProject)?.name ?? ""}
+            <Icon name="folder" size={14} /> {ws.projects.find((p) => p.id === ws.activeProject)?.name ?? ""}
           </button>
         )}
-        {host !== "powerpoint" && (
-          <button
-            className={bf ? "icon bf-icon on" : "icon bf-icon"}
-            title={host === "excel" ? `${t.bf.buttonSheet}. ${t.bf.hintSheet}` : `${t.bf.button}. ${t.bf.hint}`}
-            aria-label={host === "excel" ? t.bf.buttonSheet : t.bf.button}
-            disabled={!online || busy || !!bf || chosenMissing === true}
-            onClick={() => { void startBeautify().catch(e=>setBfUndoMsg({ok:false,text:String(e.message??e)})); }}
-          >
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M13 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-6" />
-              <path d="M8.5 9h3M8.5 13h5M8.5 17h3" />
-              <path d="M18 2.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z" fill="currentColor" stroke="none" />
-            </svg>
+        {tab !== "chat" && (
+          <button className="pill" onClick={() => setTab("chat")} title={t.tabs.chat}>
+            <Icon name="chat" size={14} /> <span>{t.tabs.chat}</span>
           </button>
         )}
         <button
-          className="icon palette-addin-btn"
-          title={addinPalette === "violet" ? "Giao diện: Mực Tím Tinh Tế (Bấm để sang Sư phạm Hiện đại)" : "Giao diện: Sư phạm Hiện đại (Bấm để sang Mực Tím Tinh Tế)"}
-          aria-label="Đổi giao diện Sư phạm Hiện đại / Mực Tím Tinh Tế"
-          onClick={() => setAddinPalette((p) => (p === "violet" ? "modern" : "violet"))}
+          className={`icon ${menu ? "on" : ""}`}
+          title={t.more.more}
+          aria-label={t.more.more}
+          aria-haspopup="menu"
+          aria-expanded={menu}
+          onClick={() => setMenu((v) => !v)}
         >
-          <Icon name="palette" />
+          <Icon name="more" size={18} />
         </button>
       </header>
-      <div className="desktop-connect"><button disabled={busy} onClick={()=>location.assign(new URL("desktop.html",location.href).href)}>↗ {lang === "vi" ? "Kết nối PVTA Chat" : "Connect to PVTA Chat"}</button><small>{lang === "vi" ? "Dán mã kết nối để làm việc với ứng dụng Chat" : "Pair this document with the Chat app"}</small></div>
 
-      {!online && <div className="banner warn">{env.ipad ? t.ipad.offline : t.offline}</div>}
+      {!online && !chatLinked && <div className="banner warn">{env.ipad ? t.ipad.offline : t.offline}</div>}
 
-      <div className="tabs-row" role="tablist" aria-label="PVTA">
-        {(["chat", "write", "theme", "suite"] as const).map((k) => (
-          <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}>
-            <Icon name={k==="chat"?"chat":k==="write"?"file":k==="theme"?"spark":"tools"}/> {k === "suite" ? (lang === "vi" ? "Công cụ 1.4" : "Suite 1.4") : t.tabs[k]}
-          </button>
-        ))}
-      </div>
-
-      <DocumentContext host={host} files={[...(ws?.chatFiles??[]),...(ws?.projectFiles[ws.activeProject??'']??[])].map(f=>f.name)} ready={!!rag?.ready} onRefresh={()=>void syncRag(true)}/>
+      <DocumentContext host={host} files={[...(ws?.chatFiles??[]),...(ws?.projectFiles[ws.activeProject??'']??[])].map(f=>f.name)} ready={!!rag?.ready} docRules={ws?.docRules} onRefresh={()=>void syncRag(true)} onOpenRules={openDocRules}/>
       {tab === "suite" && (
         <main className="chat">
           <TeacherSuitePanel
@@ -1075,7 +1144,7 @@ export function App({ host: officeHost }: { host: Office.HostType | undefined })
               <NoBackend t={t} onSetup={(s) => setSettings(s)} />
             ) : (
               <>
-                <span className="empty-eyebrow">PVTA STUDIO v1.4.0 · {HOST_NAME[host].toUpperCase()}</span>
+                <span className="empty-eyebrow">PVTA 2.0 · {HOST_NAME[host].toUpperCase()}</span>
                 <h1>{t.greeting(HOST_NAME[host])}</h1>
                 <p className="sub">{t.greetingSub[host]}</p>
                 <WelcomeActions host={host} lang={lang} onChoose={(prompt) => {
@@ -1142,7 +1211,7 @@ export function App({ host: officeHost }: { host: Office.HostType | undefined })
         />
       )}
 
-      {hintsOn && imgStatus && <p className="opt-hint img-status">🖼 {t.hint.images(imgStatus.read, imgStatus.total)}</p>}
+      {hintsOn && imgStatus && <p className="opt-hint img-status">{t.hint.images(imgStatus.read, imgStatus.total)}</p>}
 
       {basis && (
         <BasisBar
@@ -1160,36 +1229,6 @@ export function App({ host: officeHost }: { host: Office.HostType | undefined })
           onOpenLink={openUrl}
         />
       )}
-
-      {hintsOn && hints && (
-        <details className="optional-tools"><summary>{lang === "vi" ? "Gợi ý theo tài liệu" : "Document suggestions"}</summary><HintBar
-          t={t}
-          hints={hints}
-          gone={hintGone}
-          customModes={customModes}
-          projectName={(id) => ws?.projects.find((p) => p.id === id)?.name}
-          onDismiss={(k) => setHintGone((g) => new Set(g).add(k))}
-          onMode={(id) => setMode(id as WritingMode)}
-          onProject={(id) => openChat(undefined, id)}
-        /></details>
-      )}
-                <div className="chips">
-                  {starterList.slice(0,2).map((s) => (
-                    <button
-                      key={s}
-                      className="chip"
-                      onClick={() => {
-                        if (s.includes("…")) {
-                          setInput(s.replace(/…\s*$/, ""));
-                          box.current?.focus();
-                        } else send(s);
-                      }}
-                      disabled={!online || busy || chosenMissing === true}
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
                 {scanning && machine && <p className="sub">{t.scanning}</p>}
               </>
             )}
@@ -1217,25 +1256,21 @@ export function App({ host: officeHost }: { host: Office.HostType | undefined })
       )}
 
       <nav className="toolbar" aria-label="PVTA">
-        {tab === "chat" && (
-          <>
-            <button className="tb" title={t.newChat} aria-label={t.newChat} disabled={msgs.length === 0 && !busy} onClick={() => openChat(undefined, undefined)}>
-              <Icon name="plus"/>
-              <span className="tb-lab">{t.more.newShort}</span>
-            </button>
-            <button className="tb" title={t.ws.open} aria-label={t.ws.open} onClick={() => setDrawer(true)}>
-              <Icon name="project"/>
-              <span className="tb-lab">{t.more.chats}</span>
-            </button>
-          </>
-        )}
+        <button className="tb" title={t.newChat} aria-label={t.newChat} disabled={msgs.length === 0 && !busy && tab === "chat"} onClick={() => { setTab("chat"); openChat(undefined, undefined); }}>
+          <Icon name="plus" size={16} />
+          <span className="tb-lab">{t.more.newShort}</span>
+        </button>
+        <button className="tb" title={t.ws.open} aria-label={t.ws.open} onClick={() => setDrawer(true)}>
+          <Icon name="project" size={16} />
+          <span className="tb-lab">{t.more.chats}</span>
+        </button>
         <span className="spacer" />
         <button className="tb" title={`${t.permission}: ${permLoaded ? permShort : "…"}`} aria-label={t.permission} onClick={() => setSettings("perm")}>
-          <Icon name="settings"/>
+          <Icon name={permission === "read" ? "eye" : permission === "full" ? "pen" : "mouth"} size={16} />
           <span className="tb-lab">{permLoaded ? permShort : t.more.perm}</span>
         </button>
         <button className={`tb ${menu ? "on" : ""}`} title={t.more.more} aria-label={t.more.more} aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu((v) => !v)}>
-          <span className="tb-ico" aria-hidden>⋯</span>
+          <Icon name="tools" size={16} />
           <span className="tb-lab">{t.more.title}</span>
         </button>
       </nav>
@@ -1244,36 +1279,94 @@ export function App({ host: officeHost }: { host: Office.HostType | undefined })
         <>
           <div className="menu-scrim" onClick={() => setMenu(false)} />
           <div className="menu" role="menu" aria-label={t.more.more}>
-            <button role="menuitem" onClick={() => (setMenu(false), setDrawer(true))}>
-              <span aria-hidden>📏</span> {t.more.rules}
+            <div className="menu-group-label">{lang === "vi" ? "Không gian & Công cụ" : "Workspaces & Tools"}</div>
+            <button role="menuitem" className={tab === "chat" ? "on" : ""} onClick={() => (setMenu(false), setTab("chat"))}>
+              <Icon name="chat" size={16} /> {t.tabs.chat}
             </button>
-            <button role="menuitem" onClick={() => (setMenu(false), setSettings("learn"))}>
-              <span aria-hidden>🧠</span> {t.more.learned}
+            <button role="menuitem" className={tab === "write" ? "on" : ""} onClick={() => (setMenu(false), setTab("write"))}>
+              <Icon name="file" size={16} /> {t.tabs.write}
             </button>
-            <button role="menuitem" onClick={() => (setMenu(false), setLib({}))}>
-              <span aria-hidden>📚</span> {t.more.library}
+            <button role="menuitem" className={tab === "theme" ? "on" : ""} onClick={() => (setMenu(false), setTab("theme"))}>
+              <Icon name="spark" size={16} /> {t.tabs.theme}
             </button>
-            <button role="menuitem" onClick={() => (setMenu(false), setSkillsOpen(true))}>
-              <span aria-hidden>🧩</span> {t.more.skills}
+            <button role="menuitem" className={tab === "suite" ? "on" : ""} onClick={() => (setMenu(false), setTab("suite"))}>
+              <Icon name="tools" size={16} /> {lang === "vi" ? "Bộ công cụ giáo viên" : "Teacher Suite"}
             </button>
-            <button role="menuitem" onClick={() => (setMenu(false), setNbOpen(true))}>
-              <span aria-hidden>📓</span> {t.more.notebooks}
-            </button>
-            <hr />
-            <button role="menuitem" disabled={!hasChat} onClick={menuAct.download}>
-              <span aria-hidden>⬇</span> {t.more.download}
-            </button>
-            <button role="menuitem" disabled={!hasChat} onClick={() => void menuAct.copy()}>
-              <span aria-hidden>⧉</span> {t.more.copyMd}
-            </button>
-            {host === "word" && (
-              <button role="menuitem" disabled={!hasChat || permission === "read"} onClick={menuAct.insert}>
-                <span aria-hidden>📝</span> {t.more.insertDoc}
+            {host !== "powerpoint" && (
+              <button
+                role="menuitem"
+                disabled={!online || busy || !!bf || chosenMissing === true}
+                onClick={() => {
+                  setMenu(false);
+                  void startBeautify().catch((e) => setBfUndoMsg({ ok: false, text: String(e.message ?? e) }));
+                }}
+              >
+                <Icon name="spark" size={16} /> {host === "excel" ? t.bf.buttonSheet : t.bf.button}
               </button>
             )}
             <hr />
+            <div className="menu-group-label">{lang === "vi" ? "Thao tác nhanh trên tài liệu" : "Quick actions"}</div>
+            <div className="menu-quick-grid">
+              {(["summarize", "proofread", "translate", "table", "polish", "shorten"] as const).map((k) => (
+                <button
+                  key={k}
+                  role="menuitem"
+                  className="menu-qchip"
+                  disabled={busy || !canChat}
+                  title={t.chips[k].prompt}
+                  onClick={() => {
+                    setMenu(false);
+                    setTab("chat");
+                    send(t.chips[k].prompt);
+                  }}
+                >
+                  {t.chips[k].label}
+                </button>
+              ))}
+            </div>
+            <hr />
+            <div className="menu-group-label">{lang === "vi" ? "Nguồn & Thư viện" : "Sources & Library"}</div>
+            <button role="menuitem" onClick={() => (setMenu(false), openDocRules())}>
+              <Icon name="scale" size={16} /> {t.more.rules}{ws?.docRules ? ` · ${t.ws.rulesHas}` : ""}
+            </button>
+            <button role="menuitem" onClick={() => (setMenu(false), setSettings("learn"))}>
+              <Icon name="brain" size={16} /> {t.more.learned}
+            </button>
+            <button role="menuitem" onClick={() => (setMenu(false), setLib({}))}>
+              <Icon name="notebook" size={16} /> {t.more.library}
+            </button>
+            <button role="menuitem" onClick={() => (setMenu(false), setSkillsOpen(true))}>
+              <Icon name="skills" size={16} /> {t.more.skills}
+            </button>
+            <button role="menuitem" onClick={() => (setMenu(false), setNbOpen(true))}>
+              <Icon name="folder" size={16} /> {t.more.notebooks}
+            </button>
+            {rag?.enabled && (
+              <button role="menuitem" disabled={!online || ragBusy} onClick={() => (setMenu(false), void syncRag(true))}>
+                <Icon name="search" size={16} /> {ragBusy ? t.rag.building : t.rag.button}
+              </button>
+            )}
+            <hr />
+            <button role="menuitem" disabled={!hasChat} onClick={menuAct.download}>
+              <Icon name="download" size={16} /> {t.more.download}
+            </button>
+            <button role="menuitem" disabled={!hasChat} onClick={() => void menuAct.copy()}>
+              <Icon name="copy" size={16} /> {t.more.copyMd}
+            </button>
+            {host === "word" && (
+              <button role="menuitem" disabled={!hasChat || permission === "read"} onClick={menuAct.insert}>
+                <Icon name="pen" size={16} /> {t.more.insertDoc}
+              </button>
+            )}
+            <hr />
+            <button role="menuitem" onClick={() => (setMenu(false), setAddinPalette((p) => (p === "violet" ? "modern" : "violet")))}>
+              <Icon name="palette" size={16} /> {addinPalette === "violet" ? "Giao diện: Sư phạm Hiện đại" : "Giao diện: Mực Tím Tinh Tế"}
+            </button>
+            <button role="menuitem" disabled={busy} onClick={() => location.assign(new URL("desktop.html", location.href).href)}>
+              <Icon name="office" size={16} /> {chatLinked ? (lang === "vi" ? "Đã kết nối PVTA Chat 2.0 ✓" : "Connected to PVTA Chat 2.0 ✓") : (lang === "vi" ? "Kết nối PVTA Chat 2.0" : "Connect to PVTA Chat 2.0")}
+            </button>
             <button role="menuitem" onClick={() => (setMenu(false), setSettings("perm"))}>
-              <span aria-hidden>⚙</span> {t.more.settings}
+              <Icon name="gear" size={16} /> {t.more.settings}
             </button>
             {menuNote && (
               <div className="menu-note" role="status">
@@ -1292,6 +1385,15 @@ export function App({ host: officeHost }: { host: Office.HostType | undefined })
             <span aria-hidden>▾</span>
           </button>
           {modeChip}
+          <button
+            className={`pill ${ws?.docRules ? "on" : ""}`}
+            onClick={openDocRules}
+            title={`${t.ws.rulesDoc}${ws?.docRules ? `: ${ws.docRules}` : ""}`}
+            aria-label={t.ws.rulesDoc}
+          >
+            <Icon name="scale" size={14} />
+            <span className="pill-main">{t.ws.rules}</span>
+          </button>
         </footer>
       )}
 
@@ -1389,9 +1491,9 @@ export function App({ host: officeHost }: { host: Office.HostType | undefined })
           <div className="file-row" role="group" aria-label={t.ws.attached(ws?.chatFiles.length ?? 0)}>
             {ws?.chatFiles.map((f) => (
               <span key={f.name} className="file-chip" title={`${f.name} · ${f.chars.toLocaleString()}`}>
-                <span className="file-name">📎 {f.name}</span>
+                <span className="file-name"><Icon name="file" size={14} /> {f.name}</span>
                 <button className="x" aria-label={`${t.ws.removeFile}: ${f.name}`} onClick={() => client.send({ type: "file_remove", scope: "chat", id: chatId.current, name: f.name })}>
-                  ✕
+                  <Icon name="close" size={12} />
                 </button>
               </span>
             ))}
@@ -1402,13 +1504,6 @@ export function App({ host: officeHost }: { host: Office.HostType | undefined })
             )}
           </div>
         )}
-        <details className="optional-tools"><summary>{lang === "vi" ? "Thao tác nhanh" : "Quick actions"}</summary><div className="quick-chips" role="group" aria-label={t.chips.summarize.label}>
-          {(["summarize", "proofread", "translate", "table", "polish", "shorten"] as const).map((k) => (
-            <button key={k} className={`qchip q-${k}`} disabled={busy || !canChat} title={t.chips[k].prompt} onClick={() => send(t.chips[k].prompt)}>
-              {t.chips[k].label}
-            </button>
-          ))}
-        </div></details>
         <div className="inputbox">
           <textarea
             ref={box}
@@ -1450,10 +1545,19 @@ export function App({ host: officeHost }: { host: Office.HostType | undefined })
               <span aria-hidden>▾</span>
             </button>
             {modeChip}
+            <button
+              className={`icon ${ws?.docRules ? "on" : ""}`}
+              title={`${t.ws.rulesDoc}${ws?.docRules ? `: ${ws.docRules}` : ""}`}
+              aria-label={t.ws.rulesDoc}
+              disabled={!online}
+              onClick={openDocRules}
+            >
+              <Icon name="scale" size={18} />
+            </button>
             <span className="spacer" />
             <input ref={fileInput} type="file" multiple hidden accept=".txt,.md,.markdown,.csv,.tsv,.json,.log,.xml,.html,.htm,.tex,.srt,.yaml,.yml,.docx,.xlsx,.pptx,.pdf" onChange={(e) => void attach(e.target.files)} />
             <button className="icon" title={`${t.ws.attach}. ${t.ws.attachTip}`} aria-label={t.ws.attach} disabled={!online} onClick={() => fileInput.current?.click()}>
-              <Icon name="attach"/>
+              <Icon name="attach" size={18} />
             </button>
             <button
               className={`icon opt-btn ${optState}`}
@@ -1463,16 +1567,16 @@ export function App({ host: officeHost }: { host: Office.HostType | undefined })
               disabled={optState === "running"}
               onClick={optimize}
             >
-              <span aria-hidden>✦</span>
+              <Icon name="spark" size={18} inheritColor />
               {optState === "applied" && <span className="opt-tick" aria-hidden>✓</span>}
             </button>
             {busy ? (
               <button className="send stop" onClick={stop} title={t.stop} aria-label={t.stop}>
-                ■
+                <Icon name="stop" size={16} inheritColor />
               </button>
             ) : (
               <button className="send" disabled={!canSend} onClick={() => send()} title={t.send} aria-label={t.send}>
-                ↑
+                <Icon name="send" size={16} inheritColor />
               </button>
             )}
           </div>
@@ -1521,7 +1625,27 @@ export function App({ host: officeHost }: { host: Office.HostType | undefined })
         />
       )}
 
-      {drawer && ws && <SessionsDrawer standardized={standardized} t={t} host={host} ws={ws} send={(m) => client.send(m)} onOpen={openChat} onClose={() => setDrawer(false)} note={fileNote} onNote={setFileNote} noteOf={noteOf} ocr={ocrPdf} />}
+      {drawer && ws && (
+        <SessionsDrawer
+          standardized={standardized}
+          t={t}
+          host={host}
+          ws={ws}
+          activeChatId={chatId.current}
+          docName={currentDocName()}
+          initialRulesFor={drawerRulesFor}
+          send={(m) => client.send(m)}
+          onOpen={openChat}
+          onClose={() => {
+            setDrawer(false);
+            setDrawerRulesFor(null);
+          }}
+          note={fileNote}
+          onNote={setFileNote}
+          noteOf={noteOf}
+          ocr={ocrPdf}
+        />
+      )}
 
       {nbOpen && <NotebookPanel t={t} nb={nb} onClose={() => setNbOpen(false)} />}
 
@@ -1566,6 +1690,7 @@ export function App({ host: officeHost }: { host: Office.HostType | undefined })
       {settings && (
         <Settings
           t={t}
+          host={host}
           language={lang}
           onLanguage={value=>{localStorage.setItem("pvta.lang",value);window.location.reload();}}
           machine={machine}

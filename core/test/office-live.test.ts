@@ -9,6 +9,11 @@ it.each(['https://localhost:52730',`https://localhost:${OFFICE_PORT}`])('pairs s
   const connect=async(token:string)=>{const ws=new WebSocket(`wss://localhost:${OFFICE_PORT}/office`,{ca,headers:{Origin:origin},family:4});clients.push(ws);await once(ws,'open');ws.send(JSON.stringify({type:'pair',token,host:'excel',name:'Grades.xlsx'}));return ws;};
   const hostile=new WebSocket(`wss://localhost:${OFFICE_PORT}/office`,{ca,headers:{Origin:'https://untrusted.example'},family:4});clients.push(hostile);await expect(once(hostile,'open')).rejects.toThrow();
   const bad=await connect('wrong');await once(bad,'close');expect(live.status().sessions).toHaveLength(0);
+  const zeroKey=new WebSocket(`wss://localhost:${OFFICE_PORT}/office`,{ca,headers:{Origin:origin},family:4});clients.push(zeroKey);await once(zeroKey,'open');
+  zeroKey.send(JSON.stringify({type:'pair',host:'word',name:'OldDoc.docx'}));
+  const [zeroReply]=await once(zeroKey,'message');expect(JSON.parse(String(zeroReply))).toMatchObject({type:'paired',selected:true});
+  expect(live.selectedSession()?.name).toBe('OldDoc.docx');
+  zeroKey.close();await once(zeroKey,'close');await new Promise(r=>setTimeout(r,30));
   const ws=await connect(live.pairingCode());await once(ws,'message');const id=live.status().sessions[0]!.id;live.select(id);expect(live.selectedSession()?.name).toBe('Grades.xlsx');
   ws.on('message',raw=>{const m=JSON.parse(String(raw));if(m.type==='execute')ws.send(JSON.stringify({type:'result',id:m.id,result:{value:8}}));});
   await expect(live.execute(id,{tool:'office_excel_get_sheet',args:{}})).resolves.toEqual({value:8});
@@ -46,3 +51,37 @@ it('reports a clear message when macOS blocks one Office container, and keeps th
   expect(fs.existsSync(path.join(wef('Excel'),'PVTA-Desktop.xml'))).toBe(true);
  }finally{Object.defineProperty(process,'platform',platform);vi.restoreAllMocks();fs.chmodSync(wef('Word'),0o700);live.stop();fs.rmSync(home,{recursive:true,force:true});fs.rmSync(fake,{recursive:true,force:true});}
 });
+it('executes DESKTOP_OFFICE_TOOLS directly on local Word, Excel and PowerPoint files without wef Add-in',async()=>{
+ const launcher=await import('../src/desktop/office-launch');const {vi}=await import('vitest');
+ const home=fs.mkdtempSync(path.join(os.tmpdir(),'pvta-direct-exec-'));
+ const live=new OfficeLive(home,'assets',()=>{});
+ const syncSpy=vi.spyOn(launcher,'syncOfficeDocumentBeforeRead').mockResolvedValue();
+ const reloadSpy=vi.spyOn(launcher,'reloadOfficeDocumentAfterWrite').mockResolvedValue();
+ try{
+  const wordFile=path.join(home,'Giao-an.docx');
+  await launcher.createCleanOfficeDocument(wordFile);
+  const wSession=live.connectFile(wordFile)!;
+  expect(wSession.host).toBe('word');
+  expect(live.selectedSession()?.id).toBe(wSession.id);
+  await expect(live.execute(wSession.id,{tool:'office_word_set_body',args:{text:'Bài 1: Khởi động\nNội dung chính'}})).resolves.toBe('đã đặt lại nội dung');
+  await expect(live.execute(wSession.id,{tool:'office_word_insert_text',args:{text:'Phần 2: Luyện tập',where:'end'}})).resolves.toBe('đã chèn');
+  const body=await live.execute(wSession.id,{tool:'office_word_get_body',args:{}}) as {text:string};
+  expect(body.text).toContain('Bài 1: Khởi động');
+  expect(body.text).toContain('Phần 2: Luyện tập');
+
+  const excelFile=path.join(home,'Bang-diem.xlsx');
+  await launcher.createCleanOfficeDocument(excelFile);
+  const xSession=live.connectFile(excelFile)!;
+  await expect(live.execute(xSession.id,{tool:'office_excel_set_range',args:{address:'A1',values:[['Học sinh','Điểm'],['An',9.5]]}})).resolves.toBe('đã ghi 2x2');
+  const sheet=await live.execute(xSession.id,{tool:'office_excel_get_sheet',args:{}}) as {values:unknown[][]};
+  expect(sheet.values).toEqual([['Học sinh','Điểm'],['An',9.5]]);
+
+  const pptFile=path.join(home,'Bai-giang.pptx');
+  await launcher.createCleanOfficeDocument(pptFile);
+  const pSession=live.connectFile(pptFile)!;
+  await expect(live.execute(pSession.id,{tool:'office_ppt_generate_slide',args:{title:'Slide mới',bullets:['Ý 1','Ý 2']}})).resolves.toContain('đã tạo slide');
+  const slides=await live.execute(pSession.id,{tool:'office_ppt_get_slides',args:{}}) as Array<{shapes:Array<{text?:string}>}>;
+  expect(slides.length).toBeGreaterThanOrEqual(2);
+  expect(JSON.stringify(slides)).toContain('Slide mới');
+ }finally{syncSpy.mockRestore();reloadSpy.mockRestore();live.stop();fs.rmSync(home,{recursive:true,force:true});}
+},20000);

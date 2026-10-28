@@ -35,7 +35,7 @@ export function ActionCard({action:a,report,notice}:{action:Action;report:(e:unk
   if(a.document||a.content)commands.push({id:'side',label:uiText("Xem cạnh chat"),run:()=>documentPreview.show(a)});
   commands.push({id:'preview',label:preview?uiText("Ẩn nội dung"):uiText("Xem trước nội dung"),run:()=>setPreview(v=>!v)});
   if((a.state==='done'&&a.output)||a.savedPath){
-   if(/\.(docx?|xlsx?|pptx?|pdf)$/i.test(activePath))commands.push({id:'openChitup',label:uiText("Mở bằng CHITUP OFFICE"),group:'open',disabledReason,run:()=>act('openOutput',{app:'chitup'})});
+   if(/\.(docx?|docm|dotx|xlsx?|xlsm|xltx|pptx?|pptm|potx)$/i.test(activePath))commands.push({id:'openOffice',label:uiText("Mở bằng Microsoft Office"),group:'open',disabledReason,run:()=>act('openOutput',{app:'office'})});
    commands.push({id:'openVscode',label:uiText("Mở bằng Visual Studio Code"),group:'open',disabledReason,run:()=>act('openOutput',{app:'vscode'})},
     {id:'reveal',label:uiText("Hiện trong Finder / trình quản lý tệp"),disabledReason,run:()=>act('revealOutput')},
     {id:'save',label:uiText("Lưu"),disabledReason,run:()=>act('saveOutput')},

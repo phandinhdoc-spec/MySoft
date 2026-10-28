@@ -10,7 +10,14 @@ const VI: Record<string, string> = {
   office_word_apply_outline: "Phân cấp tiêu đề và Heading",
   office_word_insert_index: "Tạo mục lục / danh mục",
   office_word_apply_style: "Áp kiểu đề mục",
-  office_word_insert_equation: "Chèn công thức",
+  office_word_insert_equation: "Chèn / thay thế công thức",
+  office_word_replace_find: "Tìm và thay thế văn bản / công thức",
+  office_word_select: "Di chuyển con trỏ / chọn vùng văn bản",
+  office_word_format_find: "Tìm và định dạng chữ",
+  office_word_math_scan: "Quét công thức trong văn bản",
+  office_word_replace_paragraph: "Thay nội dung đoạn văn",
+  office_word_image_to_equation: "Chuyển ảnh công thức thành Equation",
+  office_word_keep_together: "Giữ câu hỏi và hình cùng trang",
   office_word_get_format: "Đọc định dạng chữ",
   office_word_apply_format: "Định dạng chữ",
   office_word_format_paragraph: "Định dạng đoạn",
@@ -66,6 +73,21 @@ export function toolLabel(tool: string, lang: "vi" | "en"): string {
 export function argsPreview(args: Record<string, unknown>): { text?: string; rest: Record<string, unknown> } {
   const { text, ...rest } = args;
   if (typeof text === "string") return { text, rest };
+  if (Array.isArray(args.items)) {
+    const lines = (args.items as Array<Record<string, unknown>>).slice(0, 12).map((it) => {
+      if (!it || typeof it !== "object") return String(it);
+      const lhs = typeof it.find === "string" ? it.find : typeof it.index === "number" ? `Đoạn #${it.index}` : "";
+      const rhs = typeof it.latex === "string" ? `$${it.latex}$` : typeof it.replace === "string" ? it.replace : "";
+      return lhs && rhs ? `${lhs} → ${rhs}` : lhs || rhs || JSON.stringify(it);
+    });
+    const { items: _it, ...others } = args;
+    return { text: lines.join("\n") + ((args.items as unknown[]).length > 12 ? "\n…" : ""), rest: others };
+  }
+  if (typeof args.find === "string" && (typeof args.latex === "string" || typeof args.replace === "string")) {
+    const rhs = typeof args.latex === "string" ? `$${args.latex}$` : String(args.replace);
+    const { find: _f, latex: _l, replace: _r, ...others } = args;
+    return { text: `${args.find} → ${rhs}`, rest: others };
+  }
   if (Array.isArray(args.values)) {
     const rows = (args.values as unknown[][]).slice(0, 12).map((r) => (Array.isArray(r) ? r.map((c) => String(c ?? "")).join(" | ") : String(r)));
     const { values: _v, ...others } = args;

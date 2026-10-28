@@ -7,6 +7,7 @@ import 'katex/dist/katex.min.css';
 import {rpc} from './ipc';
 import {t as uiText} from './i18n';
 import {useObjectMenu} from './ObjectMenu';
+import {requestFileEdit} from './QuickFile';
 import './markdown-images.css';
 import {hydrateRichBlocks, mediaKind, richPlaceholder} from './rich-blocks';
 import {EmailResults} from './EmailResults';
@@ -228,7 +229,7 @@ function MarkdownContent({text, onToggleTask, className, chatId}: MarkdownProps)
       node.setAttribute('role', 'button');
       node.tabIndex = 0;
       node.dataset.pvtaFileKind = fileKindOf(ref);
-      node.title = /\.(?:png|jpe?g|webp)$/i.test(ref) ? `Nhấp đúp để xem ảnh lớn (chuột phải để chọn cách mở): ${ref}` : `Nhấp đúp để mở (chuột phải để chọn cách mở): ${ref}`;
+      node.title = /\.(?:png|jpe?g|webp)$/i.test(ref) ? `Bấm để mở menu · Nhấp đúp để xem ảnh lớn: ${ref}` : `Bấm để mở menu Xem / Sửa · Nhấp đúp để mở ngay: ${ref}`;
     });
 
     // 4. Resolve local file images for preview
@@ -277,11 +278,24 @@ function MarkdownContent({text, onToggleTask, className, chatId}: MarkdownProps)
   }, [html]);
 
   const isImageRef = (ref?: string) => !!ref && /\.(?:png|jpe?g|webp)$/i.test(ref);
-  const fileRefCall = (method: 'openFileRef' | 'revealFileRef', node: HTMLElement, app?: 'chitup' | 'vscode') => {
+  const isEditableRef = (ref?: string) => !!ref && /\.(?:docx|xlsx|pptx|pdf|md|txt|csv)$/i.test(ref);
+  const fileRefCall = (method: 'openFileRef' | 'revealFileRef', node: HTMLElement, app?: 'office' | 'vscode') => {
     const ref = node.dataset.pvtaFileRef;
     if (!ref) return Promise.resolve();
     node.classList.remove('pvta-file-ref-error');
     return rpc(method, app ? {ref, chatId, app} : {ref, chatId}).catch(error => {
+      node.classList.add('pvta-file-ref-error');
+      node.title = String((error as Error)?.message ?? error);
+    });
+  };
+  const editFileRef = (node: HTMLElement) => {
+    const ref = node.dataset.pvtaFileRef;
+    if (!ref) return Promise.resolve();
+    node.classList.remove('pvta-file-ref-error');
+    return rpc<{path: string}>('resolveFileRef', {ref, chatId}).then(res => {
+      if (!res?.path) throw new Error('Không tìm thấy tệp.');
+      requestFileEdit(res.path);
+    }).catch(error => {
       node.classList.add('pvta-file-ref-error');
       node.title = String((error as Error)?.message ?? error);
     });
@@ -309,7 +323,8 @@ function MarkdownContent({text, onToggleTask, className, chatId}: MarkdownProps)
       {id: 'reveal', label: uiText('Mở thư mục chứa tệp'), group: 'open', run: () => fileRefCall('revealFileRef', node)},
     ] : [
       {id: 'open', label: uiText('Mở tệp'), group: 'open', run: () => fileRefCall('openFileRef', node)},
-      ...(/\.(?:docx?|xlsx?|pptx?|docm|xlsm|pptm|dotx|xltx|potx|pdf)$/i.test(node.dataset.pvtaFileRef ?? '') ? [{id: 'open-chitup', label: uiText('Mở bằng CHITUP OFFICE'), group: 'open', run: () => fileRefCall('openFileRef', node, 'chitup')}] : []),
+      ...(isEditableRef(node.dataset.pvtaFileRef) ? [{id: 'edit-pvta', label: uiText('Xem & chỉnh sửa trong PVTA'), group: 'open', run: () => editFileRef(node)}] : []),
+      ...(/\.(?:docx?|xlsx?|pptx?|docm|xlsm|pptm|dotx|xltx|potx)$/i.test(node.dataset.pvtaFileRef ?? '') ? [{id: 'open-office', label: uiText('Mở bằng Microsoft Office'), group: 'open', run: () => fileRefCall('openFileRef', node, 'office')}] : []),
       {id: 'open-vscode', label: uiText('Mở bằng Visual Studio Code'), group: 'open', run: () => fileRefCall('openFileRef', node, 'vscode')},
       {id: 'reveal', label: uiText('Mở thư mục chứa tệp'), group: 'open', run: () => fileRefCall('revealFileRef', node)},
     ],
@@ -334,6 +349,7 @@ function MarkdownContent({text, onToggleTask, className, chatId}: MarkdownProps)
     if (!node) return;
     e.preventDefault();
     e.stopPropagation();
+    fileMenu.close();
     openFileRef(node);
   };
 
@@ -342,9 +358,10 @@ function MarkdownContent({text, onToggleTask, className, chatId}: MarkdownProps)
 
     const fileRef = target.closest<HTMLElement>('.pvta-file-ref');
     if (fileRef) {
-      // Bấm một lần chỉ chọn; mở tệp bằng nhấp đúp, Enter hoặc menu chuột phải.
       e.preventDefault();
       e.stopPropagation();
+      const r = fileRef.getBoundingClientRect();
+      fileMenu.open(fileRef, fileRef, e.clientX || r.left, e.clientY || r.bottom);
       return;
     }
 

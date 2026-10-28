@@ -13,6 +13,7 @@ const KEY_STORE = "pvta.ipadKey";
  */
 export function bridgeUrl(loc: { protocol: string; host: string; port: string; search: string } | undefined, store?: Pick<Storage, "getItem" | "setItem">): string {
   if (!loc || loc.protocol !== "https:" || loc.port === "3000") return "ws://127.0.0.1:52731/ws";
+  if (loc.port === "52734") return "wss://localhost:52730/ws";
   let key = new URLSearchParams(loc.search).get("k");
   try {
     if (key) store?.setItem(KEY_STORE, key);

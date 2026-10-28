@@ -354,7 +354,7 @@ export async function startServer(opts: ServerOptions = {}): Promise<RunningServ
     return out;
   };
   const wsMsg = (r: SessionRec) => {
-    const base = chatStore.state(r.chatId);
+    const base = chatStore.state(r.chatId, r.docName, r.host);
     const pid = projectOf(r);
     return {
       type: "workspace" as const,
@@ -370,6 +370,11 @@ export async function startServer(opts: ServerOptions = {}): Promise<RunningServ
   };
   /** Dự án của hội thoại đang mở ở một cửa sổ (đã lưu thì theo bản lưu). */
   const projectOf = (r: SessionRec) => (r.chatId ? chatStore.get(r.chatId)?.projectId : undefined) ?? r.projectId;
+  /** Quy tắc đầy đủ cho phiên Office hiện tại: quy tắc chung + dự án + văn bản/hội thoại + quy tắc luôn áp dụng từ PVTA Chat. */
+  const sessionRules = (r: SessionRec) =>
+    [chatStore.effectiveRules(projectOf(r), r.chatId, r.docName, r.host), alwaysRulesText(readChatRules(home))]
+      .filter(Boolean)
+      .join("\n");
   /** Hội thoại đang mở ở các cửa sổ: chưa tóm tắt (vẫn còn nguyên trong ngữ cảnh). */
   const openChatIds = () => new Set([...sessions.values()].map((r) => r.chatId).filter((x): x is string => !!x));
   const staleDigests = () => {
@@ -854,7 +859,7 @@ export async function startServer(opts: ServerOptions = {}): Promise<RunningServ
       readStyle,
       port,
       learnEnabled: learnOn,
-      extraRules: () => [chatStore.effectiveRules(projectOf(rec)), alwaysRulesText(readChatRules(home))].filter(Boolean).join("\n"),
+      extraRules: () => sessionRules(rec),
       notebooks: { section: (t: string) => notebooks.section(t), tool: (c) => notebooks.tool(c) },
       pdfTool: (call) => {
         const r = fileStore.pages(scopesOf(rec), call.args);
@@ -994,7 +999,7 @@ export async function startServer(opts: ServerOptions = {}): Promise<RunningServ
     return runOneShot(rec, ws, id, choice, effort, style.temperature, (model) => {
       rec.lastWriteModel = model;
       return {
-        system: writeSystem({ host: rec.host, lang: rec.lang, style: readStyle(), modeText: style.modeText }),
+        system: writeSystem({ host: rec.host, lang: rec.lang, style: readStyle(), modeText: style.modeText, rules: sessionRules(rec) }),
         request: writeRequest({ action, text, context, option }),
       };
     }, cleanWriteOutput);
@@ -1146,7 +1151,7 @@ export async function startServer(opts: ServerOptions = {}): Promise<RunningServ
                 permission: "ask" as const,
                 effort,
                 speed: m.speed,
-                system: writeSystem({ host: rec.host, lang: rec.lang, style: readStyle(), modeText }),
+                system: writeSystem({ host: rec.host, lang: rec.lang, style: readStyle(), modeText, rules: sessionRules(rec) }),
               }
             : rec.chat.nextRun(m, effort, { modeText });
         void engine.prewarm?.(req).catch(() => undefined);
@@ -1627,7 +1632,7 @@ export async function startServer(opts: ServerOptions = {}): Promise<RunningServ
       }
       case "ws_save": {
         if (!ChatStore.validId(msg.id) || !Array.isArray(msg.msgs)) return rec;
-        const meta = chatStore.save(msg.id, rec.host, msg.msgs, rec.projectId);
+        const meta = chatStore.save(msg.id, rec.host, msg.msgs, rec.projectId, rec.docName);
         if (meta) {
           rec.chatId = meta.id;
           broadcastWorkspace();
@@ -1691,15 +1696,37 @@ export async function startServer(opts: ServerOptions = {}): Promise<RunningServ
         return rec;
       }
       case "ws_rules":
-        try { chatStore.setGlobalRules(String(msg.rules ?? "")); broadcastWorkspace(); }
-        catch (e) { send(ws, {type: "error", id: "rules", kind: "other", message: (e as Error).message}); }
+        try {
+          const rules = String(msg.rules ?? "");
+          if (msg.scope === "doc") {
+            const docName = docDisplayName(msg.doc) ?? rec.docName;
+            if (docName && !rec.docName) rec.docName = docName;
+            const targetChatId = typeof msg.id === "string" && ChatStore.validId(msg.id) ? msg.id : rec.chatId;
+            chatStore.setDocRules({ chatId: targetChatId, docName, host: rec.host, rules });
+          } else if (msg.scope === "host") {
+            const targetHost = HOSTS.includes(msg.host as OfficeHost) ? (msg.host as OfficeHost) : rec.host;
+            chatStore.setHostRules(targetHost, rules);
+          } else if (msg.scope === "chat") {
+            const targetChatId = typeof msg.id === "string" && ChatStore.validId(msg.id) ? msg.id : rec.chatId;
+            if (targetChatId) chatStore.setChatRules(targetChatId, rules);
+          } else {
+            chatStore.setGlobalRules(rules);
+          }
+          broadcastWorkspace();
+        } catch (e) {
+          send(ws, { type: "error", id: "rules", kind: "other", message: (e as Error).message });
+        }
         return rec;
       case "rag_build": {
         if (!Array.isArray(msg.segments)) return rec;
         const t0 = performance.now();
+        const freshDoc = docDisplayName(msg.name);
+        const docChanged = freshDoc && freshDoc !== rec.docName;
+        if (freshDoc) rec.docName = freshDoc;
         rec.rag = buildIndex({ name: String(msg.name ?? rec.docName ?? "").slice(0, 200) || "tài liệu", host: rec.host, segments: msg.segments, fp: typeof msg.fp === "string" ? msg.fp.slice(0, 64) : undefined });
         rec.ragMs = Math.round(performance.now() - t0);
         send(ws, ragMsg(rec));
+        if (docChanged) send(ws, wsMsg(rec));
         return rec;
       }
       case "rag_set":

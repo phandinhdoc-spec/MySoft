@@ -41,6 +41,33 @@ export const BUILTIN_MODELS: Record<CliBackendId, ModelInfo[]> = {
       defaultEffort: "medium",
       variants: { low: "gemini-3.8-flash-low", medium: "gemini-3.8-flash-medium", high: "gemini-3.8-flash-high" },
     },
+    {
+      id: "gemini-4-argon",
+      label: "Gemini 4 Argon",
+      hint: "cân bằng & đa năng",
+      defaultEffort: "medium",
+      variants: { low: "gemini-4-argon-low", medium: "gemini-4-argon-medium", high: "gemini-4-argon-high" },
+    },
+    {
+      id: "claude-sonnet-5-5",
+      label: "Claude Sonnet 5.5",
+      hint: "lập trình & cấu trúc",
+      defaultEffort: "medium",
+      variants: { low: "claude-sonnet-5-5-low", medium: "claude-sonnet-5-5-medium", high: "claude-sonnet-5-5-high" },
+    },
+    {
+      id: "claude-opus-5-5",
+      label: "Claude Opus 5.5",
+      hint: "suy luận sâu nhất",
+      defaultEffort: "medium",
+      variants: { low: "claude-opus-5-5-low", medium: "claude-opus-5-5-medium", high: "claude-opus-5-5-high" },
+    },
+    {
+      id: "gpt-oss-120b-medium",
+      label: "GPT-OSS 120B (Medium)",
+      hint: "đa năng dự phòng",
+      efforts: [],
+    },
   ],
 };
 
@@ -97,7 +124,7 @@ export function parseCodexModels(raw: unknown): ModelInfo[] {
  */
 export function parseAgyModels(text: string): ModelInfo[] {
   const rows: Array<{ slug: string; label: string }> = [];
-  for (const line of text.split(/\r?\n/)) {
+  for (const line of text.split(/[\r\n]+/)) {
     const i = line.indexOf("\t");
     if (i <= 0) continue;
     const slug = line.slice(0, i).trim();

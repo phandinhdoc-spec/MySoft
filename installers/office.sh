@@ -26,7 +26,8 @@ legacy_cleanup() {
   local old_plist="$HOME/Library/LaunchAgents/vn.phananh.pvta.plist"
   launchctl bootout "gui/$UID_NUM" "$old_plist" 2>/dev/null || true
   rm -f "$old_plist"
-  manifest_dirs | while read -r d; do rm -f "$d/pvta.manifest.xml"; done
+  manifest_dirs | while read -r d; do rm -f "$d/pvta.manifest.xml" "$d/PVTA-Desktop.xml"; done
+  rm -f "$HOME/Library/Application Support/PVTA/office-plugin/wef-registered.json"
 }
 
 if [ "${1:-}" = "--uninstall" ]; then
@@ -34,7 +35,8 @@ if [ "${1:-}" = "--uninstall" ]; then
   legacy_cleanup
   launchctl bootout "gui/$UID_NUM" "$PLIST" 2>/dev/null || true
   rm -f "$PLIST"
-  manifest_dirs | while read -r d; do rm -f "$d/pvta.manifest.xml"; done
+  manifest_dirs | while read -r d; do rm -f "$d/pvta.manifest.xml" "$d/PVTA-Desktop.xml"; done
+  rm -f "$HOME/Library/Application Support/PVTA/office-plugin/wef-registered.json"
   security delete-certificate -c "PVTA Localhost" "$HOME/Library/Keychains/login.keychain-db" 2>/dev/null || true
   rm -rf "$APP" "$HOME_DIR/node" "$HOME_DIR/certs"
   say "Đã gỡ. Dữ liệu (skill, cấu hình) còn ở $HOME_DIR; xóa thư mục này nếu muốn bỏ hẳn."
@@ -93,23 +95,49 @@ trap 'status=$?; if [[ $status != 0 ]]; then rollback_office; fi' EXIT
 
 # 3. Chứng chỉ HTTPS cục bộ (Office bắt buộc add-in dùng HTTPS)
 CERTS="$HOME_DIR/certs"
-if [ ! -f "$CERTS/localhost.crt" ]; then
-  say "Tạo chứng chỉ cục bộ (máy sẽ hỏi mật khẩu đăng nhập Mac một lần)…"
-  mkdir -p "$CERTS"
-  openssl req -x509 -newkey rsa:2048 -nodes -keyout "$CERTS/localhost.key" -out "$CERTS/localhost.crt" \
-    -days 800 -subj "/CN=PVTA Localhost" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1" \
-    -addext "basicConstraints=critical,CA:FALSE" -addext "extendedKeyUsage=serverAuth" >/dev/null 2>&1
-  chmod 600 "$CERTS/localhost.key"
-  security add-trusted-cert -r trustRoot -k "$HOME/Library/Keychains/login.keychain-db" "$CERTS/localhost.crt" \
-    || die "Chưa tin cậy được chứng chỉ. Chạy lại và chọn Cho phép."
+DESKTOP_PLUGIN="$HOME/Library/Application Support/PVTA/office-plugin"
+mkdir -p "$DESKTOP_PLUGIN/certs" "$CERTS"
+if [ ! -f "$DESKTOP_PLUGIN/certs/ca.crt" ] || [ ! -f "$DESKTOP_PLUGIN/certs/server.crt" ]; then
+  say "Tạo chứng chỉ cục bộ…"
+  openssl genrsa -traditional -out "$DESKTOP_PLUGIN/certs/ca.key" 2048 >/dev/null 2>&1 || openssl genrsa -out "$DESKTOP_PLUGIN/certs/ca.key" 2048 >/dev/null 2>&1
+  openssl req -x509 -new -nodes -key "$DESKTOP_PLUGIN/certs/ca.key" -sha256 -days 3650 -out "$DESKTOP_PLUGIN/certs/ca.crt" \
+    -subj "/CN=PVTA iPad CA/O=PVTA" \
+    -addext "basicConstraints=critical,CA:TRUE" -addext "keyUsage=critical,keyCertSign,cRLSign" >/dev/null 2>&1
+  openssl genrsa -traditional -out "$DESKTOP_PLUGIN/certs/server.key" 2048 >/dev/null 2>&1 || openssl genrsa -out "$DESKTOP_PLUGIN/certs/server.key" 2048 >/dev/null 2>&1
+  openssl req -new -key "$DESKTOP_PLUGIN/certs/server.key" -out "$DESKTOP_PLUGIN/certs/server.csr" -subj "/CN=localhost" >/dev/null 2>&1
+  cat > "$DESKTOP_PLUGIN/certs/ext.cnf" <<EXTEOF
+basicConstraints=critical,CA:FALSE
+keyUsage=critical,digitalSignature,keyEncipherment
+extendedKeyUsage=serverAuth
+subjectAltName=DNS:localhost,IP:127.0.0.1
+EXTEOF
+  openssl x509 -req -in "$DESKTOP_PLUGIN/certs/server.csr" -CA "$DESKTOP_PLUGIN/certs/ca.crt" -CAkey "$DESKTOP_PLUGIN/certs/ca.key" \
+    -CAcreateserial -out "$DESKTOP_PLUGIN/certs/server.crt" -days 800 -sha256 -extfile "$DESKTOP_PLUGIN/certs/ext.cnf" >/dev/null 2>&1
+  rm -f "$DESKTOP_PLUGIN/certs/server.csr" "$DESKTOP_PLUGIN/certs/ext.cnf" "$DESKTOP_PLUGIN/certs/ca.srl"
+  chmod 600 "$DESKTOP_PLUGIN/certs/ca.key" "$DESKTOP_PLUGIN/certs/server.key"
 fi
+cat "$DESKTOP_PLUGIN/certs/server.crt" "$DESKTOP_PLUGIN/certs/ca.crt" > "$CERTS/localhost.crt"
+cp "$DESKTOP_PLUGIN/certs/server.key" "$CERTS/localhost.key"
+chmod 600 "$CERTS/localhost.key"
 
 # 4. Đăng ký add-in với Word, Excel, PowerPoint
-manifest_dirs | while read -r d; do
-  if ! (mkdir -p "$d" && cp "$APP/manifest.xml" "$d/pvta.manifest.xml"); then
+sed -e 's#6d1f3b52-8e0a-4c53-9a47-2f6f0f6a11d0#c40b3f55-7e7e-4a43-8b25-7808fd1e7f39#g' \
+    -e 's#https://localhost:52730#https://localhost:52734#g' \
+    -e 's#<TaskpaneId>PvtaPane</TaskpaneId>#<TaskpaneId>Office.AutoShowTaskpaneWithDocument</TaskpaneId>#g' \
+    -e 's#DefaultValue="PVTA"#DefaultValue="PVTA Desktop"#' \
+    "$APP/manifest.xml" > "$DESKTOP_PLUGIN/PVTA-Desktop.xml"
+reg_ok=0
+for app in Word Excel Powerpoint; do
+  d="$HOME/Library/Containers/com.microsoft.$app/Data/Documents/wef"
+  if mkdir -p "$d" && cp "$APP/manifest.xml" "$d/pvta.manifest.xml" && cp "$DESKTOP_PLUGIN/PVTA-Desktop.xml" "$d/PVTA-Desktop.xml"; then
+    reg_ok=$((reg_ok + 1))
+  else
     say "Chưa đăng ký được tiện ích tại $d. Nếu PVTA đã có trong Office, chỉ cần mở lại bảng PVTA để dùng bản mới."
   fi
 done
+if [ "$reg_ok" -gt 0 ]; then
+  printf '{"version":"2.0.0.0","apps":["Word","Excel","Powerpoint"]}\n' > "$DESKTOP_PLUGIN/wef-registered.json"
+fi
 
 # 5. Tự chạy nền khi đăng nhập. PATH gồm nơi cài claude / agy.
 EXTRA="$HOME/.local/bin:$HOME/.claude/local:$HOME/.npm-global/bin:$HOME/.antigravity/bin:$HOME/.bun/bin:$HOME/.volta/bin:/opt/homebrew/bin:/usr/local/bin"
@@ -144,11 +172,14 @@ launchctl bootstrap "gui/$UID_NUM" "$PLIST"
 # 6. Kiểm tra
 ok=""
 for _ in $(seq 1 20); do
-  if curl -fsS --cacert "$CERTS/localhost.crt" https://localhost:52730/health >/dev/null 2>&1; then ok=1; break; fi
+  if curl -fsS --cacert "$DESKTOP_PLUGIN/certs/ca.crt" https://localhost:52730/health >/dev/null 2>&1; then ok=1; break; fi
   sleep 0.5
 done
 [ -n "$ok" ] || { die "PVTA chưa khởi động được; đã phục hồi bản trước. Xem $HOME_DIR/bridge.log"; }
 trap - EXIT
+if [ "${PVTA_SKIP_TRUST:-}" != "1" ]; then
+  security add-trusted-cert -r trustRoot -k "$HOME/Library/Keychains/login.keychain-db" "$DESKTOP_PLUGIN/certs/ca.crt" 2>/dev/null || true
+fi
 
 have=""
 for c in claude codex agy; do

@@ -219,7 +219,7 @@ export function parseLearnOutput(text: string): LearnedSkill[] {
 }
 
 export function validateLearned(s: LearnedSkill): { ok: true } | { ok: false; reason: string } {
-  if (!/^learned-[a-z0-9-]{1,40}$/.test(s.name) || !SKILL_NAME_RE.test(s.name)) return { ok: false, reason: "tên skill không hợp lệ" };
+  if ((!/^learned-[a-z0-9-]{1,40}$/.test(s.name) && s.name !== "choice-model") || !SKILL_NAME_RE.test(s.name)) return { ok: false, reason: "tên skill không hợp lệ" };
   if (s.description.length < 10 || s.description.length > 300) return { ok: false, reason: "mô tả phải dài 10-300 ký tự" };
   if (s.body.length < 20 || s.body.length > LEARN.skillBodyMax) return { ok: false, reason: "nội dung quá ngắn hoặc quá dài" };
   const bad = findUnsafe(`${s.description}\n${s.body}`);

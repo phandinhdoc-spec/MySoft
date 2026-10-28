@@ -56,7 +56,7 @@ export function isWriteAction(v: unknown): v is WriteAction {
  * Phần cố định của công cụ viết (lời nhắc hệ thống): giống nhau cho mọi thao tác cùng chế độ,
  * nên bridge khởi động sẵn được CLI và model đọc lại từ cache.
  */
-export function writeSystem(i: { host: OfficeHost; lang: "vi" | "en"; style: string; modeText?: string }): string {
+export function writeSystem(i: { host: OfficeHost; lang: "vi" | "en"; style: string; modeText?: string; rules?: string }): string {
   const answerLang = i.lang === "en" ? "Answer in the same language as the text unless asked to translate." : "Trả lời bằng cùng ngôn ngữ với văn bản (mặc định tiếng Việt), trừ khi được yêu cầu dịch.";
   const parts = [
     `Bạn là PVTA, trợ lý viết trong ${HOST[i.host]} cho giáo viên. Mỗi lượt có một nhiệm vụ và một văn bản.`,
@@ -69,6 +69,7 @@ export function writeSystem(i: { host: OfficeHost; lang: "vi" | "en"; style: str
   ];
   const modeText = i.modeText?.trim() ?? "";
   if (modeText) parts.push(`${modeText}\n(Với nhiệm vụ sửa chính tả hoặc dịch: bỏ qua chế độ này, giữ nguyên ý và giọng văn.)`);
+  if (i.rules?.trim()) parts.push(`Quy tắc của giáo viên (luôn tuân theo):\n${i.rules.trim().slice(0, 4000)}`);
   if (i.style.trim()) parts.push(`Hồ sơ phong cách của giáo viên (tuân theo khi phù hợp):\n${i.style.trim().slice(0, 3000)}`);
   return parts.join("\n\n");
 }
@@ -91,6 +92,7 @@ export function buildWritePrompt(i: {
   lang: "vi" | "en";
   style: string;
   modeText?: string;
+  rules?: string;
 }): string {
   return `${writeSystem(i)}\n\n${writeRequest(i)}`;
 }

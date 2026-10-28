@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { Engine } from "../src/engine.js";
 import { EngineError } from "../src/errors.js";
 import { ProbeStore } from "../src/probe.js";
@@ -25,6 +25,33 @@ function setup(mode: string, extraEnv: Record<string, string> = {}) {
 const base = (dir: string) => ({ backend: "claude" as const, model: "sonnet", cwd: dir, permission: "ask" as const });
 
 describe("engine với claude giả", () => {
+  it('bounds stderr while retaining the final diagnostic',async()=>{
+    const {dir,engine}=setup('noisy-error');
+    try{
+      const error=await engine.run({...base(dir),buildPrompt:()=>''}).catch(e=>e);
+      expect(error).toBeInstanceOf(EngineError);expect(error.detail).toContain('FINAL DIAGNOSTIC');
+      expect(error.detail.length).toBeLessThanOrEqual(64*1024);
+    }finally{engine.dispose();fs.rmSync(dir,{recursive:true,force:true});}
+  });
+  it('stops oversized unfinished JSON lines instead of buffering indefinitely',async()=>{
+    const {dir,engine}=setup('oversize-line');
+    try{await expect(engine.run({...base(dir),buildPrompt:()=>''})).rejects.toThrow('sự kiện CLI quá lớn');}
+    finally{engine.dispose();fs.rmSync(dir,{recursive:true,force:true});}
+  });
+  it.skipIf(process.platform==='win32')('cancels a CLI and its tool child before allowing the next request',async()=>{
+    const pidDir=fs.mkdtempSync(path.join(os.tmpdir(),'pvta-pids-'));const pidFile=path.join(pidDir,'child');
+    const {dir,engine}=setup('process-tree',{FAKE_PID_FILE:pidFile});const ctl=new AbortController();
+    const pending=engine.run({...base(dir),buildPrompt:()=>'',signal:ctl.signal});
+    const rejected=expect(pending).rejects.toThrow('Đã hủy');let pid:number|undefined;
+    try{
+      await vi.waitFor(()=>expect(fs.existsSync(pidFile)).toBe(true),{timeout:3000});pid=Number(fs.readFileSync(pidFile,'utf8'));
+      ctl.abort();await rejected;
+      await vi.waitFor(()=>expect(()=>process.kill(pid!,0)).toThrow(),{timeout:3000});
+    }finally{
+      ctl.abort();engine.dispose();if(pid){try{process.kill(pid,'SIGKILL');}catch{}}
+      await pending.catch(()=>{});fs.rmSync(dir,{recursive:true,force:true});fs.rmSync(pidDir,{recursive:true,force:true});
+    }
+  });
   it("truyền chữ theo từng đoạn và đo thời gian", async () => {
     const { dir, engine } = setup("ok");
     const deltas: string[] = [];
@@ -147,6 +174,40 @@ describe("engine: mức suy nghĩ", () => {
 });
 
 describe("engine với agy giả", () => {
+  it("không khởi động AGY trước khi người dùng bật prewarm", async () => {
+    const { dir, engine, calls } = setup("echo-prompt");
+    try {
+      expect(await engine.prewarm({backend:"agy",model:"m",cwd:dir,permission:"read"})).toBe(false);
+      expect(calls()).toHaveLength(0);
+    } finally { engine.disposeWarm(); fs.rmSync(dir, {recursive:true,force:true}); }
+  });
+  it("gửi nguyên prompt tiếng Việt nhiều dòng qua NDJSON, kể cả lượt tiếp nối", async () => {
+    const { dir, engine, calls } = setup("echo-prompt");
+    const prompt = 'Người dùng: "Soạn bài tiếng Việt"\nGiữ nguyên $HOME, `literal`, dấu \' và 😀.';
+    try {
+      const first = await engine.run({ backend: "agy", model: "m", cwd: dir, permission: "read", buildPrompt: () => prompt });
+      expect(first.text).toBe(prompt);
+      const next = await engine.run({ backend: "agy", model: "m", cwd: dir, permission: "read", conversationId: first.conversationId, buildPrompt: resumed => resumed ? "Bổ sung câu hỏi số 2" : prompt });
+      expect(next.text).toBe("Bổ sung câu hỏi số 2");
+      expect(calls()[0]).not.toContain("-p");
+      expect(calls()[0]).not.toContain(prompt);
+      expect(calls()[0]).toContain("--input-format");
+      expect(calls()[1]).toContain("--conversation");
+    } finally { engine.disposeWarm(); fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+  it("agy mặc định tự duyệt công cụ cho mọi mức quyền PVTA", async () => {
+    const { dir, engine, calls } = setup("echo-prompt");
+    try {
+      for (const permission of ["read", "ask", "full"] as const) {
+        await engine.run({ backend: "agy", model: "m", cwd: dir, permission, workspaceWrite: false, buildPrompt: () => "Yêu cầu của người dùng" });
+      }
+      for (const args of calls()) {
+        expect(args).toContain("--dangerously-skip-permissions");
+        expect(args).not.toContain("--mode");
+        expect(args).not.toContain("--sandbox");
+      }
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
   it("khởi chạy ngầm trong dự án mới với cờ chỉnh sửa hợp lệ, không cần mở agy thủ công", async () => {
     const { dir, engine, calls } = setup("cwd");
     const projectDir = path.join(dir, "Dự án mới có dấu");
@@ -154,15 +215,16 @@ describe("engine với agy giả", () => {
     const r = await engine.run({ backend: "agy", model: "m", cwd: projectDir, permission: "read", workspaceWrite: true, buildPrompt: () => "x" });
     expect(fs.realpathSync(r.text)).toBe(fs.realpathSync(projectDir));
     expect(r.attempts).toBe(1);
-    expect(calls()[0]).toEqual(expect.arrayContaining(["-p", "-", "--model", "m", "--dangerously-skip-permissions"]));
+    expect(calls()[0]).toEqual(expect.arrayContaining(["--input-format", "stream-json", "--model", "m", "--dangerously-skip-permissions"]));
     expect(calls()[0]).not.toContain("--mode");
     expect(calls()[0]).not.toContain("--yolo");
   });
-  it("không tự cấp quyền ghi cho agy khi chưa bật chỉnh sửa workspace", async () => {
+  it("AGY vẫn tự duyệt công cụ khi không truyền workspaceWrite", async () => {
     const { dir, engine, calls } = setup("ok");
     await engine.run({ backend: "agy", model: "m", cwd: dir, permission: "full", buildPrompt: () => "x" });
-    expect(calls()[0]).toEqual(expect.arrayContaining(["--mode", "plan", "--sandbox"]));
-    expect(calls()[0]).not.toContain("--dangerously-skip-permissions");
+    expect(calls()[0]).toContain("--dangerously-skip-permissions");
+    expect(calls()[0]).not.toContain("--mode");
+    expect(calls()[0]).not.toContain("--sandbox");
   });
   it("đọc step_update/result và mã hội thoại", async () => {
     const { dir, engine } = setup("ok");
@@ -190,14 +252,15 @@ describe("engine với agy giả", () => {
     expect(err.message).toContain("không trả về nội dung");
     expect(err.message).toContain("something_else");
   });
-  it("agy trên Windows không bị giới hạn dòng lệnh vì truyền qua stdin (-p -)", async () => {
+  it.each(['win32','darwin','linux'] as const)("agy trên %s gửi prompt dài qua stdin mà không vượt giới hạn đối số", async (platform) => {
     const { dir, calls } = setup("ok");
     const probe = new ProbeStore(path.join(dir, "probe.json"));
-    const engine = new Engine({ probe, platform: "win32", env: { ...process.env, PVTA_AGY_BIN: FAKE_AGY, FAKE_MODE: "ok", FAKE_LOG: path.join(dir, "calls.log") } });
+    const engine = new Engine({ probe, platform, env: { ...process.env, PVTA_AGY_BIN: FAKE_AGY, FAKE_MODE: "echo-prompt", FAKE_LOG: path.join(dir, "calls.log") } });
     const longPrompt = "x".repeat(35_000);
-    const r = await engine.run({ backend: "agy", model: "m", cwd: dir, permission: "ask", buildPrompt: () => longPrompt });
-    expect(r.text).toBe("Chào bạn");
-    expect(calls()[0]).toEqual(expect.arrayContaining(["-p", "-"]));
+    const result = await engine.run({ backend: "agy", model: "m", cwd: dir, permission: "ask", buildPrompt: () => longPrompt });
+    expect(result.text).toBe(longPrompt);
+    expect(calls()).toHaveLength(1);
+    expect(calls()[0]!.join(' ').length).toBeLessThan(1000);
   });
 });
 

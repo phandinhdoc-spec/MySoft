@@ -29,6 +29,9 @@ describe('tên cuộc trò chuyện',()=>{
   expect(r.view().data.chats[0]!.title).toBe('giải phương trình x2 - 3x + 2 = 0');
   await wait(()=>r.view().data.chats[0]!.title==='Phương trình bậc hai');
   expect(r.view().data.chats[0]!.title).toBe('Phương trình bậc hai');
+  await req(r,'send',{chatId,text:'giải thích thêm'});
+  await req(r,'send',{chatId,text:'cho ví dụ khác'});
+  expect(spy.mock.calls.filter(([q])=>/Đặt một tên/.test(q.system??''))).toHaveLength(1);
  });
  it('thầy cô đã đổi tên thì AI không ghi đè',async()=>{
   const {r,spy}=setup();

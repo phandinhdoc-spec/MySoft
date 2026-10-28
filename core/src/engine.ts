@@ -8,11 +8,14 @@ import type { InvokeOptions } from "./backends/types.js";
 import { cleanEnv } from "./env.js";
 import { classifyError, EngineError, extractBadFlag } from "./errors.js";
 import { probeCli, type ProbeStore } from "./probe.js";
-import { buildSpawn, launch, resolveWin, WIN_ARG_LIMIT, WIN_SHELL_ARG_LIMIT, WinShellNewlineError, type SpawnPlan, type WinTarget } from "./spawn.js";
+import { buildSpawn, launch, stopProcessTree, resolveWin, WIN_ARG_LIMIT, WIN_SHELL_ARG_LIMIT, WinShellNewlineError, type SpawnPlan, type WinTarget } from "./spawn.js";
 import type { ChildProcess } from "node:child_process";
 import { Stopwatch } from "./timing.js";
+import {ProviderQueue} from './provider-queue.js';
 
 export interface EngineDeps {
+  /** Explicit opt-in: idle CLI processes consume RAM even before a request. */
+  allowPrewarm?: boolean;
   probe: ProbeStore;
   /** Backend "api" (gọi thẳng API bằng khóa người dùng). */
   api?: { run(req: RunRequest): Promise<RunResult> };
@@ -23,12 +26,16 @@ export interface EngineDeps {
 }
 
 export interface RunRequest {
+  brain?: InvokeOptions['brain'];
+  /** User requests run before queued automatic housekeeping. */
+  priority?: 'foreground' | 'background';
   backend: BackendId;
   model: string;
   cwd: string;
   permission: PermissionLevel;
   /** Xem InvokeOptions.workspaceWrite. */
   workspaceWrite?: boolean;
+  workspaceDirs?: string[];
   /** Xem InvokeOptions.mcp. Không truyền = tắt. */
   mcp?: InvokeOptions["mcp"];
   effort?: Effort;
@@ -80,8 +87,13 @@ interface AttemptCtx {
 class StreamUnreadable extends Error {}
 
 const MAX_ATTEMPTS = 3; // lần đầu + tối đa 2 lần thử lại
+const MAX_LINE_CHARS = 24 * 1024 * 1024; // includes image/tool JSON events
+const MAX_TEXT_CHARS = 8 * 1024 * 1024;
 
 export class Engine {
+  private queue = new ProviderQueue();
+  private controllers = new Set<AbortController>();
+  private disposed = false;
   private versionCache = new Map<CliBackendId, string>();
   /** Windows: kết quả tìm lệnh trong PATH (tìm một lần, lỗi ENOENT thì tìm lại). */
   private winTargets = new Map<string, WinTarget>();
@@ -100,7 +112,7 @@ export class Engine {
    * lúc gửi chỉ cần ghi prompt vào stdin, bỏ được thời gian khởi động. Chưa dùng thì tự tắt.
    */
   async prewarm(req: Omit<RunRequest, "buildPrompt" | "onDelta" | "signal">, ttlMs = 120_000): Promise<boolean> {
-    if (req.backend === "api") return false;
+    if (!this.deps.allowPrewarm || this.disposed || req.backend === "api") return false;
     const r = req as Omit<CliRunRequest, "buildPrompt">;
     const ctx: AttemptCtx = { conversationId: r.conversationId, plain: false, dropFlags: new Set(await this.storedUnsupported(r.backend)) };
     const pre = this.prepare(r, ctx, "");
@@ -138,7 +150,7 @@ export class Engine {
     if (!w || (only && w.child !== only)) return;
     this.warm.delete(key);
     clearTimeout(w.timer);
-    if (alive(w.child)) w.child.kill("SIGKILL");
+    if (alive(w.child)) stopProcessTree(w.child);
   }
 
   private takeWarm(key: string): ChildProcess | undefined {
@@ -167,6 +179,8 @@ export class Engine {
       conversationId: ctx.conversationId,
       permission: req.permission,
       workspaceWrite: req.workspaceWrite,
+      workspaceDirs: req.workspaceDirs,
+      brain: req.brain,
       mcp: req.mcp,
       effort: req.effort,
       speed: req.speed,
@@ -191,6 +205,21 @@ export class Engine {
   }
 
   async run(request: RunRequest): Promise<RunResult> {
+    if(this.disposed)throw new EngineError('other','Engine đã dừng.');
+    const ctl=new AbortController();this.controllers.add(ctl);
+    const abort=()=>ctl.abort(request.signal?.reason);
+    if(request.signal?.aborted)abort();else request.signal?.addEventListener('abort',abort,{once:true});
+    try{return await this.queue.run(()=>this.execute({...request,signal:ctl.signal}),ctl.signal,request.priority==='background');}
+    finally{request.signal?.removeEventListener('abort',abort);this.controllers.delete(ctl);}
+  }
+
+  dispose():void {
+    this.disposed=true;
+    for(const ctl of this.controllers)ctl.abort();
+    this.disposeWarm();
+  }
+
+  private async execute(request: RunRequest): Promise<RunResult> {
     if (request.backend === "api") {
       if (!this.deps.api) throw new EngineError("missing", "Chưa cấu hình API.");
       return this.deps.api.run(request);
@@ -210,7 +239,7 @@ export class Engine {
         lastErr = e;
         if (attempt === MAX_ATTEMPTS) break;
         if (e instanceof StreamUnreadable) {
-          if (ctx.plain) break;
+          if (ctx.plain || req.backend === 'agy') break;
           ctx.plain = true; // 4. chuyển sang đầu ra văn bản thuần
           continue;
         }
@@ -285,9 +314,9 @@ export class Engine {
     const resumed = ctx.conversationId !== undefined;
     let pre = this.prepare(req, ctx, "");
     const prompt = req.buildPrompt(resumed, pre.systemSent);
-    if (pre.inv.stdin === undefined) pre = this.prepare(req, ctx, prompt); // prompt nằm trong đối số
+    pre = this.prepare(req, ctx, prompt); // backend mã hóa prompt (văn bản hoặc NDJSON)
     const { backend, args, platform, bin, systemSent } = pre;
-    const inv = { ...pre.inv, stdin: pre.inv.stdin === undefined ? undefined : prompt };
+    const inv = pre.inv;
 
     const limit = pre.target?.kind === "shell" ? WIN_SHELL_ARG_LIMIT : WIN_ARG_LIMIT;
     if (inv.stdin === undefined && platform === "win32" && prompt.length > limit) {
@@ -321,6 +350,8 @@ export class Engine {
 
     return await new Promise<Omit<RunResult, "attempts">>((resolve, reject) => {
       let settled = false;
+      let stopped:EngineError|undefined;
+      const stop=(error:EngineError)=>{if(settled||stopped)return;stopped=error;stopProcessTree(child);};
       const finish = (fn: () => void) => {
         if (settled) return;
         settled = true;
@@ -329,14 +360,12 @@ export class Engine {
         fn();
       };
       const onAbort = () => {
-        child.kill("SIGKILL");
-        finish(() => reject(new EngineError("other", "Đã hủy.")));
+        stop(new EngineError("other", "Đã hủy."));
       };
       const timer = req.timeoutMs === 0 ? undefined : setTimeout(() => {
-        child.kill("SIGKILL");
-        finish(() => reject(new EngineError("timeout", "CLI chạy quá thời gian cho phép.")));
+        stop(new EngineError("timeout", "CLI chạy quá thời gian cho phép."));
       }, req.timeoutMs ?? 900_000);
-      if (req.signal?.aborted) return onAbort();
+      if (req.signal?.aborted) onAbort();
       req.signal?.addEventListener("abort", onAbort, { once: true });
 
       const emit = (t: string) => {
@@ -352,8 +381,10 @@ export class Engine {
       let rawHead = ""; // đầu ra thô (cắt ngắn) để báo lỗi khi CLI không trả chữ nào
       child.stdout!.setEncoding("utf8");
       child.stdout!.on("data", (chunk: string) => {
+        if(settled||stopped)return;
         if (rawHead.length < 1500) rawHead += chunk.replace(/^\{"event":"init".*$/m, "[init…]").slice(0, 1500 - rawHead.length);
         if (ctx.plain) {
+          if(plainOut.length+chunk.length>MAX_TEXT_CHARS){stop(new EngineError('other','Đầu ra CLI vượt giới hạn bộ nhớ.'));return;}
           plainOut += chunk;
           emit(chunk);
           return;
@@ -361,16 +392,19 @@ export class Engine {
         buf += chunk;
         let nl: number;
         while ((nl = buf.indexOf("\n")) >= 0) {
+          if(nl>MAX_LINE_CHARS){stop(new EngineError('other','Một sự kiện CLI quá lớn.'));buf='';return;}
           const line = buf.slice(0, nl);
           buf = buf.slice(nl + 1);
           observe(line);
           const t = backend.parseLine(line, state);
           if (t) emit(t);
           else if (!state.gotEvent && line.trim()) plainOut += line + "\n";
+          if(state.text.length>MAX_TEXT_CHARS||(state.resultText?.length??0)>MAX_TEXT_CHARS||plainOut.length>MAX_TEXT_CHARS){stop(new EngineError('other','Đầu ra CLI vượt giới hạn bộ nhớ.'));buf='';return;}
         }
+        if(buf.length>MAX_LINE_CHARS){stop(new EngineError('other','Một sự kiện CLI quá lớn.'));buf='';}
       });
       child.stderr!.setEncoding("utf8");
-      child.stderr!.on("data", (c: string) => (stderr += c));
+      child.stderr!.on("data", (c: string) => {if(!settled&&!stopped)stderr=(stderr+c).slice(-64*1024);});
 
       child.once("error", (e) => {
         this.winTargets.delete(bin);
@@ -387,6 +421,8 @@ export class Engine {
       });
 
       child.once("close", (code) => {
+        if(settled)return;
+        if(stopped){finish(()=>reject(stopped));return;}
         if (buf.trim() && !ctx.plain) {
           observe(buf);
           const t = backend.parseLine(buf, state);
@@ -416,6 +452,7 @@ export class Engine {
           }
           if (!state.gotEvent && plainOut.trim()) return reject(new StreamUnreadable());
           const text = state.text || state.resultText || "";
+          if(text.length>MAX_TEXT_CHARS)return reject(new EngineError('other','Đầu ra CLI vượt giới hạn bộ nhớ.'));
           if (!state.text && state.resultText && !streamed) req.onDelta?.(state.resultText);
           if (!text && state.denied.length > 0) {
             return reject(
@@ -446,7 +483,7 @@ function deniedMessage(backend: string, denied: unknown[]): string {
   const what = names.length ? ` (${names.join(", ")})` : "";
   const base = `${backend} đã tự từ chối một thao tác${what} vì chạy nền không hỏi lại được quyền.`;
   if (backend === "agy") {
-    return `${base} Ở chế độ Chỉ đọc/Hỏi duyệt, PVTA chạy agy với --mode plan --sandbox nên lệnh và công cụ ngoài (như CHITUP) bị chặn. Hãy chuyển phiên sang "Tự sửa" (biểu tượng cây bút) rồi gửi lại.`;
+    return `${base} Ở chế độ Chỉ đọc/Hỏi duyệt, PVTA chạy agy với --mode plan --sandbox nên lệnh và công cụ ngoài (như Microsoft Office) bị chặn. Hãy chuyển phiên sang "Tự sửa" (biểu tượng cây bút) rồi gửi lại.`;
   }
   return `${base} Hãy kiểm tra thư mục làm việc của bước và quyền của CLI, rồi chạy lại từ khâu lỗi.`;
 }

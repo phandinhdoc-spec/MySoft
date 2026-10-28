@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn, execFile, type ChildProcess } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import type { Arg } from "./backends/types.js";
@@ -149,5 +149,19 @@ export function launch(plan: SpawnPlan, opts: { cwd: string; env: NodeJS.Process
     shell: plan.shell,
     stdio: ["pipe", "pipe", "pipe"],
     windowsHide: true,
+    // Own process group: cancelling a CLI also stops tools it launched.
+    detached: process.platform !== 'win32',
   });
+}
+
+export function stopProcessTree(child:ChildProcess):void {
+  if(!child.pid)return;
+  if(process.platform==='win32'){
+    execFile('taskkill',['/PID',String(child.pid),'/T','/F'],{windowsHide:true,timeout:5000},()=>{
+      if(child.exitCode===null&&child.signalCode===null)child.kill('SIGKILL');
+    });
+  }else{
+    try{process.kill(-child.pid,'SIGKILL');}
+    catch{if(child.exitCode===null&&child.signalCode===null)child.kill('SIGKILL');}
+  }
 }

@@ -1,0 +1,41 @@
+import {afterEach,expect,it} from 'vitest';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import {DesktopRuntime} from '../src/desktop/runtime';
+import {DesktopStore} from '../src/desktop/storage';
+
+const homes:string[]=[],runtimes:DesktopRuntime[]=[];
+afterEach(()=>{runtimes.splice(0).forEach(r=>r.dispose());homes.splice(0).forEach(h=>fs.rmSync(h,{recursive:true,force:true}));});
+it('persists single workspace membership, collapse and rename; deleting a workspace preserves projects and chats',async()=>{
+ const home=fs.mkdtempSync(path.join(os.tmpdir(),'pvta-workspaces-'));homes.push(home);
+ const r=new DesktopRuntime(()=>{},home);runtimes.push(r);
+ const call=(method:string,params:Record<string,unknown>)=>r.dispatch({id:'test',method,params});
+ const p=await call('saveProject',{name:'Bài 1'}) as string;
+ const a=await call('saveWorkspace',{name:'Chương 1'}) as string,b=await call('saveWorkspace',{name:'Chương 2'}) as string;
+ await call('moveProjectToWorkspace',{projectId:p,workspaceId:a});
+ await call('moveProjectToWorkspace',{projectId:p,workspaceId:b});
+ expect(r.store.data.projects[0]!.workspaceId).toBe(b);
+ await expect(call('moveProjectToWorkspace',{projectId:p,workspaceId:'missing'})).rejects.toThrow('Workspace');
+ expect(r.store.data.projects[0]!.workspaceId).toBe(b);
+ await call('saveProject',{id:p,name:'Bài 1 mới'});
+ await call('saveWorkspace',{id:b,name:'Chương II'});
+ await call('setWorkspaceCollapsed',{id:b,collapsed:true});
+ const loaded=new DesktopStore(home);
+ expect(loaded.data.projects[0]!.workspaceId).toBe(b);
+ expect(loaded.data.workspaces?.find(w=>w.id===b)).toMatchObject({name:'Chương II',collapsed:true});
+ r.store.data.chats.push({id:'c',projectId:p,title:'Chat',messages:[],summary:'',updatedAt:1});
+ await call('deleteWorkspace',{id:b});
+ expect(r.store.data.projects).toHaveLength(1);expect(r.store.data.projects[0]!.workspaceId).toBeUndefined();
+ expect(r.store.data.chats[0]!.projectId).toBe(p);
+ await call('moveProjectToWorkspace',{projectId:p,workspaceId:a});
+ await call('moveProjectToWorkspace',{projectId:p,workspaceId:''});
+ expect(new DesktopStore(home).data.projects[0]!.workspaceId).toBeUndefined();
+ await expect(call('saveWorkspace',{name:'  '})).rejects.toThrow('Nhập tên');
+ await expect(call('saveWorkspace',{id:'missing',name:'X'})).rejects.toThrow('Workspace');
+});
+it('loads existing data without requiring workspaces',()=>{
+ const home=fs.mkdtempSync(path.join(os.tmpdir(),'pvta-old-projects-'));homes.push(home);
+ const store=new DesktopStore(home);store.data.projects.push({id:'old',name:'Old',rules:''});store.save();
+ expect(new DesktopStore(home).data.projects[0]!.id).toBe('old');
+});
