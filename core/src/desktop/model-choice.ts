@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { findModelInfo, modelsOf, type BackendId, type Effort, type ModelCatalog, type ModelChoice, type ProviderUsage } from '@pvta/shared';
+import { findModelInfo, modelsOf, type BackendId, type CliBackendId, type Effort, type ModelCatalog, type ModelChoice, type ProviderUsage } from '@pvta/shared';
 import { maskPersonal } from '../learner.js';
 import { findUnsafe } from '../skills.js';
 import { atomicJson, uid } from './storage.js';
@@ -95,6 +95,116 @@ export interface TaskClassification {
   kind: TaskKind;
   complexity: 'low' | 'medium' | 'high';
   signals: string[];
+  /** Lệnh làm ngay: ưu tiên mô hình sinh token nhanh, độ trễ thấp, không cần suy luận sâu. */
+  immediate?: boolean;
+  /** Gợi ý chuyển sang Plan hoặc Plan Pro khi tác vụ cần nhiều công đoạn. */
+  suggestedPlanningMode?: 'plan' | 'pro';
+  suggestedPlanningReason?: string;
+}
+
+const MULTI_STAGE_RE =
+  /(?:^|\n)\s*(?:1[.)]|bước\s*1|giai\s*đoạn\s*1|phần\s*1)\b[\s\S]{8,}(?:\n\s*(?:2[.)]|bước\s*2|giai\s*đoạn\s*2|phần\s*2)\b)[\s\S]{8,}(?:\n\s*(?:3[.)]|bước\s*3|giai\s*đoạn\s*3|phần\s*3)\b)|\b(trước tiên|đầu tiên)\b[\s\S]{10,}\b(sau đó|tiếp theo)\b[\s\S]{10,}\b(cuối cùng|hoàn thiện|tổng hợp)\b|\b(nhiều công đoạn|chia thành các bước|quy trình nhiều bước|trọn bộ hồ sơ|lập kế hoạch chi tiết)\b/i;
+
+const IMMEDIATE_COMMAND_RE =
+  /^(?:hãy\s+|làm ơn\s+|giúp\s+(?:tôi|mình|thầy|cô)\s+)?(?:làm ngay|sửa nhanh|viết nhanh|dịch nhanh|tóm tắt nhanh|in đậm|in nghiêng|gạch chân|căn lề|căn giữa|căn đều|đổi phông|đổi font|đổi cỡ chữ|sửa lỗi chính tả|viết lại câu|rút gọn câu|thêm dòng|xóa dòng|thêm cột|xóa cột|đổi tên|đổi màu|định dạng nhanh|chèn công thức|tính nhanh|tra cứu nhanh|trả lời ngắn)\b/i;
+
+/**
+ * Gợi ý chuyển sang chế độ `Plan` hoặc `Plan Pro` cho các tác vụ nhiều công đoạn,
+ * kết hợp phân tích yêu cầu, lịch sử tự học của PVTA và nhận xét từ AI.
+ */
+export function suggestPlanningMode(
+  input: TaskClassificationInput & {
+    learnedRules?: readonly string[];
+    insights?: readonly LearnedModelInsight[];
+    switches?: readonly ModelSwitchRecord[];
+  },
+): { mode: 'plan' | 'pro'; reason: string } | undefined {
+  if (input.light || input.planMode || input.planningMode === 'plan' || input.planningMode === 'pro' || input.proStep || input.workflow) {
+    return undefined;
+  }
+  const text = (input.text ?? '').trim();
+  if (!text || text.length < 40) return undefined;
+  const lower = text.toLocaleLowerCase('vi');
+  const attCount = input.attachmentCount ?? input.attachmentNames?.length ?? 0;
+
+  if (IMMEDIATE_COMMAND_RE.test(lower) && text.length <= 280 && !MULTI_STAGE_RE.test(lower)) {
+    return undefined;
+  }
+
+  // 1. Tác vụ đề thi / ma trận / đặc tả hoặc kiểm định nhiều tầng -> gợi ý Plan Pro
+  if (/\[pvta:exam:plan-pro\]|ma trận.*đặc tả|đặc tả.*đề kiểm tra|ma trận.*đề thi|kiểm định đề|ra đề.*đáp án.*thang điểm/i.test(lower)) {
+    return {
+      mode: 'pro',
+      reason: 'Tác vụ xây dựng ma trận, đặc tả và đề kiểm tra nhiều công đoạn cần kiểm định chéo — nên chuyển sang ◇ Plan Pro.',
+    };
+  }
+
+  if (
+    (/kiểm định|đối chiếu chéo|phản biện nhiều vòng|kiến trúc hệ thống|tối ưu toàn diện|rà soát toàn bộ dự án/i.test(lower) &&
+      (text.length > 260 || attCount >= 2)) ||
+    (MULTI_STAGE_RE.test(lower) && (text.length > 700 || attCount >= 2))
+  ) {
+    return {
+      mode: 'pro',
+      reason: 'Tác vụ phức tạp gồm nhiều công đoạn và cần kiểm tra chất lượng từng bước — gợi ý chuyển sang ◇ Plan Pro.',
+    };
+  }
+
+  // 2. Kết hợp chế độ tự học của PVTA (bài học đã lưu + nhận xét trong choice-model + lịch sử chọn Plan)
+  const learnedText = [...(input.learnedRules ?? []), ...(input.insights ?? []).map((i) => i.note)].join('\n').toLocaleLowerCase('vi');
+  if (learnedText) {
+    if (/plan\s*pro/i.test(learnedText) && text.length > 220 && /giáo án|khbd|đề|báo cáo|dự án|refactor|kiểm thử/i.test(lower)) {
+      return {
+        mode: 'pro',
+        reason: 'Theo kinh nghiệm tự học của PVTA: tác vụ này nhiều công đoạn và đạt kết quả tốt nhất khi dùng ◇ Plan Pro.',
+      };
+    }
+    if (/\bplan\b|lập kế hoạch/i.test(learnedText) && text.length > 200 && /giáo án|khbd|báo cáo|slide|quy trình|refactor/i.test(lower)) {
+      return {
+        mode: 'plan',
+        reason: 'Theo kinh nghiệm tự học của PVTA: tác vụ có nhiều bước — gợi ý chuyển sang ◇ Plan để duyệt từng công đoạn.',
+      };
+    }
+  }
+
+  // 3. Phát hiện danh sách nhiều công đoạn / nhiều đầu ra liên tiếp
+  const bulletCount = (text.match(/(?:^|\n)\s*(?:\d+[.)]|[-*•])\s+\S+/g) ?? []).length;
+  if (MULTI_STAGE_RE.test(lower) || bulletCount >= 3 || (text.length > 450 && attCount >= 2)) {
+    return {
+      mode: 'plan',
+      reason: 'Yêu cầu gồm nhiều công đoạn liên tiếp — gợi ý chuyển sang ◇ Plan để PVTA lập kế hoạch và thực hiện chắc chắn từng bước.',
+    };
+  }
+
+  return undefined;
+}
+
+/** Phát hiện nhận xét/gợi ý chuyển sang Plan hoặc Plan Pro từ phản hồi của AI. */
+export function extractAiPlanningSuggestion(text: string): { mode: 'plan' | 'pro'; reason: string } | undefined {
+  if (!text) return undefined;
+  const tagMatch = /\[\[\s*GOI_Y_(PLAN_PRO|PLAN)\s*(?::\s*([^\]]+))?\]\]/i.exec(text);
+  if (tagMatch) {
+    const isPro = tagMatch[1]!.toUpperCase() === 'PLAN_PRO';
+    return {
+      mode: isPro ? 'pro' : 'plan',
+      reason: tagMatch[2]?.trim() || (isPro ? 'AI nhận xét tác vụ này cần lập kế hoạch và kiểm định bằng ◇ Plan Pro.' : 'AI nhận xét tác vụ này có nhiều công đoạn, nên chuyển sang ◇ Plan.'),
+    };
+  }
+  if (
+    /(?:gợi ý|khuyên|nên)\s+(?:thầy cô\s+|bạn\s+)?chuyển\s+sang\s+(?:chế độ\s+)?(?:◇\s*)?plan\s*pro\b/i.test(text)
+  ) {
+    return {
+      mode: 'pro',
+      reason: 'AI nhận xét tác vụ này gồm nhiều công đoạn cần kiểm định — gợi ý chuyển sang ◇ Plan Pro.',
+    };
+  }
+  if (/(?:gợi ý|khuyên|nên)\s+(?:thầy cô\s+|bạn\s+)?chuyển\s+sang\s+(?:chế độ\s+)?(?:◇\s*)?plan\b/i.test(text)) {
+    return {
+      mode: 'plan',
+      reason: 'AI nhận xét tác vụ này gồm nhiều công đoạn — gợi ý chuyển sang ◇ Plan.',
+    };
+  }
+  return undefined;
 }
 
 /** Phân loại yêu cầu tất định (không cần gọi AI) để chọn model nhanh và ghi nhận ngữ cảnh khi người dùng đổi model. */
@@ -109,7 +219,7 @@ export function classifyTask(input: TaskClassificationInput): TaskClassification
     input.light ||
     (input.metaKind && ['title', 'summary', 'feedback-extraction', 'self-advice', 'skill-discovery', 'beautifyMarkdown'].includes(input.metaKind))
   ) {
-    return { kind: 'background', complexity: 'low', signals: ['background'] };
+    return { kind: 'background', complexity: 'low', signals: ['background', 'immediate'], immediate: true };
   }
 
   if (input.planningMode === 'pro' || input.proStep) {
@@ -117,9 +227,25 @@ export function classifyTask(input: TaskClassificationInput): TaskClassification
     return { kind: 'pro', complexity: 'high', signals };
   }
 
+  const planSuggestion = suggestPlanningMode(input);
+  const attachSuggestion = (res: TaskClassification): TaskClassification => {
+    if (planSuggestion && !res.immediate) {
+      res.suggestedPlanningMode = planSuggestion.mode;
+      res.suggestedPlanningReason = planSuggestion.reason;
+      if (!res.signals.includes('suggest-plan')) res.signals.push('suggest-plan');
+    }
+    return res;
+  };
+
+  // Lệnh làm ngay rõ ràng (in đậm, sửa nhanh, dịch nhanh, căn giữa...): chọn model sinh token nhanh, ít suy luận
+  if (IMMEDIATE_COMMAND_RE.test(lower) && len <= 280 && !MULTI_STAGE_RE.test(lower)) {
+    signals.push('immediate');
+    return { kind: 'simple', complexity: 'low', signals, immediate: true };
+  }
+
   if (/\[pvta:exam:plan-pro\]|ma trận|đặc tả|đề kiểm tra|đề thi|trộn đề|kiểm định đề|thang điểm|đáp án chi tiết/i.test(lower)) {
     signals.push('exam');
-    return { kind: 'exam', complexity: len > 600 || attCount > 0 ? 'high' : 'medium', signals };
+    return attachSuggestion({ kind: 'exam', complexity: len > 600 || attCount > 0 ? 'high' : 'medium', signals });
   }
 
   if (input.planMode || input.planningMode === 'plan') {
@@ -129,7 +255,7 @@ export function classifyTask(input: TaskClassificationInput): TaskClassification
 
   if (input.workflow || /!bien\b|!gan\b|!ham\b|!goi\b|!dau-vao\b|!dau-ra\b|!lap-lai\b|quy trình tự động/i.test(lower)) {
     signals.push('workflow');
-    return { kind: 'workflow', complexity: len > 600 ? 'high' : 'medium', signals };
+    return attachSuggestion({ kind: 'workflow', complexity: len > 600 ? 'high' : 'medium', signals });
   }
 
   if (
@@ -138,13 +264,10 @@ export function classifyTask(input: TaskClassificationInput): TaskClassification
     )
   ) {
     signals.push('coding');
-    const complexity =
-      len < 80 && attCount === 0 && !/debug|refactor|chi tiết|kiểm thử|tối ưu|thuật toán/i.test(lower)
-        ? 'low'
-        : len > 900 || attCount > 1
-          ? 'high'
-          : 'medium';
-    return { kind: 'coding', complexity, signals };
+    const isQuickCode = len < 80 && attCount === 0 && !/debug|refactor|chi tiết|kiểm thử|tối ưu|thuật toán/i.test(lower);
+    if (isQuickCode) signals.push('immediate');
+    const complexity = isQuickCode ? 'low' : len > 900 || attCount > 1 ? 'high' : 'medium';
+    return attachSuggestion({ kind: 'coding', complexity, signals, ...(isQuickCode ? { immediate: true } : {}) });
   }
 
   const hasOfficeFiles = (input.attachmentNames ?? []).some((n) => /\.(docx|xlsx|pptx|pdf)$/i.test(n));
@@ -156,13 +279,11 @@ export function classifyTask(input: TaskClassificationInput): TaskClassification
     )
   ) {
     signals.push('office');
-    const complexity =
-      len > 1200 || attCount > 2
-        ? 'high'
-        : len < 70 && attCount === 0 && !/giáo án|kế hoạch bài dạy|khbd|chi tiết|đầy đủ|5512|báo cáo|tờ trình/i.test(lower)
-          ? 'low'
-          : 'medium';
-    return { kind: 'office', complexity, signals };
+    const isQuickOffice =
+      len < 70 && attCount === 0 && !/giáo án|kế hoạch bài dạy|khbd|chi tiết|đầy đủ|5512|báo cáo|tờ trình/i.test(lower);
+    if (isQuickOffice) signals.push('immediate');
+    const complexity = len > 1200 || attCount > 2 ? 'high' : isQuickOffice ? 'low' : 'medium';
+    return attachSuggestion({ kind: 'office', complexity, signals, ...(isQuickOffice ? { immediate: true } : {}) });
   }
 
   if (
@@ -172,16 +293,18 @@ export function classifyTask(input: TaskClassificationInput): TaskClassification
     len > 1800
   ) {
     signals.push('deep-reasoning');
-    return { kind: 'pro', complexity: 'high', signals };
+    return attachSuggestion({ kind: 'pro', complexity: 'high', signals });
   }
 
   if (len <= 220 && attCount === 0 && !/\n.*\n/.test(text) && !/phân tích|tổng hợp|lập bảng|so sánh|chi tiết/i.test(lower)) {
     signals.push('short');
-    return { kind: 'simple', complexity: len <= 100 ? 'low' : 'medium', signals };
+    const immediate = len <= 120;
+    if (immediate) signals.push('immediate');
+    return { kind: 'simple', complexity: len <= 100 ? 'low' : 'medium', signals, ...(immediate ? { immediate: true } : {}) };
   }
 
   signals.push('standard');
-  return { kind: 'standard', complexity: len < 260 ? 'low' : len > 1200 ? 'high' : 'medium', signals };
+  return attachSuggestion({ kind: 'standard', complexity: len < 260 ? 'low' : len > 1200 ? 'high' : 'medium', signals });
 }
 
 /** Chuẩn hóa mã model + mức suy nghĩ về đúng biến thể cụ thể (vd gemini-4-argon + high -> gemini-4-argon-high). */
@@ -268,10 +391,39 @@ interface ModelChoiceFileData {
 const MAX_SWITCHES = 200;
 const MAX_INSIGHTS = 25;
 
-/** Quản lý lịch sử người dùng đổi model (tất định, không cần AI) và đồng bộ với skill `choice-model`. */
+/** Chuẩn hóa lựa chọn model thành chuỗi định tuyến (`<model>` cho agy để tương thích ngược, hoặc `<backend>:<model>` cho codex/claude/opencode/api). */
+export function formatRoutingSpec(choice: ModelChoice): string {
+  return choice.backend === 'agy' ? choice.model : `${choice.backend}:${choice.model}`;
+}
+
+/** Giải mã chuỗi định tuyến thành `ModelChoice`. */
+export function parseRoutingSpec(spec: string): ModelChoice | undefined {
+  const clean = spec.trim();
+  if (!clean) return undefined;
+  const m = /^(agy|claude|codex|opencode|api):(.+)$/i.exec(clean);
+  if (m) {
+    const backend = m[1]!.toLowerCase() as BackendId;
+    const model = m[2]!.trim();
+    if (model) return { backend, model };
+  }
+  if (/^[a-z0-9][\w.:/@+-]{0,99}$/i.test(clean)) {
+    return { backend: 'agy', model: clean };
+  }
+  return undefined;
+}
+
+/** Nhận diện lỗi chạm hạn mức (quota / rate limit / 429 / quá tải) từ nhà cung cấp AI. */
+export function isProviderLimitError(message: string): boolean {
+  return /\b429\b|rate.?limit|quota|too many requests|quá nhiều yêu cầu|vượt hạn mức|hết hạn mức|chạm hạn mức|exhausted|overloaded|capacity|credit balance|insufficient_quota|billing|limit exceeded|try again in/i.test(
+    message,
+  );
+}
+
+/** Quản lý lịch sử người dùng đổi model (tất định, không cần AI), trạng thái chạm limit của từng provider/model và đồng bộ với skill `choice-model`. */
 export class ModelChoiceTracker {
   private file: string;
   private data: ModelChoiceFileData;
+  private cooldowns = new Map<string, number>();
 
   constructor(home: string) {
     this.file = path.join(home, 'chatbox', 'model-choices.json');
@@ -340,8 +492,8 @@ export class ModelChoiceTracker {
       learned: false,
     };
     this.data.switches = [...this.data.switches, rec].slice(-MAX_SWITCHES);
-    if (rec.backend === 'agy' && rec.taskKind !== 'background') {
-      const preferred = this.computePreferredAgyModel(rec.taskKind);
+    if (rec.taskKind !== 'background') {
+      const preferred = this.computePreferredModelSpec(rec.taskKind);
       if (preferred) this.data.routingOverrides[rec.taskKind] = preferred;
     }
     this.save();
@@ -362,8 +514,8 @@ export class ModelChoiceTracker {
         s.promptSample = maskPersonal(context.text).replace(/\s+/g, ' ').trim().slice(0, 120);
         s.promptLength = context.text.trim().length;
         if (context.attachmentCount !== undefined) s.attachmentCount = context.attachmentCount;
-        if (s.backend === 'agy' && s.taskKind !== 'background') {
-          const preferred = this.computePreferredAgyModel(s.taskKind);
+        if (s.taskKind !== 'background') {
+          const preferred = this.computePreferredModelSpec(s.taskKind);
           if (preferred) this.data.routingOverrides[s.taskKind] = preferred;
         }
         this.save();
@@ -374,12 +526,63 @@ export class ModelChoiceTracker {
     return false;
   }
 
-  /** Kiểm tra xem loại việc này đã có lựa chọn riêng từ lịch sử người dùng hoặc bài học chưa. */
-  hasOverride(kind: TaskKind): boolean {
-    return Boolean(this.data.routingOverrides[kind] || this.computePreferredAgyModel(kind));
+  /** Ghi nhận một model/provider vừa bị lỗi hạn mức (rate limit / quota) để tạm tránh điều phối vào đó. */
+  recordLimitError(choice: ModelChoice, errorText = '', now = Date.now(), cooldownMs = 10 * 60_000): void {
+    const until = now + Math.max(10_000, cooldownMs);
+    this.cooldowns.set(`${choice.backend}:${choice.model}`, until);
+    if (choice.backend === 'agy') {
+      const meta = AGY_MODEL_VARIANTS.find((v) => v.slug === choice.model || v.baseId === choice.model);
+      if (meta && (isProviderLimitError(errorText) || !errorText)) {
+        this.cooldowns.set(`agy:group:${meta.quotaGroup}`, until);
+      }
+    } else if (isProviderLimitError(errorText) || !errorText) {
+      this.cooldowns.set(`${choice.backend}:*`, until);
+    }
   }
 
-  /** Tính model agy được người dùng ưu tiên cho một loại việc dựa trên lịch sử đổi model (ưu tiên lần chọn gần nhất + tần suất). */
+  /** Xóa các trạng thái tạm khóa hạn mức (dùng khi làm mới hoặc kiểm thử). */
+  clearCooldowns(): void {
+    this.cooldowns.clear();
+  }
+
+  /** Kiểm tra xem một model hoặc nhóm hạn mức của nó có đang trong thời gian chờ hồi phục limit không. */
+  isInCooldown(choice: ModelChoice, now = Date.now()): boolean {
+    const checkKey = (key: string) => {
+      const until = this.cooldowns.get(key);
+      if (!until) return false;
+      if (now >= until) {
+        this.cooldowns.delete(key);
+        return false;
+      }
+      return true;
+    };
+    if (checkKey(`${choice.backend}:${choice.model}`) || checkKey(`${choice.backend}:*`)) return true;
+    if (choice.backend === 'agy') {
+      const meta = AGY_MODEL_VARIANTS.find((v) => v.slug === choice.model || v.baseId === choice.model);
+      if (meta && checkKey(`agy:group:${meta.quotaGroup}`)) return true;
+    }
+    return false;
+  }
+
+  /** Kiểm tra xem loại việc này đã có lựa chọn riêng từ lịch sử người dùng hoặc bài học chưa. */
+  hasOverride(kind: TaskKind): boolean {
+    return Boolean(this.data.routingOverrides[kind] || this.computePreferredModelSpec(kind));
+  }
+
+  /** Tính model (trên mọi provider agy, codex, claude, opencode, api) được người dùng ưu tiên cho một loại việc. */
+  computePreferredModelSpec(kind: TaskKind): string | undefined {
+    const relevant = this.data.switches.filter((s) => s.taskKind === kind);
+    if (!relevant.length) return undefined;
+    const scores = new Map<string, number>();
+    relevant.forEach((s, idx) => {
+      const recencyWeight = 1 + idx / Math.max(1, relevant.length);
+      const spec = formatRoutingSpec({ backend: s.backend, model: s.model });
+      scores.set(spec, (scores.get(spec) ?? 0) + recencyWeight);
+    });
+    return [...scores.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+  }
+
+  /** Tính model agy được người dùng ưu tiên cho một loại việc dựa trên lịch sử đổi model (tương thích ngược). */
   computePreferredAgyModel(kind: TaskKind): string | undefined {
     const relevant = this.data.switches.filter((s) => s.backend === 'agy' && s.taskKind === kind);
     if (!relevant.length) return undefined;
@@ -401,10 +604,12 @@ export class ModelChoiceTracker {
     const now = input.now ?? Date.now();
     if (input.routing && typeof input.routing === 'object') {
       for (const kind of TASK_KINDS) {
-        const slug = input.routing[kind]?.trim();
-        if (slug && AGY_MODEL_VARIANTS.some((v) => v.slug === slug)) {
-          if (this.data.routingOverrides[kind] !== slug) {
-            this.data.routingOverrides[kind] = slug;
+        const rawSpec = input.routing[kind]?.trim();
+        const parsed = rawSpec ? parseRoutingSpec(rawSpec) : undefined;
+        if (parsed && (parsed.backend !== 'agy' || AGY_MODEL_VARIANTS.some((v) => v.slug === parsed.model) || /^[a-z0-9][\w.:/@+-]+$/i.test(parsed.model))) {
+          const normalized = formatRoutingSpec(parsed);
+          if (this.data.routingOverrides[kind] !== normalized) {
+            this.data.routingOverrides[kind] = normalized;
             changed = true;
           }
         }
@@ -432,17 +637,18 @@ export class ModelChoiceTracker {
       }
     }
     for (const kind of TASK_KINDS) {
-      const byHistory = this.computePreferredAgyModel(kind);
-      if (byHistory && AGY_MODEL_VARIANTS.some((v) => v.slug === byHistory)) out[kind] = byHistory;
+      const byHistory = this.computePreferredModelSpec(kind);
+      if (byHistory) out[kind] = byHistory;
       const override = this.data.routingOverrides[kind];
-      if (override && AGY_MODEL_VARIANTS.some((v) => v.slug === override)) out[kind] = override;
+      if (override) out[kind] = override;
     }
     return out;
   }
 
-  /** Tóm tắt gọn lịch sử người dùng đổi model để đưa vào lời nhắc của cơ chế tự học. */
+  /** Tóm tắt gọn lịch sử người dùng đổi model (mọi provider) để đưa vào lời nhắc của cơ chế tự học. */
   summaryForLearning(limit = 12): Array<{
     taskKind: TaskKind;
+    backend?: BackendId;
     model: string;
     fromModel?: string;
     promptSample?: string;
@@ -450,11 +656,11 @@ export class ModelChoiceTracker {
     attachmentCount?: number;
   }> {
     return this.data.switches
-      .filter((s) => s.backend === 'agy')
       .slice(-limit)
       .map((s) => ({
         taskKind: s.taskKind,
-        model: s.model,
+        ...(s.backend !== 'agy' ? { backend: s.backend } : {}),
+        model: s.backend === 'agy' ? s.model : `${s.backend}:${s.model}`,
         ...(s.fromModel ? { fromModel: s.fromModel } : {}),
         ...(s.promptSample ? { promptSample: s.promptSample } : {}),
         ...(s.promptLength !== undefined ? { promptLength: s.promptLength } : {}),
@@ -517,12 +723,18 @@ export function readRoutingFromSkill(skillsDir: string): Partial<Record<TaskKind
 
 export function parseRoutingFromSkillText(text: string): Partial<Record<TaskKind, string>> {
   const out: Partial<Record<TaskKind, string>> = {};
-  const re = /^\s*[-*]\s*`?(background|simple|standard|office|coding|workflow|planning|pro|exam)`?\s*:\s*`?([a-z0-9.-]+)`?/gim;
+  const re =
+    /^\s*[-*]\s*`?(background|simple|standard|office|coding|workflow|planning|pro|exam)`?\s*:\s*`?((?:(?:agy|claude|codex|opencode|api):)?[a-z0-9][\w.:/@+-]*)`?/gim;
   for (const m of text.matchAll(re)) {
     const kind = m[1]!.toLowerCase() as TaskKind;
-    const slug = m[2]!.toLowerCase();
-    if (AGY_MODEL_VARIANTS.some((v) => v.slug === slug)) {
-      out[kind] = slug;
+    const raw = m[2]!.trim();
+    const parsed = parseRoutingSpec(raw);
+    if (!parsed) continue;
+    if (parsed.backend === 'agy') {
+      const slug = parsed.model.toLowerCase();
+      if (AGY_MODEL_VARIANTS.some((v) => v.slug === slug)) out[kind] = slug;
+    } else {
+      out[kind] = formatRoutingSpec(parsed);
     }
   }
   return out;
@@ -542,7 +754,8 @@ export function buildChoiceModelSkillMd(input: {
   for (const s of switches) {
     if (!statsByKind.has(s.taskKind)) statsByKind.set(s.taskKind, new Map());
     const m = statsByKind.get(s.taskKind)!;
-    m.set(s.model, (m.get(s.model) ?? 0) + 1);
+    const spec = formatRoutingSpec({ backend: s.backend, model: s.model });
+    m.set(spec, (m.get(spec) ?? 0) + 1);
   }
 
   const learnedLines: string[] = [];
@@ -577,34 +790,36 @@ export function buildChoiceModelSkillMd(input: {
     '# Điều phối và lựa chọn model thông minh (choice-model)',
     '',
     '## Khi nào dùng',
-    '- Dùng khi hội thoại hoặc quy trình đặt ở chế độ Tự động chọn AI để chọn đúng biến thể model phù hợp với độ khó của yêu cầu.',
+    '- Dùng khi hội thoại hoặc quy trình đặt ở chế độ Tự động chọn AI để chọn đúng biến thể model phù hợp với độ khó của yêu cầu trên tất cả provider đã cài (`agy`, `codex`, `claude`, `opencode`, `api`).',
     '- Dùng khi cơ chế tự học cập nhật thói quen chọn model của người dùng từ lịch sử đổi model và kết quả hội thoại.',
     '',
     '## Khi nào không dùng',
     '- Không ghi đè khi người dùng đã khóa cứng một model cụ thể cho hội thoại hiện tại, trừ lúc lưu lại lựa chọn đó để học thói quen.',
     '',
     '## Quy định',
-    '- Việc nền, câu hỏi ngắn hoặc định dạng đơn giản ưu tiên họ nhẹ `gemini-3.8-flash-low` hoặc `gemini-3.8-flash-medium` để phản hồi tức thì và tiết kiệm hạn mức (Nguồn: Thiết kế điều phối PVTA)',
+    '- Việc nền, lệnh làm ngay (`immediate`), câu hỏi ngắn hoặc định dạng đơn giản ưu tiên model sinh token nhanh, ít suy luận (`gemini-3.8-flash-low`, `claude:haiku`, `codex:gpt-5.4-mini`, `opencode:...-flash-free`) để phản hồi tức thì và tiết kiệm hạn mức (Nguồn: Thiết kế điều phối PVTA)',
     '- Việc soạn thảo giáo án, văn bản hành chính và xử lý tài liệu Office thông thường ưu tiên `gemini-4-argon-low` hoặc `gemini-4-argon-medium` (Nguồn: Thiết kế điều phối PVTA)',
-    '- Việc lập trình, sửa mã, viết Typst/LaTeX hoặc thiết kế quy trình ưu tiên họ `claude-sonnet-5-5` theo mức độ phức tạp (Nguồn: Thiết kế điều phối PVTA)',
-    '- Việc lập kế hoạch lớn, Plan Pro, kiểm định ma trận đặc tả đề thi hoặc suy luận nhiều tầng ưu tiên `gemini-4-argon-high` hoặc `claude-opus-5-5-high` (Nguồn: Thiết kế điều phối PVTA)',
-    '- Khi một nhóm model chạm hạn mức 5h hoặc tuần, tự động chuyển sang nhóm model còn hạn mức tương đương gần nhất (Nguồn: Thiết kế điều phối PVTA)',
+    '- Việc lập trình, sửa mã, viết Typst/LaTeX hoặc thiết kế quy trình ưu tiên họ `claude-sonnet-5-5`, `codex` hoặc `claude:sonnet` theo mức độ phức tạp (Nguồn: Thiết kế điều phối PVTA)',
+    '- Việc lập kế hoạch lớn, Plan Pro, kiểm định ma trận đặc tả đề thi hoặc suy luận nhiều tầng ưu tiên `gemini-4-argon-high`, `claude-opus-5-5-high`, `claude:opus` hoặc `codex` mức `high` (Nguồn: Thiết kế điều phối PVTA)',
+    '- Khi một provider hoặc nhóm model chạm hạn mức 5h/tuần hoặc báo lỗi API limit (429 / quota), tự động chuyển sang provider/model còn hạn mức tương đương trên máy (Nguồn: Thiết kế điều phối PVTA)',
     '',
     '## Quy trình',
-    '1. Phân loại yêu cầu đầu vào theo độ dài, từ khóa chuyên môn, số tệp đính kèm và chế độ làm việc (Chat, Plan, Plan Pro, Quy trình).',
-    '2. Tra bảng ánh xạ model theo loại việc và lịch sử đổi model của người dùng đã lưu trong bộ nhớ.',
-    '3. Kiểm tra hạn mức còn lại của nhóm Gemini và nhóm Claude/GPT trước khi chốt biến thể model.',
-    '4. Hiển thị ngay biến thể model và mức suy nghĩ được chọn trên thanh trạng thái model của hội thoại.',
-    '5. Ghi nhận các lần người dùng tự đổi model và kết quả hội thoại để cập nhật lại bảng ánh xạ trong kỹ năng này.',
+    '1. Phân loại yêu cầu đầu vào theo độ dài, lệnh làm ngay (`immediate`), từ khóa chuyên môn, số tệp đính kèm và chế độ làm việc (Chat, Plan, Plan Pro, Quy trình).',
+    '2. Nếu phát hiện tác vụ nhiều công đoạn đang ở chế độ Chat, gợi ý người dùng chuyển sang `◇ Plan` hoặc `◇ Plan Pro`.',
+    '3. Tra bảng ánh xạ model theo loại việc và lịch sử đổi model của người dùng trên mọi provider (`agy`, `codex`, `claude`, `opencode`, `api`).',
+    '4. Kiểm tra hạn mức còn lại và trạng thái lỗi limit của các provider trước khi chốt model.',
+    '5. Hiển thị ngay biến thể model và mức suy nghĩ được chọn trên thanh trạng thái model của hội thoại.',
+    '6. Ghi nhận các lần người dùng tự đổi model và kết quả hội thoại để cập nhật lại bảng ánh xạ trong kỹ năng này.',
     '',
     '## Danh sách kiểm tra',
-    '- [ ] Đã chọn biến thể `low` hoặc `gemini-3.8-flash` cho yêu cầu đơn giản, ngắn gọn.',
-    '- [ ] Đã chọn model suy luận cao (`high`, `gemini-4-argon`, `claude-sonnet-5-5`, `claude-opus-5-5`) cho yêu cầu phức tạp.',
+    '- [ ] Đã chọn biến thể `low` hoặc model sinh token nhanh (`flash`, `haiku`, `mini`) cho lệnh làm ngay và yêu cầu đơn giản.',
+    '- [ ] Đã chọn model suy luận cao (`high`, `gemini-4-argon`, `claude-sonnet-5-5`, `claude-opus-5-5`, `codex`, `claude`) cho yêu cầu phức tạp.',
+    '- [ ] Đã tự động tránh model/provider đang chạm limit hoặc hết hạn mức 5h/tuần.',
     '- [ ] Đã cập nhật ngay tên model và mức suy nghĩ trên thanh thông tin model.',
     '- [ ] Đã lưu lịch sử đổi model của người dùng mà không cần gọi AI.',
     '',
     '## Tài liệu tham chiếu',
-    '- Danh mục 13 model Antigravity (agy):',
+    '- Danh mục 13 model Antigravity (agy) và các provider mở rộng (`codex:<model>`, `claude:<model>`, `opencode:<model>`):',
     '  - `gemini-4-argon-low` — Gemini 4 Argon (Low)',
     '  - `gemini-4-argon-medium` — Gemini 4 Argon (Medium)',
     '  - `gemini-4-argon-high` — Gemini 4 Argon (High)',
@@ -633,14 +848,21 @@ export function buildChoiceModelSkillMd(input: {
 
 function isQuotaExhausted(usage?: ProviderUsage): boolean {
   if (!usage) return false;
+  if (usage.error && isProviderLimitError(usage.error)) return true;
   const check = (w?: ProviderUsage['fiveHour']) =>
     !!w && (w.status === 'rejected' || (typeof w.usedPercent === 'number' && w.usedPercent >= 99));
   return check(usage.fiveHour) || check(usage.week);
 }
 
 /** Điều chỉnh mức biến thể (-low/-medium/-high) theo độ phức tạp thực tế của lượt hỏi nếu người dùng chưa khóa biến thể riêng. */
-function adjustVariantForComplexity(slug: string, complexity: 'low' | 'medium' | 'high', hasUserOverride: boolean): string {
-  if (hasUserOverride) return slug;
+function adjustVariantForComplexity(
+  slug: string,
+  complexity: 'low' | 'medium' | 'high',
+  hasUserOverride: boolean,
+  immediate = false,
+): string {
+  if (hasUserOverride && !immediate) return slug;
+  if (immediate && !hasUserOverride) return 'gemini-3.8-flash-low';
   const v = AGY_MODEL_VARIANTS.find((x) => x.slug === slug);
   if (!v || !v.effort) return slug;
   if (v.family === 'gemini-flash') {
@@ -666,9 +888,119 @@ function adjustVariantForComplexity(slug: string, complexity: 'low' | 'medium' |
   return slug;
 }
 
+export type ModelTier = 'fast' | 'balanced' | 'deep';
+
+/** Phân tầng tốc độ/suy luận cho bất kỳ model nào của `agy`, `codex`, `claude`, `opencode`, `api`. */
+export function classifyModelTier(backend: BackendId, modelId: string, label = '', hint = ''): ModelTier {
+  const s = `${modelId} ${label} ${hint}`.toLowerCase();
+  if (backend === 'agy') {
+    const v = AGY_MODEL_VARIANTS.find((x) => x.slug === modelId);
+    if (v) {
+      if (v.family === 'gemini-flash' && v.effort !== 'high') return 'fast';
+      if (v.effort === 'low') return 'fast';
+      if (v.family === 'claude-opus' && v.effort === 'high') return 'deep';
+      if (v.effort === 'high') return 'deep';
+      return 'balanced';
+    }
+  }
+  if (/\b(haiku|flash|mini|spark|lightning|lite|nano|small|instant|fast)\b|-low$/i.test(s)) return 'fast';
+  if (/\b(opus|ultra|super|pro|max|o3|o1|reasoner|thinking)\b|-high$/i.test(s)) return 'deep';
+  return 'balanced';
+}
+
+export interface SmartBackendStatus {
+  id: CliBackendId;
+  installed: boolean;
+  auth?: 'ready' | 'missing' | 'unknown';
+  efforts?: Effort[];
+}
+
+export interface SmartApiProviderStatus {
+  id: string;
+  configured: boolean;
+  defaultModel?: string;
+  models?: ReadonlyArray<{ id: string; label?: string }>;
+}
+
+/**
+ * Chọn model phù hợp nhất trên một provider cụ thể (`claude`, `codex`, `opencode`, `agy`, `api`)
+ * theo độ phức tạp công việc và loại việc, đồng thời bỏ qua các model đang bị lỗi limit.
+ */
+function pickFromBackendCatalog(input: {
+  backend: CliBackendId;
+  catalog?: ModelCatalog;
+  desiredTier: ModelTier;
+  taskKind: TaskKind;
+  complexity: 'low' | 'medium' | 'high';
+  preferredEffort?: Effort | null;
+  tracker?: ModelChoiceTracker;
+  exclude?: ReadonlySet<string>;
+  now?: number;
+}): { choice: ModelChoice; effort: Effort } | undefined {
+  const models = modelsOf(input.catalog, input.backend);
+  if (!models.length) return undefined;
+  const candidates: Array<{ choice: ModelChoice; effort: Effort; tier: ModelTier; score: number }> = [];
+
+  const desiredEffort: Effort =
+    input.preferredEffort ??
+    (input.desiredTier === 'fast' || input.complexity === 'low'
+      ? 'low'
+      : input.desiredTier === 'deep' || input.complexity === 'high'
+        ? 'high'
+        : 'medium');
+
+  const concreteModels = models.filter((m) => m.id !== 'default');
+  const pool = concreteModels.length > 0 ? concreteModels : models;
+
+  for (const m of pool) {
+    if (m.variants && Object.keys(m.variants).length > 0) {
+      for (const [eff, slug] of Object.entries(m.variants) as [Effort, string][]) {
+        const choice: ModelChoice = { backend: input.backend, model: slug };
+        const key = `${choice.backend}:${choice.model}`;
+        if (input.exclude?.has(key) || input.tracker?.isInCooldown(choice, input.now)) continue;
+        const tier = classifyModelTier(input.backend, slug, m.label, m.hint);
+        let score = 0;
+        if (tier === input.desiredTier) score += 30;
+        else if (input.desiredTier === 'fast' && tier === 'balanced') score += 12;
+        else if (input.desiredTier === 'deep' && tier === 'balanced') score += 12;
+        else if (input.desiredTier === 'balanced') score += 10;
+        if (eff === desiredEffort) score += 15;
+        if ((input.taskKind === 'coding' || input.taskKind === 'workflow') && /sonnet|codex|code/i.test(slug)) score += 12;
+        if ((input.taskKind === 'pro' || input.taskKind === 'exam') && /opus|argon-high|pro|ultra/i.test(slug)) score += 12;
+        if (input.desiredTier === 'fast' && /flash|haiku|mini|spark|lightning/i.test(slug)) score += 15;
+        candidates.push({ choice, effort: eff, tier, score });
+      }
+    } else {
+      const choice: ModelChoice = { backend: input.backend, model: m.id };
+      const key = `${choice.backend}:${choice.model}`;
+      if (input.exclude?.has(key) || input.tracker?.isInCooldown(choice, input.now)) continue;
+      const tier = classifyModelTier(input.backend, m.id, m.label, m.hint);
+      const eff: Effort =
+        m.efforts && m.efforts.includes(desiredEffort)
+          ? desiredEffort
+          : m.defaultEffort ?? desiredEffort;
+      let score = 0;
+      if (tier === input.desiredTier) score += 30;
+      else if (input.desiredTier === 'fast' && tier === 'balanced') score += 12;
+      else if (input.desiredTier === 'deep' && tier === 'balanced') score += 12;
+      else if (input.desiredTier === 'balanced') score += 10;
+      if ((input.taskKind === 'coding' || input.taskKind === 'workflow') && /codex|sonnet|deepseek|qwen/i.test(m.id)) score += 12;
+      if ((input.taskKind === 'pro' || input.taskKind === 'exam') && /opus|gpt-5\.4|gpt-5\.3|ultra|super|pro/i.test(m.id)) score += 12;
+      if (input.desiredTier === 'fast' && /haiku|mini|spark|flash|lightning|lite|fast/i.test(m.id)) score += 18;
+      if (m.fast && input.desiredTier === 'fast') score += 8;
+      candidates.push({ choice, effort: eff, tier, score });
+    }
+  }
+
+  candidates.sort((a, b) => b.score - a.score);
+  return candidates[0] ? { choice: candidates[0].choice, effort: candidates[0].effort } : undefined;
+}
+
 /**
  * Lựa chọn model thông minh cho chế độ `auto`:
- * kết hợp phân loại công việc, bảng ánh xạ trong skill `choice-model`, lịch sử chọn model của người dùng và hạn mức còn lại.
+ * kết hợp phân loại công việc (phân biệt lệnh làm ngay `immediate` vs việc phức tạp),
+ * bảng ánh xạ trong skill `choice-model`, lịch sử chọn model của người dùng trên mọi provider (`agy`, `codex`, `claude`, `opencode`, `api`),
+ * và tự động tránh các provider/model đang chạm hạn mức (quota / rate-limit).
  */
 export function selectSmartModel(input: {
   task: TaskClassificationInput;
@@ -676,9 +1008,59 @@ export function selectSmartModel(input: {
   skillsDir?: string;
   catalog?: ModelCatalog;
   agyUsage?: ProviderUsage;
+  usageByBackend?: Partial<Record<BackendId, ProviderUsage>>;
+  backends?: readonly SmartBackendStatus[];
+  apiProviders?: readonly SmartApiProviderStatus[];
   preferredEffort?: Effort | null;
-}): { choice: ModelChoice; effort: Effort; taskKind: TaskKind; label: string } {
+  /** Cờ xanh (Chế độ Tự động): khóa mức suy nghĩ của lệnh làm ngay / việc đơn giản để tránh hết quota. */
+  greenModeCap?: boolean;
+  excludeModels?: ReadonlySet<string>;
+  now?: number;
+}): {
+  choice: ModelChoice;
+  effort: Effort;
+  taskKind: TaskKind;
+  label: string;
+  immediate?: boolean;
+  suggestedPlanningMode?: 'plan' | 'pro';
+  suggestedPlanningReason?: string;
+} {
   const classified = classifyTask(input.task);
+  const now = input.now ?? Date.now();
+  const usageMap: Partial<Record<BackendId, ProviderUsage>> = {
+    ...(input.usageByBackend ?? {}),
+    ...(input.agyUsage ? { agy: input.agyUsage } : {}),
+  };
+
+  // Danh sách các CLI backend sẵn sàng trên máy (nếu không truyền thì mặc định agy sẵn sàng để tương thích ngược).
+  const readyBackends: CliBackendId[] = input.backends
+    ? input.backends.filter((b) => b.installed && b.auth !== 'missing').map((b) => b.id)
+    : ['agy'];
+
+  const isBackendReady = (b: BackendId): boolean => {
+    if (b === 'api') return Boolean(input.apiProviders?.some((p) => p.configured));
+    return readyBackends.includes(b);
+  };
+
+  const isBackendLimited = (b: BackendId): boolean => {
+    if (isQuotaExhausted(usageMap[b])) return true;
+    if (input.tracker?.isInCooldown({ backend: b, model: '*' }, now)) return true;
+    return false;
+  };
+
+  const desiredTier: ModelTier =
+    classified.immediate || classified.kind === 'background' || classified.kind === 'simple' || classified.complexity === 'low'
+      ? 'fast'
+      : classified.kind === 'pro' || classified.kind === 'exam' || classified.kind === 'planning' || classified.complexity === 'high'
+        ? 'deep'
+        : 'balanced';
+
+  // Trong Cờ xanh (greenModeCap): lệnh làm ngay hoặc việc đơn giản khóa ở mức suy nghĩ 'low' để tránh đốt quota.
+  const effectivePreferredEffort: Effort | null | undefined =
+    input.greenModeCap && (classified.immediate || classified.kind === 'simple' || classified.kind === 'background')
+      ? 'low'
+      : input.preferredEffort;
+
   const skillRouting = input.skillsDir ? readRoutingFromSkill(input.skillsDir) : {};
   const routing = input.tracker
     ? input.tracker.effectiveRouting(input.skillsDir)
@@ -688,61 +1070,213 @@ export function selectSmartModel(input: {
     Boolean(input.tracker?.hasOverride(classified.kind)) ||
     Boolean(skillRouting[classified.kind] && skillRouting[classified.kind] !== DEFAULT_TASK_ROUTING[classified.kind]);
 
-  let targetSlug = routing[classified.kind] ?? DEFAULT_TASK_ROUTING[classified.kind];
-  targetSlug = adjustVariantForComplexity(targetSlug, classified.complexity, userOverrodeKind);
+  const rawTargetSpec = routing[classified.kind] ?? DEFAULT_TASK_ROUTING[classified.kind];
+  const parsedTarget = parseRoutingSpec(rawTargetSpec) ?? { backend: 'agy', model: DEFAULT_TASK_ROUTING[classified.kind] };
 
-  // Nếu người dùng có chọn mức suy nghĩ chung trên thanh trạng thái ở chế độ auto (và không phải việc nền), tôn trọng mức đó.
-  if (!input.task.light && classified.kind !== 'background' && input.preferredEffort) {
-    const info = AGY_MODEL_VARIANTS.find((v) => v.slug === targetSlug);
-    if (info) {
-      const sibling = AGY_MODEL_VARIANTS.find((v) => v.baseId === info.baseId && v.effort === input.preferredEffort);
-      if (sibling) targetSlug = sibling.slug;
+  // 1. Nếu bảng định tuyến trỏ tới một provider cụ thể khác agy (do người dùng đã chọn và PVTA đã học) và provider đó sẵn sàng + chưa chạm limit:
+  if (
+    parsedTarget.backend !== 'agy' &&
+    isBackendReady(parsedTarget.backend) &&
+    !isBackendLimited(parsedTarget.backend) &&
+    !input.tracker?.isInCooldown(parsedTarget, now) &&
+    !input.excludeModels?.has(`${parsedTarget.backend}:${parsedTarget.model}`)
+  ) {
+    const resolved = resolveChoiceVariant(parsedTarget, effectivePreferredEffort, Boolean(input.task.light || classified.immediate), input.catalog);
+    const effort: Effort =
+      resolved.effort ??
+      effectivePreferredEffort ??
+      (desiredTier === 'fast' ? 'low' : desiredTier === 'deep' ? 'high' : 'medium');
+    return {
+      choice: resolved.choice,
+      effort,
+      taskKind: classified.kind,
+      label: formatModelChoiceLabel(resolved.choice, effort, input.catalog),
+      ...(classified.immediate ? { immediate: true } : {}),
+      ...(classified.suggestedPlanningMode ? { suggestedPlanningMode: classified.suggestedPlanningMode, suggestedPlanningReason: classified.suggestedPlanningReason } : {}),
+    };
+  }
+
+  // 2. Nếu agy sẵn sàng trên máy, xét các biến thể agy trước (kèm chuyển đổi nhóm hạn mức Gemini <-> 3P hoặc sang provider khác khi chạm limit).
+  if (isBackendReady('agy')) {
+    let targetSlug = parsedTarget.backend === 'agy' ? parsedTarget.model : DEFAULT_TASK_ROUTING[classified.kind];
+    targetSlug = adjustVariantForComplexity(targetSlug, classified.complexity, userOverrodeKind, Boolean(classified.immediate));
+
+    if (!input.task.light && classified.kind !== 'background' && effectivePreferredEffort) {
+      const info = AGY_MODEL_VARIANTS.find((v) => v.slug === targetSlug);
+      if (info) {
+        const sibling = AGY_MODEL_VARIANTS.find((v) => v.baseId === info.baseId && v.effort === effectivePreferredEffort);
+        if (sibling) targetSlug = sibling.slug;
+      }
+    }
+
+    const targetMeta = AGY_MODEL_VARIANTS.find((v) => v.slug === targetSlug);
+    const agyExhausted = isQuotaExhausted(usageMap.agy);
+    const targetBlocked =
+      agyExhausted ||
+      Boolean(input.tracker?.isInCooldown({ backend: 'agy', model: targetSlug }, now)) ||
+      Boolean(input.excludeModels?.has(`agy:${targetSlug}`));
+
+    if (targetMeta && targetBlocked) {
+      // Thử nhóm hạn mức còn lại trong agy trước
+      const altSlug =
+        targetMeta.quotaGroup === '3p'
+          ? classified.complexity === 'high'
+            ? 'gemini-4-argon-high'
+            : classified.complexity === 'low' || classified.immediate
+              ? 'gemini-3.8-flash-low'
+              : 'gemini-4-argon-medium'
+          : classified.complexity === 'high'
+            ? 'claude-sonnet-5-5-high'
+            : classified.complexity === 'low' || classified.immediate
+              ? 'claude-sonnet-5-5-low'
+              : 'gpt-oss-120b-medium';
+
+      const altBlocked =
+        Boolean(input.tracker?.isInCooldown({ backend: 'agy', model: altSlug }, now)) ||
+        Boolean(input.excludeModels?.has(`agy:${altSlug}`));
+
+      if (!altBlocked && (!agyExhausted || readyBackends.length === 1)) {
+        targetSlug = altSlug;
+      } else if (readyBackends.some((b) => b !== 'agy' && !isBackendLimited(b))) {
+        // agy đã chạm limit cả 2 nhóm (hoặc toàn provider) và máy có provider khác (codex, claude, opencode) -> chuyển sang provider khỏe mạnh tiếp theo!
+        targetSlug = '';
+      } else {
+        targetSlug = altSlug;
+      }
+    }
+
+    if (targetSlug) {
+      const available = modelsOf(input.catalog, 'agy');
+      if (available.length > 0 && !findModelInfo(available, targetSlug)) {
+        const base = targetMeta?.baseId;
+        const foundBase = base ? findModelInfo(available, base)?.info : undefined;
+        if (foundBase?.variants) {
+          const eff = targetMeta?.effort ?? 'medium';
+          targetSlug = foundBase.variants[eff] ?? Object.values(foundBase.variants)[0] ?? foundBase.id;
+        } else {
+          const fallback = available[0]!;
+          targetSlug =
+            fallback.variants?.low && (classified.complexity === 'low' || classified.immediate)
+              ? fallback.variants.low
+              : fallback.variants?.medium ?? fallback.id;
+        }
+      }
+
+      if (
+        !input.excludeModels?.has(`agy:${targetSlug}`) &&
+        (!input.tracker?.isInCooldown({ backend: 'agy', model: targetSlug }, now) || readyBackends.length === 1)
+      ) {
+        const finalMeta = AGY_MODEL_VARIANTS.find((v) => v.slug === targetSlug);
+        const effort: Effort = finalMeta?.effort ?? findModelInfo(available, targetSlug)?.effort ?? 'medium';
+        const choice: ModelChoice = { backend: 'agy', model: targetSlug };
+        return {
+          choice,
+          effort,
+          taskKind: classified.kind,
+          label: formatModelChoiceLabel(choice, effort, input.catalog),
+          ...(classified.immediate ? { immediate: true } : {}),
+          ...(classified.suggestedPlanningMode
+            ? { suggestedPlanningMode: classified.suggestedPlanningMode, suggestedPlanningReason: classified.suggestedPlanningReason }
+            : {}),
+        };
+      }
     }
   }
 
-  // Nếu nhóm model đang chọn đã cạn hạn mức, chuyển sang model tương đương ở nhóm còn lại.
-  const targetMeta = AGY_MODEL_VARIANTS.find((v) => v.slug === targetSlug);
-  if (targetMeta && isQuotaExhausted(input.agyUsage)) {
-    if (targetMeta.quotaGroup === '3p') {
-      targetSlug =
-        classified.complexity === 'high'
-          ? 'gemini-4-argon-high'
-          : classified.complexity === 'low'
-            ? 'gemini-3.8-flash-low'
-            : 'gemini-4-argon-medium';
-    } else {
-      targetSlug =
-        classified.complexity === 'high'
-          ? 'claude-sonnet-5-5-high'
-          : classified.complexity === 'low'
-            ? 'claude-sonnet-5-5-low'
-            : 'gpt-oss-120b-medium';
+  // 3. Tự động nhận diện và chọn model phù hợp nhất từ tất cả các provider khác trên máy (`codex`, `claude`, `opencode`, `agy`, `api`)
+  const providerOrder: CliBackendId[] =
+    classified.kind === 'coding' || classified.kind === 'workflow'
+      ? ['codex', 'claude', 'agy', 'opencode']
+      : desiredTier === 'fast'
+        ? ['claude', 'codex', 'opencode', 'agy']
+        : ['claude', 'codex', 'agy', 'opencode'];
+
+  for (const pass of ['healthy', 'any'] as const) {
+    for (const backend of providerOrder) {
+      if (!isBackendReady(backend)) continue;
+      if (pass === 'healthy' && isBackendLimited(backend)) continue;
+      const picked = pickFromBackendCatalog({
+        backend,
+        catalog: input.catalog,
+        desiredTier,
+        taskKind: classified.kind,
+        complexity: classified.complexity,
+        preferredEffort: effectivePreferredEffort,
+        tracker: pass === 'healthy' ? input.tracker : undefined,
+        exclude: input.excludeModels,
+        now,
+      });
+      if (picked) {
+        return {
+          choice: picked.choice,
+          effort: picked.effort,
+          taskKind: classified.kind,
+          label: formatModelChoiceLabel(picked.choice, picked.effort, input.catalog),
+          ...(classified.immediate ? { immediate: true } : {}),
+          ...(classified.suggestedPlanningMode
+            ? { suggestedPlanningMode: classified.suggestedPlanningMode, suggestedPlanningReason: classified.suggestedPlanningReason }
+            : {}),
+        };
+      }
     }
   }
 
-  // Kiểm tra danh mục thực tế của agy (nếu máy có danh mục riêng) để bảo đảm model tồn tại.
-  const available = modelsOf(input.catalog, 'agy');
-  if (available.length > 0 && !findModelInfo(available, targetSlug)) {
-    const base = targetMeta?.baseId;
-    const foundBase = base ? findModelInfo(available, base)?.info : undefined;
-    if (foundBase?.variants) {
-      const eff = targetMeta?.effort ?? 'medium';
-      targetSlug = foundBase.variants[eff] ?? Object.values(foundBase.variants)[0] ?? foundBase.id;
-    } else {
-      const fallback = available[0]!;
-      targetSlug = fallback.variants?.low && classified.complexity === 'low'
-        ? fallback.variants.low
-        : fallback.variants?.medium ?? fallback.id;
+  // 4. Dự phòng sang các API provider đã cấu hình (ưu tiên CommandCode, sau đó các API khác)
+  const configuredApis = [...(input.apiProviders ?? []).filter((p) => p.configured)].sort(
+    (a, b) => (a.id === 'commandcode' ? -1 : 0) - (b.id === 'commandcode' ? -1 : 0),
+  );
+  for (const apiProv of configuredApis) {
+    if (apiProv.defaultModel) {
+      const fullDefault = apiProv.defaultModel.startsWith(`${apiProv.id}/`)
+        ? apiProv.defaultModel
+        : `${apiProv.id}/${apiProv.defaultModel}`;
+      const defaultChoice: ModelChoice = { backend: 'api', model: fullDefault };
+      if (!input.excludeModels?.has(`api:${fullDefault}`) && !input.tracker?.isInCooldown(defaultChoice, now)) {
+        const effort: Effort = desiredTier === 'fast' ? 'low' : desiredTier === 'deep' ? 'high' : 'medium';
+        return {
+          choice: defaultChoice,
+          effort,
+          taskKind: classified.kind,
+          label: fullDefault,
+          ...(classified.immediate ? { immediate: true } : {}),
+          ...(classified.suggestedPlanningMode
+            ? { suggestedPlanningMode: classified.suggestedPlanningMode, suggestedPlanningReason: classified.suggestedPlanningReason }
+            : {}),
+        };
+      }
+    }
+    const apiModels = apiProv.models?.length ? apiProv.models : [];
+    for (const m of apiModels) {
+      const fullId = m.id.startsWith(`${apiProv.id}/`) ? m.id : `${apiProv.id}/${m.id}`;
+      const choice: ModelChoice = { backend: 'api', model: fullId };
+      if (input.excludeModels?.has(`api:${fullId}`) || input.tracker?.isInCooldown(choice, now)) continue;
+      const tier = classifyModelTier('api', fullId, m.label);
+      if (tier === desiredTier || apiModels.length === 1) {
+        const effort: Effort = desiredTier === 'fast' ? 'low' : desiredTier === 'deep' ? 'high' : 'medium';
+        return {
+          choice,
+          effort,
+          taskKind: classified.kind,
+          label: m.label ?? fullId,
+          ...(classified.immediate ? { immediate: true } : {}),
+          ...(classified.suggestedPlanningMode
+            ? { suggestedPlanningMode: classified.suggestedPlanningMode, suggestedPlanningReason: classified.suggestedPlanningReason }
+            : {}),
+        };
+      }
     }
   }
 
-  const finalMeta = AGY_MODEL_VARIANTS.find((v) => v.slug === targetSlug);
-  const effort: Effort = finalMeta?.effort ?? findModelInfo(available, targetSlug)?.effort ?? 'medium';
-  const choice: ModelChoice = { backend: 'agy', model: targetSlug };
+  // Cuối cùng: dự phòng mặc định
+  const fallbackChoice: ModelChoice = { backend: readyBackends[0] ?? 'agy', model: DEFAULT_TASK_ROUTING[classified.kind] };
   return {
-    choice,
-    effort,
+    choice: fallbackChoice,
+    effort: 'medium',
     taskKind: classified.kind,
-    label: formatModelChoiceLabel(choice, effort, input.catalog),
+    label: formatModelChoiceLabel(fallbackChoice, 'medium', input.catalog),
+    ...(classified.immediate ? { immediate: true } : {}),
+    ...(classified.suggestedPlanningMode
+      ? { suggestedPlanningMode: classified.suggestedPlanningMode, suggestedPlanningReason: classified.suggestedPlanningReason }
+      : {}),
   };
 }

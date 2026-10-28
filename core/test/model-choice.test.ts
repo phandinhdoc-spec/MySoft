@@ -9,7 +9,9 @@ import {
   CHOICE_MODEL_SKILL_NAME,
   ModelChoiceTracker,
   classifyTask,
+  extractAiPlanningSuggestion,
   selectSmartModel,
+  suggestPlanningMode,
 } from '../src/desktop/model-choice';
 
 const runtimes: DesktopRuntime[] = [];
@@ -220,5 +222,99 @@ describe('smart model selection & choice-model skill', () => {
     const skillText = fs.readFileSync(path.join(r.skills.dir, CHOICE_MODEL_SKILL_NAME, 'SKILL.md'), 'utf8');
     expect(skillText).toContain('- `coding`: gpt-oss-120b-medium');
     expect(skillText).toContain('Người dùng ưu tiên gpt-oss-120b-medium cho các việc xử lý mã và dữ liệu vừa phải.');
+  });
+
+  it('distinguishes immediate commands for fast token models and suggests Plan / Plan Pro for multi-stage tasks', async () => {
+    const catalog = builtinCatalog();
+    const immediate = classifyTask({ text: 'Dịch nhanh câu này sang tiếng Anh: Chúc mừng năm mới' });
+    expect(immediate.immediate).toBe(true);
+    expect(immediate.complexity).toBe('low');
+
+    const fastPicked = selectSmartModel({
+      task: { text: 'Sửa lỗi chính tả câu này: Hôm nay trời đep quá' },
+      catalog,
+      backends: [
+        { id: 'codex', installed: true, auth: 'ready', efforts: ['low', 'medium', 'high'] },
+        { id: 'claude', installed: true, auth: 'ready', efforts: ['low', 'medium', 'high'] },
+      ],
+    });
+    expect(fastPicked.choice).toEqual({ backend: 'claude', model: 'haiku' });
+    expect(fastPicked.effort).toBe('low');
+
+    // Tác vụ nhiều công đoạn -> gợi ý chuyển sang Plan hoặc Plan Pro
+    const multiStage = suggestPlanningMode({
+      text: 'Bước 1: Đọc toàn bộ 3 tệp báo cáo tài chính. Bước 2: Đối chiếu chéo các bảng số liệu. Bước 3: Tổng hợp thành báo cáo Word và tạo slide PowerPoint hoàn chỉnh.',
+      attachmentCount: 3,
+      learnedRules: ['Với việc nhiều bước có kiểm tra chéo tài liệu thì nên lập kế hoạch Plan Pro.'],
+    });
+    expect(multiStage).toMatchObject({ mode: 'pro' });
+
+    const aiTag = extractAiPlanningSuggestion(
+      'Yêu cầu này gồm nhiều khâu nối tiếp nhau.\n[[GOI_Y_PLAN: Nên chia thành 4 bước để duyệt từng khâu trước khi xuất tệp]]',
+    );
+    expect(aiTag).toEqual({
+      mode: 'plan',
+      reason: 'Nên chia thành 4 bước để duyệt từng khâu trước khi xuất tệp',
+    });
+  });
+
+  it('routes across all installed providers (agy, codex, claude, opencode) and automatically avoids quota/API limit errors', async () => {
+    const { r, spy } = setup();
+    (r as unknown as { backends: unknown[] }).backends = [
+      { id: 'agy', installed: true, auth: 'ready', version: '1.4.8', efforts: ['low', 'medium', 'high'] },
+      { id: 'codex', installed: true, auth: 'ready', version: '0.1.0', efforts: ['low', 'medium', 'high'] },
+      { id: 'claude', installed: true, auth: 'ready', version: '1.0.0', efforts: ['low', 'medium', 'high'] },
+      { id: 'opencode', installed: true, auth: 'ready', version: '1.0.0', efforts: ['low', 'medium', 'high'] },
+    ];
+    await req(r, 'preferences', { patch: { choice: 'auto', learning: false } });
+
+    const attempts: Array<{ backend: string; model: string; timeoutMs?: number; workspaceWrite?: boolean }> = [];
+    spy.mockImplementation(async (q: any) => {
+      if (/Đặt một tên|Tóm tắt/.test(q.system ?? '')) return reply('Tên ngắn');
+      attempts.push({ backend: q.backend, model: q.model, timeoutMs: q.timeoutMs, workspaceWrite: q.workspaceWrite });
+      // Giả lập model đầu tiên bị lỗi 429 rate limit / quota exceeded của provider
+      if (attempts.length === 1) {
+        throw new Error('HTTP 429 Too Many Requests: rate limit exceeded for this model');
+      }
+      return reply('Đã hoàn thành bằng model dự phòng.\n[[GOI_Y_PLAN: Tác vụ có nhiều bước, nên dùng Plan]]');
+    });
+
+    const chatId = (await req(r, 'newChat')) as string;
+    // Mặc định Cờ xanh (Tự động): khóa thời gian suy nghĩ 180_000ms
+    const msg = (await req(r, 'send', {
+      chatId,
+      text: 'Debug và refactor hệ thống xử lý dữ liệu lớn trong module core.',
+    })) as any;
+
+    expect(attempts.length).toBe(2);
+    expect(`${attempts[0]!.backend}:${attempts[0]!.model}`).not.toBe(`${attempts[1]!.backend}:${attempts[1]!.model}`);
+    expect(attempts[0]!.timeoutMs).toBe(180_000);
+    expect(msg.text).toBe('Đã hoàn thành bằng model dự phòng.');
+    expect(msg.planSuggestion).toEqual({
+      mode: 'plan',
+      reason: 'Tác vụ có nhiều bước, nên dùng Plan',
+    });
+
+    // Bật Cờ đỏ (Chế độ Rảnh tay): không khóa thời gian chạy (timeoutMs = 0) và tự bật quyền chạy lệnh ('full')
+    const urgencyView = (await req(r, 'setUrgency', { on: true })) as any;
+    expect(urgencyView.urgent).toBe(true);
+    expect(urgencyView.handsFree).toBe(true);
+    expect(urgencyView.thinkingTimeCapMs).toBe(0);
+    expect(urgencyView.note).toContain('limit 5h');
+    expect(r.view().data.preferences.access).toBe('full');
+
+    await req(r, 'send', {
+      chatId,
+      text: 'Thực hiện kiểm thử ngay.',
+    });
+    expect(attempts.at(-1)?.timeoutMs).toBe(0);
+    expect(attempts.at(-1)?.workspaceWrite).toBe(true);
+
+    // Khi về Cờ xanh (Chế độ Tự động): khôi phục quyền hỏi duyệt trước đó và khóa lại thời gian suy nghĩ
+    const greenView = (await req(r, 'setUrgency', { on: false })) as any;
+    expect(greenView.urgent).toBe(false);
+    expect(greenView.handsFree).toBe(false);
+    expect(greenView.thinkingTimeCapMs).toBe(180_000);
+    expect(r.view().data.preferences.access).toBe('ask');
   });
 });

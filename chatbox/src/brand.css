@@ -13,3 +13,39 @@
   height: 100%;
   object-fit: contain;
 }
+
+.handsfree-warning-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 14px;
+  background: rgba(220, 38, 38, 0.1);
+  border-bottom: 1px solid rgba(220, 38, 38, 0.35);
+  color: var(--danger, #b91c1c);
+  font-size: 0.86rem;
+}
+
+.plan-suggestion-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(37, 99, 235, 0.08);
+  border: 1px solid rgba(37, 99, 235, 0.25);
+  font-size: 0.85rem;
+}
+
+.plan-suggestion-bar.composer-plan-suggest {
+  margin: 0 0 6px 0;
+}
+
+.plan-suggestion-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}

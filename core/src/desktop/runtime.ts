@@ -20,7 +20,7 @@ import {reconcileAssessmentMatrix} from './assessment-matrix.js';
 import {isExamPlan,validateExamPlan} from './assessment-plan.js';
 import {EXAM_PLAN_MARKER} from '../../../shared/src/assessment-workflow.js';
 import {SkillEdits} from './skill-edits.js';
-import {CHOICE_MODEL_SKILL_NAME,ModelChoiceTracker,selectSmartModel,resolveChoiceVariant,formatModelChoiceLabel,type TaskClassificationInput} from './model-choice.js';
+import {CHOICE_MODEL_SKILL_NAME,ModelChoiceTracker,selectSmartModel,resolveChoiceVariant,formatModelChoiceLabel,classifyTask,suggestPlanningMode,extractAiPlanningSuggestion,isProviderLimitError,type TaskClassificationInput} from './model-choice.js';
 import {readOfficeRulesForDesktop} from '../chatstore.js';
 import {readProviderUsage} from './usage-reader.js';
 import {EFFORTS,BUILTIN_PROMPTS,type ProviderUsage} from '@pvta/shared';
@@ -189,7 +189,8 @@ export class DesktopRuntime {
  private learningMessage='Chưa có góp ý đang chờ.';
  private signals?:LearningSignals;
  private signalError?:string;
- /** Cờ việc gấp (không lưu xuống đĩa: mở lại ứng dụng luôn là cờ xanh). */ private urgency=new UrgencyGovernor({changed:()=>this.changed()});
+ /** Cờ xanh - đỏ (không lưu xuống đĩa: mở lại ứng dụng luôn là cờ xanh). */ private urgency=new UrgencyGovernor({changed:()=>{if(!this.urgency.isUrgent()&&this.previousAccessBeforeHandsFree!==undefined){this.store.data.preferences.access=this.previousAccessBeforeHandsFree;this.previousAccessBeforeHandsFree=undefined;}this.changed();}});
+ private previousAccessBeforeHandsFree?:import('./types.js').AccessLevel;
  private reflectCtl?:AbortController;private reflectTimer?:ReturnType<typeof setTimeout>;private reflectMessage='Nút Não bộ đang tắt.';private reflectSeen=new Map<string,string>();
  private refineCtl?:AbortController;
  private refineProgress?:import('./types.js').RefineProgress;
@@ -390,12 +391,34 @@ export class DesktopRuntime {
    this.catalog=await discoverModels(bins,Object.fromEntries(this.backends.map(b=>[b.id,b.installed])),process.env,this.catalog);if(this.catalog.agy?.live)this.backends=this.backends.map(b=>b.id==='agy'&&b.auth==='unknown'?{...b,auth:'ready'}:b);saveCatalog(path.join(this.store.home,'models.json'),this.catalog);this.emit({id:'',event:'state',data:this.view()});
   })().finally(()=>{this.refreshing=undefined;});return this.refreshing;
  }
- private choice(p:ModelChoice|'auto'=this.store.data.preferences.choice,task?:TaskClassificationInput,preferredEffort:Effort|null|undefined=this.store.data.preferences.effort):ModelChoice {
+ private apiProviderList(){
+  return (['commandcode',...API_PROVIDER_IDS.filter(id=>id!=='commandcode')] as ApiProvider[]).map(id=>{
+   const c=this.config.get().api?.[id];
+   return {id,configured:this.api.configured(id),defaultModel:c?.model??API_PROVIDERS[id].defaultModel,models:c?.models??API_PROVIDERS[id].models};
+  });
+ }
+ private choice(p:ModelChoice|'auto'=this.store.data.preferences.choice,task?:TaskClassificationInput,preferredEffort:Effort|null|undefined=this.store.data.preferences.effort,excludeModels?:ReadonlySet<string>):ModelChoice {
   if(p!=='auto'){
    if(p.backend!=='api'&&!this.backends.find(b=>b.id===p.backend)?.installed)throw Error('Backend đã chọn chưa được cài. Mở Cài đặt để xem cách cài.');return p;
   }
-  const b=this.backends.find(b=>b.installed&&b.auth!=='missing');if(b){if(b.id==='agy')return selectSmartModel({task:task??{},tracker:this.modelChoices,skillsDir:this.skills.dir,catalog:this.catalog,agyUsage:this.modelUsage.agy,preferredEffort}).choice;const m=modelsOf(this.catalog,b.id);return {backend:b.id,model:m.find(m=>m.id!=='default')?.id??m[0]?.id??'default'};}
-  const a=(['commandcode',...API_PROVIDER_IDS.filter(id=>id!=='commandcode')] as ApiProvider[]).find(id=>this.api.configured(id));if(a){const c=this.config.get().api?.[a];return {backend:'api',model:`${a}/${c?.model??c?.models?.[0]?.id??API_PROVIDERS[a].defaultModel}`};}
+  const hasCli=this.backends.some(b=>b.installed&&b.auth!=='missing');
+  const apiProviders=this.apiProviderList();
+  const hasApi=apiProviders.some(a=>a.configured);
+  if(hasCli||hasApi){
+   return selectSmartModel({
+    task:task??{},
+    tracker:this.modelChoices,
+    skillsDir:this.skills.dir,
+    catalog:this.catalog,
+    agyUsage:this.modelUsage.agy,
+    usageByBackend:this.modelUsage,
+    backends:this.backends,
+    apiProviders,
+    preferredEffort,
+    greenModeCap:!this.urgency.isUrgent(),
+    excludeModels,
+   }).choice;
+  }
   throw Error('Chưa có backend dùng được. Cấu hình CommandCode hoặc đăng nhập agy, Claude, Codex, OpenCode trong Công cụ AI.');
  }
  private fastestCheapestModel():ModelChoice {
@@ -715,37 +738,67 @@ export class DesktopRuntime {
   const promptText=scoped&&meta?.kind!=='plan-step'?(scoped.messages.filter(m=>m.role==='user').at(-1)?.text??text):text;
   const scopedFiles=scoped?this.files(scoped):[];
   const taskInput:TaskClassificationInput={text:promptText,metaKind:meta?.kind,light,planMode:Boolean(scoped?.planningSession||/pvta-plan/i.test(system)),planningMode:scoped?.planningSession,proStep:meta?.kind==='plan-step'&&/PRO_VERIFY|Kiểm định Plan Pro/i.test(system),workflow:meta?.kind==='workflow'||Boolean(scoped?.workflowDesign),attachmentCount:scopedFiles.length+(images?.length??0),attachmentNames:[...scopedFiles.map(f=>f.name),...(images??[]).map(p=>path.basename(p))]};
-  let choice=override??(own?this.choice(own,taskInput,prefEffort):this.choice(pref.choice,taskInput,prefEffort));
-  if(choice.backend!=='api')choice=resolveChoiceVariant(choice,prefEffort,light,this.catalog).choice;
-  if(scoped){const prevResolved=scoped.resolvedChoice;scoped.resolvedChoice=choice;if((own??pref.choice)==='auto'&&!own)pref.resolvedChoice=choice;if(!prevResolved||prevResolved.backend!==choice.backend||prevResolved.model!==choice.model)this.changed();}
-  this.journal.setModel(activity,`${choice.backend}/${choice.model}`);row('running','AI đang xử lý',`${choice.backend}/${choice.model}`);
-  const caps=Object.fromEntries(this.backends.map(b=>[b.id,{installed:b.installed,efforts:b.efforts}]));
-  const supported=effortsFor(choice.backend,choice.model,caps as any,this.catalog);const effort=light?(supported.includes('low')?'low':undefined):prefEffort&&supported.includes(prefEffort)?prefEffort:undefined;
-  let cwd=run?.cwd??path.join(this.store.home,'workspace','desktop');if(!run?.cwd)fs.mkdirSync(cwd,{recursive:true,mode:0o700});
-  let workspaceDirs:string[]|undefined;
-  let brain:Awaited<ReturnType<typeof prepareBrainMcp>>['config']|undefined;
-  const workflowProject=meta?.kind==='workflow'?this.store.data.projects.find(p=>p.id===meta.projectId):undefined;
-  const modelBrainScope=run?.brainScope??(CORE_POLICY.brain&&workflowProject?projectBrainScope(this.store.home,workflowProject,this.store.data.attachments):undefined);
-  if(choice.backend==='codex'&&modelBrainScope){
-   row('running','Đang kết nối công cụ Brain');
-   const connection=await prepareBrainMcp(this.store.home,modelBrainScope,signal);
-   brain=connection.config;brainCleanup=connection.dispose;
-   system+='\nBRAIN MCP: PVTA đăng ký server pvta_brain cho phiên này. Dùng công cụ MCP brain_find, brain_outline, brain_read, brain_refs, brain_overview trực tiếp; không phát khối pvta-read cho các công cụ Brain. Đây là chỉ mục ký hiệu/tham chiếu, không phải graph lời gọi. Nếu không có search_graph/trace_path, vẫn dùng Brain trước khi đọc mã thủ công. Phạm vi do PVTA cố định; các quyền sửa/chạy lệnh không thay đổi.\n';
-  }
-  if(choice.backend==='agy'){
-   const chat=meta?.chatId?this.store.data.chats.find(c=>c.id===meta.chatId):undefined;
-   const inputs:AgyInput[]=[];
-   if(chat&&!['title','summary','feedback-extraction','self-advice','skill-discovery'].includes(meta?.kind??''))for(const file of this.files(chat)){
-    const edit=await this.editSessions.find(file.path);
-    inputs.push({original:file.path,source:edit?this.editSessions.current(edit):file.path});
+  const isAuto=!override&&(own??pref.choice)==='auto';
+  const excludedModels=new Set<string>();
+  const maxAttempts=isAuto?3:1;
+  let lastError:unknown;
+  for(let attempt=0;attempt<maxAttempts;attempt++){
+   await brainCleanup?.();brainCleanup=undefined;
+   let choice=override??(own?this.choice(own,taskInput,prefEffort,excludedModels):this.choice(pref.choice,taskInput,prefEffort,excludedModels));
+   if(choice.backend!=='api')choice=resolveChoiceVariant(choice,prefEffort,light,this.catalog).choice;
+   if(scoped){const prevResolved=scoped.resolvedChoice;scoped.resolvedChoice=choice;if((own??pref.choice)==='auto'&&!own)pref.resolvedChoice=choice;if(!prevResolved||prevResolved.backend!==choice.backend||prevResolved.model!==choice.model)this.changed();}
+   this.journal.setModel(activity,`${choice.backend}/${choice.model}`);row('running','AI đang xử lý',`${choice.backend}/${choice.model}`);
+   const caps=Object.fromEntries(this.backends.map(b=>[b.id,{installed:b.installed,efforts:b.efforts}]));
+   const supported=effortsFor(choice.backend,choice.model,caps as any,this.catalog);
+   const classified=isAuto?classifyTask(taskInput):undefined;
+   const targetEffort=light?'low':(!this.urgency.isUrgent()&&classified?.immediate)?'low':(prefEffort??classified?.complexity);
+   const effort=targetEffort&&supported.includes(targetEffort)?targetEffort:prefEffort&&supported.includes(prefEffort)?prefEffort:undefined;
+   let cwd=run?.cwd??path.join(this.store.home,'workspace','desktop');if(!run?.cwd)fs.mkdirSync(cwd,{recursive:true,mode:0o700});
+   let workspaceDirs:string[]|undefined;
+   let brain:Awaited<ReturnType<typeof prepareBrainMcp>>['config']|undefined;
+   let turnSystem=system;
+   const workflowProject=meta?.kind==='workflow'?this.store.data.projects.find(p=>p.id===meta.projectId):undefined;
+   const modelBrainScope=run?.brainScope??(CORE_POLICY.brain&&workflowProject?projectBrainScope(this.store.home,workflowProject,this.store.data.attachments):undefined);
+   if(choice.backend==='codex'&&modelBrainScope){
+    row('running','Đang kết nối công cụ Brain');
+    const connection=await prepareBrainMcp(this.store.home,modelBrainScope,signal);
+    brain=connection.config;brainCleanup=connection.dispose;
+    turnSystem+='\nBRAIN MCP: PVTA đăng ký server pvta_brain cho phiên này. Dùng công cụ MCP brain_find, brain_outline, brain_read, brain_refs, brain_overview trực tiếp; không phát khối pvta-read cho các công cụ Brain. Đây là chỉ mục ký hiệu/tham chiếu, không phải graph lời gọi. Nếu không có search_graph/trace_path, vẫn dùng Brain trước khi đọc mã thủ công. Phạm vi do PVTA cố định; các quyền sửa/chạy lệnh không thay đổi.\n';
    }
-   for(const file of images??[])if(!inputs.some(input=>input.original===file))inputs.push({original:file,source:file});
-   const staged=await prepareAgyWorkspace(this.store.home,chat?'chat:'+chat.id:'background',inputs,signal);
-   workspaceDirs=run?.cwd&&run.cwd!==staged.cwd?[run.cwd]:undefined;
-   cwd=staged.cwd;system=system.replace(NO_DIRECT_TOOLS,'Bạn có quyền dùng công cụ đọc các bản sao PVTA đã chuẩn bị. Không tự ghi, di chuyển, xóa tệp nguồn hay chạy lệnh thay đổi hệ thống; đề xuất sửa/lưu bằng pvta-action theo quyền của phiên.')+staged.prompt;
+   if(choice.backend==='agy'){
+    const chat=meta?.chatId?this.store.data.chats.find(c=>c.id===meta.chatId):undefined;
+    const inputs:AgyInput[]=[];
+    if(chat&&!['title','summary','feedback-extraction','self-advice','skill-discovery'].includes(meta?.kind??''))for(const file of this.files(chat)){
+     const edit=await this.editSessions.find(file.path);
+     inputs.push({original:file.path,source:edit?this.editSessions.current(edit):file.path});
+    }
+    for(const file of images??[])if(!inputs.some(input=>input.original===file))inputs.push({original:file,source:file});
+    const staged=await prepareAgyWorkspace(this.store.home,chat?'chat:'+chat.id:'background',inputs,signal);
+    workspaceDirs=run?.cwd&&run.cwd!==staged.cwd?[run.cwd]:undefined;
+    cwd=staged.cwd;turnSystem=turnSystem.replace(NO_DIRECT_TOOLS,'Bạn có quyền dùng công cụ đọc các bản sao PVTA đã chuẩn bị. Không tự ghi, di chuyển, xóa tệp nguồn hay chạy lệnh thay đổi hệ thống; đề xuất sửa/lưu bằng pvta-action theo quyền của phiên.')+staged.prompt;
+   }
+   const priority=['title','summary','feedback-extraction','self-advice','skill-discovery'].includes(meta?.kind??'')?'background':'foreground';
+   const handsFree=this.urgency.isUrgent();
+   const effectiveTimeoutMs=light?(run?.timeoutMs??90_000):handsFree?0:(run?.timeoutMs!==undefined?(run.timeoutMs===0?this.urgency.thinkingTimeCapMs():Math.min(run.timeoutMs,taskInput.planMode?run.timeoutMs:this.urgency.thinkingTimeCapMs())):this.urgency.thinkingTimeCapMs());
+   try{
+    const result=await abortable(()=>this.engine.run({...choice,priority,cwd,workspaceDirs,brain,permission:'read',workspaceWrite:run?.permission==='full'||handsFree,mcp:run?.allowMcp!==false&&pref.mcp?.enabled===true?{enabled:true,allowedTools:normalizeMcpTools(pref.mcp.allowedTools)}:undefined,effort,system:turnSystem,buildPrompt:(_resume,sent)=>sent?text:`${turnSystem}\n\n${text}`,onDelta:chunk=>{if(signal.aborted)return;if(!received){received=true;row('running','Đang soạn câu trả lời',`${choice.backend}/${choice.model}`);}onDelta?.(chunk);},onProgress:entry=>{if(!signal.aborted)this.progress({...entry,id:activity+':'+entry.id},meta);},onUsage:usage=>{const merged={...this.modelUsage[choice.backend],...usage,error:undefined,checkedAt:Date.now()};this.modelUsage[choice.backend]=merged;this.emit({id:'',event:'usage',data:{backend:choice.backend,usage:merged}});},signal,images,timeoutMs:effectiveTimeoutMs}),signal);
+    row('done','AI đã trả kết quả',`${choice.backend}/${choice.model}`);this.journal.finish(activity,'done',`${choice.backend}/${choice.model} · ${this.publicError(result.text)}`);return result.text;
+   }catch(err){
+    lastError=err;
+    const msg=this.publicError(err);
+    if(!signal.aborted&&isProviderLimitError(msg)){
+     this.urgency.rateLimited();
+     this.modelChoices.recordLimitError(choice,msg);
+     excludedModels.add(`${choice.backend}:${choice.model}`);
+     if(isAuto&&attempt+1<maxAttempts&&!received){
+      row('running','Đổi model dự phòng do chạm hạn mức',`${choice.backend}/${choice.model}`);
+      continue;
+     }
+    }
+    throw err;
+   }
   }
-  const priority=['title','summary','feedback-extraction','self-advice','skill-discovery'].includes(meta?.kind??'')?'background':'foreground';
-  const result=await abortable(()=>this.engine.run({...choice,priority,cwd,workspaceDirs,brain,permission:'read',workspaceWrite:run?.permission==='full',mcp:run?.allowMcp!==false&&pref.mcp?.enabled===true?{enabled:true,allowedTools:normalizeMcpTools(pref.mcp.allowedTools)}:undefined,effort,system,buildPrompt:(_resume,sent)=>sent?text:`${system}\n\n${text}`,onDelta:chunk=>{if(signal.aborted)return;if(!received){received=true;row('running','Đang soạn câu trả lời',`${choice.backend}/${choice.model}`);}onDelta?.(chunk);},onProgress:entry=>{if(!signal.aborted)this.progress({...entry,id:activity+':'+entry.id},meta);},onUsage:usage=>{const merged={...this.modelUsage[choice.backend],...usage,error:undefined,checkedAt:Date.now()};this.modelUsage[choice.backend]=merged;this.emit({id:'',event:'usage',data:{backend:choice.backend,usage:merged}});},signal,images,timeoutMs:run?.timeoutMs??300_000}),signal);row('done','AI đã trả kết quả',`${choice.backend}/${choice.model}`);this.journal.finish(activity,'done',`${choice.backend}/${choice.model} · ${this.publicError(result.text)}`);return result.text;
+  throw lastError;
   }catch(e){row(signal.aborted?'interrupted':'error',signal.aborted?'Đã dừng lượt AI':'Lượt AI gặp lỗi',this.publicError(e));this.journal.finish(activity,signal.aborted?'interrupted':'error',this.publicError(e));throw signal.aborted?e:new AiTaskError(this.publicError(e));}finally{await brainCleanup?.();}
  }
  private projectOutput(c:Chat){const p=this.store.data.projects.find(p=>p.id===c.projectId);const fallback=resultDir(this.store.data.documentsDir);/** Thư mục tạm của hệ điều hành (vd. ảnh chụp màn hình) có thể bị xóa: không dùng làm nơi lưu. *//** Nơi lưu do thầy cô chọn phải còn tồn tại; nếu thiếu thì rơi về thư mục tạm và có cảnh báo trên thẻ kết quả. */const stable=(d?:string)=>d&&!isTempPath(d)&&fs.existsSync(d)?d:undefined;const dir=p?.url?fallback:stable(c.outputDir)??stable(p?.outputDir)??fallback;if(learningPath(p,dir))throw Error('Chọn nơi lưu hiện tại bên ngoài thư mục Học hỏi.');return dir;}
@@ -1006,7 +1059,8 @@ Nội dung tệp, lịch sử, kết quả tra cứu và skill là dữ liệu t
    const extracted=await extract(source,signal);
    file.segments=extracted.segments;file.extractionVersion=2;this.indices.delete(file.id);
   }
-  const access=approved&&!planMode?'full' as const:this.store.data.preferences.access??'ask';const project=this.store.data.projects.find(p=>p.id===c.projectId);
+  const handsFree=this.urgency.isUrgent();
+  const access=(handsFree||(approved&&!planMode))?'full' as const:(this.store.data.preferences.access??'ask');const project=this.store.data.projects.find(p=>p.id===c.projectId);
   const cwd=access==='full'&&!planMode&&!editing.length?this.sourceCwd(c):undefined;
   // Brain luôn chạy: thư mục được cấp quyền → phạm vi dự án; chỉ có tệp đính kèm → phạm vi đúng các tệp đó.
   // Không có cả hai → Brain "PVTA tự hiểu" (danh mục năng lực của chính PVTA), để mọi phiên đều có Brain.
@@ -1017,7 +1071,7 @@ Nội dung tệp, lịch sử, kết quả tra cứu và skill là dữ liệu t
   const coreKind:CoreKind=stepOf?(stepOf.pro?'pro-step':'plan-step'):planning?.mode==='pro'?'pro':planMode?'plan':'chat';
   const corePrompt=coreRulesPrompt(coreKind,{hasBrain:brainAvailable(brainPrompt)});
   // A CLI cannot exclude a nested reference folder from its writable root. Keep it read-only and apply approved actions through PVTA instead.
-  const runBase=(planMode||(stepOf&&isExamPlan(stepOf)))?{permission:'read' as const,timeoutMs:planning?.timeoutMs??0,allowMcp:false}:cwd?{cwd,permission:project?.learning?.folders.some(folder=>within(folder,cwd))?'read' as const:'full' as const,timeoutMs:900_000}:undefined;const run={...runBase,cwd:runBase?.cwd,permission:runBase?.permission??'read' as const,brainScope:brainAvailable(brainPrompt)?brainSc:undefined};const system=(this.store.data.preferences.language==='en'?'Respond in English unless the user explicitly requests another language. Preserve document language unless translation is requested.\n':'')+(()=>{const base=this.context(c,text);return run?.permission==='full'?base.replace(NO_DIRECT_TOOLS,DIRECT_TOOLS):base;})()+brainPrompt+sourcePrompt+corePrompt+(editing.length?'\nPHIÊN CHỈNH SỬA: Nội dung nguồn là bản nháp hiện tại. Mọi sửa Office dùng pvta-action patch_office/edit_excel với đường dẫn nguồn. Không chạy lệnh hay tự ghi tệp. Hành động chỉ cập nhật bản nháp có Hoàn tác; chỉ người dùng bấm Lưu mới ghi vào tệp gốc.':'')+ACCESS_PROMPT[access]+(approved&&!planMode?'\nTHẦY CÔ ĐÃ BẤM ĐỒNG Ý với đề nghị ngay trước đó: thực hiện ngay, không hỏi lại, không đề nghị lại.':'')+(run?.permission==='full'?`\nThư mục làm việc: ${run.cwd}. Thầy cô đã cho phép sửa tệp và chạy lệnh trực tiếp tại đây: làm đúng yêu cầu, không xóa tệp ngoài yêu cầu, cuối cùng báo ngắn gọn những gì đã đổi.`:run?.cwd?'\nNguồn Học hỏi nằm trong thư mục làm việc. Chỉ đọc trực tiếp; đề xuất ghi/sửa bằng pvta-action để PVTA áp dụng đúng nơi lưu hiện tại.':'')+(planMode?'\n'+planPrompt:'')+(beautify||/làm đẹp|dàn trang|typst/i.test(text)?'\n'+BEAUTIFY:'');
+  const runBase=(planMode||(stepOf&&isExamPlan(stepOf)))?{permission:'read' as const,timeoutMs:handsFree?0:(planning?.timeoutMs??0),allowMcp:false}:cwd?{cwd,permission:project?.learning?.folders.some(folder=>within(folder,cwd))?'read' as const:'full' as const,timeoutMs:handsFree?0:this.urgency.thinkingTimeCapMs()}:undefined;const run={...runBase,cwd:runBase?.cwd,permission:runBase?.permission??'read' as const,brainScope:brainAvailable(brainPrompt)?brainSc:undefined};const system=(this.store.data.preferences.language==='en'?'Respond in English unless the user explicitly requests another language. Preserve document language unless translation is requested.\n':'')+(()=>{const base=this.context(c,text);return run?.permission==='full'?base.replace(NO_DIRECT_TOOLS,DIRECT_TOOLS):base;})()+brainPrompt+sourcePrompt+corePrompt+(editing.length?'\nPHIÊN CHỈNH SỬA: Nội dung nguồn là bản nháp hiện tại. Mọi sửa Office dùng pvta-action patch_office/edit_excel với đường dẫn nguồn. Không chạy lệnh hay tự ghi tệp. Hành động chỉ cập nhật bản nháp có Hoàn tác; chỉ người dùng bấm Lưu mới ghi vào tệp gốc.':'')+ACCESS_PROMPT[access]+(handsFree&&!planMode?'\nCHẾ ĐỘ RẢNH TAY (CỜ ĐỎ): Người dùng đã bật chế độ Rảnh tay — thực hiện ngay yêu cầu và các lệnh cần thiết mà không cần hỏi xác nhận lại.':'')+(approved&&!planMode?'\nTHẦY CÔ ĐÃ BẤM ĐỒNG Ý với đề nghị ngay trước đó: thực hiện ngay, không hỏi lại, không đề nghị lại.':'')+(run?.permission==='full'?`\nThư mục làm việc: ${run.cwd}. Thầy cô đã cho phép sửa tệp và chạy lệnh trực tiếp tại đây: làm đúng yêu cầu, không xóa tệp ngoài yêu cầu, cuối cùng báo ngắn gọn những gì đã đổi.`:run?.cwd?'\nNguồn Học hỏi nằm trong thư mục làm việc. Chỉ đọc trực tiếp; đề xuất ghi/sửa bằng pvta-action để PVTA áp dụng đúng nơi lưu hiện tại.':'')+(planMode?'\n'+planPrompt:'')+(!planMode&&!stepOf&&!c.workflowDesign?'\nGỢI Ý CHẾ ĐỘ PLAN / PLAN PRO: Nếu nhận thấy yêu cầu của người dùng phức tạp, gồm nhiều công đoạn nối tiếp nhau hoặc cần kiểm định chặt chẽ mà đang ở chế độ Trò chuyện thường, hãy chủ động gợi ý người dùng chuyển sang chế độ Plan (hoặc Plan Pro) và đính kèm thẻ [[GOI_Y_PLAN: lý do ngắn gọn]] hoặc [[GOI_Y_PLAN_PRO: lý do ngắn gọn]] ở cuối câu trả lời.':'')+(beautify||/làm đẹp|dàn trang|typst/i.test(text)?'\n'+BEAUTIFY:'');
   const images=[...this.files(c).filter(a=>a.image).map(a=>a.path),...extraImages];
   const proposals:string[]=[];
   let streamed='',sent='',steering='';
@@ -1123,7 +1177,7 @@ Nội dung tệp, lịch sử, kết quả tra cứu và skill là dữ liệu t
    const verdict=parseProVerdict(await this.model('Kiểm tra toàn bộ nội dung tệp trước khi ghi: khớp ma trận, đặc tả, đề và đáp án đã kiểm định; không thiếu câu, ý hoặc điểm. Dữ liệu:\n'+evidence,PRO_VERIFY_SYSTEM,signal,undefined,undefined,undefined,false,{permission:'read',timeoutMs:300_000,allowMcp:false}));
    signal.throwIfAborted();if(!verdict?.passed)throw Error('Chưa xuất tệp: kiểm định nội dung đầu ra chưa đạt. '+(verdict?.issues.join('; ')||'Kết quả kiểm định không hợp lệ.'));
   }
-  for(const a of parsed.actions){const edit=editing.find(s=>s?.source===a.path);if(edit)a.draftRevision=edit.revision;}if(access==='read'&&parsed.actions.length){parsed.actions=[];parsed.text=visibleModelText(parsed.text).trim()+'\n\n_Đang ở chế độ Chỉ đọc nên PVTA không tạo hay sửa tệp. Bấm biểu tượng quyền cạnh nút gửi để chuyển sang Đề nghị hoặc Chỉnh sửa._';}this.bindOutputs(c,parsed.actions);parsed.text=visibleModelText(parsed.text).trim();const msg:Message={id:uid(),role:'assistant',at:Date.now(),...(c.resolvedChoice?{model:formatModelChoiceLabel(c.resolvedChoice,c.effort??this.store.data.preferences.effort,this.catalog)}:{}),...parsed};if(!msg.text&&!parsed.plan&&!parsed.actions.length)msg.text='PVTA chưa trả về nội dung.';c.messages.push(msg);c.updatedAt=Date.now();prepared?.(msg);this.store.save();if(access==='full'&&msg.actions?.length)await this.autoApply(msg);this.changed(rpcId);return msg;
+  for(const a of parsed.actions){const edit=editing.find(s=>s?.source===a.path);if(edit)a.draftRevision=edit.revision;}if(access==='read'&&parsed.actions.length){parsed.actions=[];parsed.text=visibleModelText(parsed.text).trim()+'\n\n_Đang ở chế độ Chỉ đọc nên PVTA không tạo hay sửa tệp. Bấm biểu tượng quyền cạnh nút gửi để chuyển sang Đề nghị hoặc Chỉnh sửa._';}this.bindOutputs(c,parsed.actions);parsed.text=visibleModelText(parsed.text).trim();const aiPlanSug=!planMode&&!stepOf&&!c.workflowDesign?extractAiPlanningSuggestion(parsed.text):undefined;parsed.text=parsed.text.replace(/\[\[\s*GOI_Y_(?:PLAN_PRO|PRO|PLAN)\s*(?::\s*[^\]]*)?\]\]/gi,'').trim();const autoPlanSug=!planMode&&!stepOf&&!c.workflowDesign?suggestPlanningMode({text,planMode,planningMode:c.planningSession,workflow:!!c.workflowDesign,attachmentCount:this.files(c).length,attachmentNames:this.files(c).map(f=>f.name),learnedRules:this.store.data.learned.filter(l=>l.status!=='rejected').map(l=>l.rule),insights:this.modelChoices.insights()}):undefined;const planSuggestion=aiPlanSug??autoPlanSug;const msg:Message={id:uid(),role:'assistant',at:Date.now(),...(c.resolvedChoice?{model:formatModelChoiceLabel(c.resolvedChoice,c.effort??this.store.data.preferences.effort,this.catalog)}:{}),...(planSuggestion?{planSuggestion}:{}),...parsed};if(!msg.text&&!parsed.plan&&!parsed.actions.length)msg.text='PVTA chưa trả về nội dung.';c.messages.push(msg);c.updatedAt=Date.now();prepared?.(msg);this.store.save();if(access==='full'&&msg.actions?.length)await this.autoApply(msg);this.changed(rpcId);return msg;
  }
  /** Sau câu trả lời đầu tiên: nhờ AI nhẹ đặt tên ngắn. Chạy nền, không chặn trả lời; bỏ qua nếu thầy cô đã tự đổi tên. */
  private scheduleTitle(c:Chat){
@@ -1677,7 +1731,7 @@ ${n} tệp đã đọc trong phạm vi này.${trees.length?'\n'+trees.map(t=>tre
    }
    case 'deleteProject':{const id=STR(p.id,80);const keepFolders=p.keepFolders===true;{const gone=this.store.data.projects.find(x=>x.id===id);if(gone){/* keepFolders: không đụng tới bất kỳ thư mục nào trên máy (kể cả .pvta/self bên trong) */const roots=keepFolders?[]:gone.folders;this.selfCleanup('project',id,roots);for(const c of this.store.data.chats)if(c.projectId===id)this.selfCleanup('chat',c.id,roots);}}this.store.data.projects=this.store.data.projects.filter(x=>x.id!==id);for(const c of this.store.data.chats)if(c.projectId===id)delete c.projectId;this.store.data.attachments=this.store.data.attachments.filter(a=>a.scope!=='project'||a.scopeId!==id);this.changed();return true;}
    case 'saveSummary':this.chat(p.chatId).summary=STR(p.summary,5000);this.changed();return true;
-   case 'preferences':{const v=p.patch as Partial<Preferences>;if(!v||typeof v!=='object')throw Error('Thiếu cài đặt.');if('effort' in v&&v.effort!==null&&!EFFORTS.includes(v.effort!))throw Error('Mức suy nghĩ không hợp lệ.');if('toolbarIconSize' in v&&(typeof v.toolbarIconSize!=='number'||!Number.isFinite(v.toolbarIconSize)||v.toolbarIconSize<14||v.toolbarIconSize>24))throw Error('Kích thước icon phải từ 14 đến 24 px.');if('fontFamily' in v&&!FONT_OPTIONS.some(f=>f.id===v.fontFamily))throw Error('Phông chữ không hợp lệ.');if('iconStyle' in v&&!ICON_STYLES.some(s=>s.id===v.iconStyle))throw Error('Bộ biểu tượng không hợp lệ.');if('palette' in v&&!PALETTE_IDS.includes(v.palette!))throw Error('Bảng màu không hợp lệ.');const refine='refine' in v?normalizeRefine(v.refine,this.store.data.preferences.refine):undefined;if('access' in v&&!['read','ask','full'].includes(String(v.access)))throw Error('Quyền không hợp lệ.');const normalizedRules='rules' in v?ruleTextForSave(typeof v.rules==='string'?v.rules:'',10000):undefined;if('language' in v&&!['vi','en'].includes(String(v.language)))throw Error('Ngôn ngữ không hợp lệ.');if('quickAccess' in v&&(!Array.isArray(v.quickAccess)||v.quickAccess.length>40||v.quickAccess.some(x=>typeof x!=='string'||!/^([a-z]+):[a-z0-9-]+$/.test(x))))throw Error('Danh sách truy cập nhanh không hợp lệ.');const userName='userName' in v?(typeof v.userName==='string'?v.userName.replace(/[\u0000-\u001f\u007f]/g,' ').replace(/\s+/g,' ').trim().slice(0,60):''):undefined;const prevChoice=this.store.data.preferences.choice,prevEffort=this.store.data.preferences.effort;const allowed=['userName','selfAdvice','language','quickAccess','theme','palette','fontFamily','iconStyle','toolbarIconSize','fontSize','learning','reflect','hints','rag','rules','choice','effort','mode','access','bridge','bridgeToken'] as const;for(const k of allowed)if(k in v)(this.store.data.preferences as any)[k]=k==='rules'?normalizedRules:k==='userName'?userName:v[k];if('choice' in v||'effort' in v){const cur=this.store.data.preferences.choice;if(cur==='auto')delete this.store.data.preferences.resolvedChoice;else if(cur&&typeof cur==='object'){const hit=cur.backend!=='api'?findModelInfo(modelsOf(this.catalog,cur.backend),cur.model):undefined;if('choice' in v&&hit?.effort&&!('effort' in v))this.store.data.preferences.effort=hit.effort;const rv=resolveChoiceVariant(cur,this.store.data.preferences.effort,false,this.catalog);if('effort' in v&&hit?.effort)this.store.data.preferences.choice=rv.choice;this.store.data.preferences.resolvedChoice=rv.choice;if(cur.backend==='agy'){this.modelChoices.recordSwitch({scope:'default',previous:prevChoice,previousEffort:prevEffort,choice:rv.choice,effort:rv.effort??this.store.data.preferences.effort,catalog:this.catalog});this.modelChoices.syncSkill(this.skills.dir);}}}if('mcp' in v){const m=v.mcp as any;if(!m||typeof m!=='object')throw Error('Cài đặt kết nối không hợp lệ.');this.store.data.preferences.mcp={enabled:m.enabled===true,allowedTools:normalizeMcpTools(m.allowedTools)};}if(v.learning===false){this.saveLearning();this.learningCtl?.abort(new Error('Đã tắt tự học.'));if(this.learningTimer){clearTimeout(this.learningTimer);this.learningTimer=undefined;}}if(v.learning===true&&(this.learningQueue.length||this.signals?.pending()))this.scheduleLearning();if('reflect' in v){if(v.reflect===true){this.reflectMessage='Não bộ đã bật: đang chờ tiến trình để rút kinh nghiệm.';const last=this.store.data.chats.filter(x=>x.messages.length).sort((x,y)=>y.updatedAt-x.updatedAt)[0];if(last)this.scheduleReflect(last.id,true);}else{this.reflectMessage='Nút Não bộ đang tắt.';this.reflectCtl?.abort(new Error('Đã tắt Não bộ.'));if(this.reflectTimer){clearTimeout(this.reflectTimer);this.reflectTimer=undefined;}}}if(refine){this.store.data.preferences.refine=refine;void this.syncRefine();}this.store.data.preferences.fontSize=Math.max(12,Math.min(24,Number(this.store.data.preferences.fontSize)||16));this.changed();return true;}
+   case 'preferences':{const v=p.patch as Partial<Preferences>;if(!v||typeof v!=='object')throw Error('Thiếu cài đặt.');if('effort' in v&&v.effort!==null&&!EFFORTS.includes(v.effort!))throw Error('Mức suy nghĩ không hợp lệ.');if('toolbarIconSize' in v&&(typeof v.toolbarIconSize!=='number'||!Number.isFinite(v.toolbarIconSize)||v.toolbarIconSize<14||v.toolbarIconSize>24))throw Error('Kích thước icon phải từ 14 đến 24 px.');if('fontFamily' in v&&!FONT_OPTIONS.some(f=>f.id===v.fontFamily))throw Error('Phông chữ không hợp lệ.');if('iconStyle' in v&&!ICON_STYLES.some(s=>s.id===v.iconStyle))throw Error('Bộ biểu tượng không hợp lệ.');if('palette' in v&&!PALETTE_IDS.includes(v.palette!))throw Error('Bảng màu không hợp lệ.');const refine='refine' in v?normalizeRefine(v.refine,this.store.data.preferences.refine):undefined;if('access' in v&&!['read','ask','full'].includes(String(v.access)))throw Error('Quyền không hợp lệ.');const normalizedRules='rules' in v?ruleTextForSave(typeof v.rules==='string'?v.rules:'',10000):undefined;if('language' in v&&!['vi','en'].includes(String(v.language)))throw Error('Ngôn ngữ không hợp lệ.');if('quickAccess' in v&&(!Array.isArray(v.quickAccess)||v.quickAccess.length>40||v.quickAccess.some(x=>typeof x!=='string'||!/^([a-z]+):[a-z0-9-]+$/.test(x))))throw Error('Danh sách truy cập nhanh không hợp lệ.');const userName='userName' in v?(typeof v.userName==='string'?v.userName.replace(/[\u0000-\u001f\u007f]/g,' ').replace(/\s+/g,' ').trim().slice(0,60):''):undefined;const prevChoice=this.store.data.preferences.choice,prevEffort=this.store.data.preferences.effort;const allowed=['userName','selfAdvice','language','quickAccess','theme','palette','fontFamily','iconStyle','toolbarIconSize','fontSize','learning','reflect','hints','rag','rules','choice','effort','mode','access','bridge','bridgeToken'] as const;for(const k of allowed)if(k in v)(this.store.data.preferences as any)[k]=k==='rules'?normalizedRules:k==='userName'?userName:v[k];if('choice' in v||'effort' in v){const cur=this.store.data.preferences.choice;if(cur==='auto')delete this.store.data.preferences.resolvedChoice;else if(cur&&typeof cur==='object'){const hit=cur.backend!=='api'?findModelInfo(modelsOf(this.catalog,cur.backend),cur.model):undefined;if('choice' in v&&hit?.effort&&!('effort' in v))this.store.data.preferences.effort=hit.effort;const rv=resolveChoiceVariant(cur,this.store.data.preferences.effort,false,this.catalog);if('effort' in v&&hit?.effort)this.store.data.preferences.choice=rv.choice;this.store.data.preferences.resolvedChoice=rv.choice;this.modelChoices.recordSwitch({scope:'default',previous:prevChoice,previousEffort:prevEffort,choice:rv.choice,effort:rv.effort??this.store.data.preferences.effort,catalog:this.catalog});this.modelChoices.syncSkill(this.skills.dir);}}if('mcp' in v){const m=v.mcp as any;if(!m||typeof m!=='object')throw Error('Cài đặt kết nối không hợp lệ.');this.store.data.preferences.mcp={enabled:m.enabled===true,allowedTools:normalizeMcpTools(m.allowedTools)};}if(v.learning===false){this.saveLearning();this.learningCtl?.abort(new Error('Đã tắt tự học.'));if(this.learningTimer){clearTimeout(this.learningTimer);this.learningTimer=undefined;}}if(v.learning===true&&(this.learningQueue.length||this.signals?.pending()))this.scheduleLearning();if('reflect' in v){if(v.reflect===true){this.reflectMessage='Não bộ đã bật: đang chờ tiến trình để rút kinh nghiệm.';const last=this.store.data.chats.filter(x=>x.messages.length).sort((x,y)=>y.updatedAt-x.updatedAt)[0];if(last)this.scheduleReflect(last.id,true);}else{this.reflectMessage='Nút Não bộ đang tắt.';this.reflectCtl?.abort(new Error('Đã tắt Não bộ.'));if(this.reflectTimer){clearTimeout(this.reflectTimer);this.reflectTimer=undefined;}}}if(refine){this.store.data.preferences.refine=refine;void this.syncRefine();}this.store.data.preferences.fontSize=Math.max(12,Math.min(24,Number(this.store.data.preferences.fontSize)||16));this.changed();return true;}
    case 'queuePrompt':{
     const c=this.chat(p.chatId);const text=STR(p.text).trim();
     if(!text)throw Error('Nhập nội dung trước.');
@@ -1729,8 +1783,8 @@ ${n} tệp đã đọc trong phạm vi này.${trees.length?'\n'+trees.map(t=>tre
     const isPlan=p.plan===true||p.planningMode==='plan'||p.planningMode==='pro';const timeoutMs=isPlan?planningTimeout(p.planningTimeoutMs):undefined;
     if(isPlan){if(this.jobs.has(current.id))throw Error('Hội thoại này đang xử lý.');current.planningSession=p.planningMode==='pro'?'pro':'plan';if(!approvePlan)delete current.planningDraft;}
     const c=this.chat(p.chatId);if(this.jobs.has(c.id))throw Error('Hội thoại này đang xử lý.');if(!c.choice&&this.store.data.preferences.choice!=='auto'&&!c.messages.length){c.choice=structuredClone(this.store.data.preferences.choice);c.effort=this.store.data.preferences.effort??null;}this.learningCtl?.abort(new Error('Nhường tác vụ chính'));this.reflectCtl?.abort(new Error('Nhường tác vụ chính'));const about=c.messages.filter(m=>m.role==='assistant'&&!m.error).at(-1)?.text??'';const text=STR(p.text).trim();if(!text)throw Error('Nhập nội dung trước.');const sendFiles=this.files(c);if(this.modelChoices.bindPrompt(c.id,{text,planMode:isPlan,planningMode:isPlan?(p.planningMode==='pro'?'pro':'plan'):'chat',workflow:!!c.workflowDesign,attachmentCount:sendFiles.length,attachmentNames:sendFiles.map(f=>f.name)}))this.modelChoices.syncSkill(this.skills.dir);const ctl=new AbortController();this.jobs.set(c.id,ctl);this.liveProgress.delete(c.id);const sentiment=detectFeedback(text);const learningKind:LearningKind=isCorrection(text)||sentiment==='critic'?'feedback':sentiment==='praise'?'praise':'habit';const learningQueued=!!this.functionalGroup(c);if(learningQueued&&(learningKind==='feedback'||(learningKind==='praise'&&about)))this.queueLearning(c.id,text,about,learningKind);const planning:PlanningRun|undefined=isPlan?{mode:p.planningMode==='pro'?'pro':'plan',timeoutMs:timeoutMs!,startedAt:Date.now(),phase:'survey',round:0,issues:[],updatedAt:Date.now()}:undefined;c.messages.push({id:STR(p.queuedPromptId,80)||uid(),role:'user',text,at:Date.now(),planning});this.emit({id:req.id,event:'delta',data:{chatId:c.id,text:'',reset:true,newTurn:true}});if(c.title==='Cuộc trò chuyện mới'){c.title=fallbackTitle(text);c.titleAuto=true;}this.changed();
-    const longRun=!isPlan&&(this.store.data.preferences.access==='full'||p.approve===true);const budget=isPlan?timeoutMs!:longRun?900_000:300_000;
-    const deadline=budget?setTimeout(()=>ctl.abort(new Error(isPlan?'Đã hết thời gian lập kế hoạch đã chọn. Bản nháp Plan Pro (nếu có) được giữ lại.':'Yêu cầu quá thời gian; hãy chia nhỏ công việc hoặc thử lại.')),budget):undefined;
+    const handsFree=this.urgency.isUrgent();const longRun=!isPlan&&(this.store.data.preferences.access==='full'||p.approve===true);const budget=handsFree?0:isPlan?(timeoutMs||this.urgency.thinkingTimeCapMs()):longRun?900_000:this.urgency.thinkingTimeCapMs();
+    const deadline=budget?setTimeout(()=>ctl.abort(new Error(isPlan?'Đã hết thời gian lập kế hoạch đã chọn. Bản nháp Plan Pro (nếu có) được giữ lại.':'Yêu cầu quá thời gian; hãy chia nhỏ công việc hoặc thử lại (hoặc bật Cờ đỏ - Rảnh tay để không khóa thời gian chạy).')),budget):undefined;
     try{const m=await abortable(()=>c.workflowDesign&&!isPlan?designWorkflowTurn(c,text,p.workflowBuild===true,ctl.signal,{model:(text,system,signal)=>this.model(text,system,signal),list:()=>(this.store.data.workflows??=[]),changed:()=>this.changed()}):this.ask(c,approvalTask??(p.queuedSupplement===true?supplement(text):text),isPlan,ctl.signal,req.id,p.beautify===true,this.captureImages(p.images),undefined,planning,p.approve===true,undefined,publishPlan),ctl.signal);if(m.error)c.promptQueuePaused=true;if(approvePlan&&!m.plan&&!m.error){m.text=(m.text?m.text+'\n\n':'')+'_Chưa xuất được kế hoạch từ trao đổi. Trả lời các điểm còn thiếu ở trên rồi bấm Duyệt lại._';this.changed();}if(planning?.mode==='plan'){planning.phase=m.plan?'published':planning.draft?'ready':'questions';planning.updatedAt=Date.now();this.changed();}if(!learningQueued&&(learningKind==='feedback'||(learningKind==='praise'&&about)))this.queueLearning(c.id,text,about,learningKind);if(isPlan||c.workflowDesign)this.captureSignal({group:signalGroup({planning:isPlan,workflow:!!c.workflowDesign}),kind:'draft',chatId:c.id,projectId:c.projectId,planId:m.plan?.id,sourceId:m.id,outcome:'unverified',text:m.error?'Lượt soạn bị lỗi.':m.plan?'Kế hoạch đã công bố; chưa phải kết quả thực thi.':'Bản nháp thiết kế; chưa thực thi.',sourceVersion:signalHash(m.text)});if(learningKind==='habit'&&!m.error&&!isPlan&&!c.workflowDesign&&!this.functionalGroup(c))this.queueLearning(c.id,text,'','habit');this.scheduleSummary(c);this.scheduleTitle(c);this.selfWarm(c);this.scheduleReflect(c.id);return m;}catch(e){c.promptQueuePaused=true;if(planning){planning.phase=ctl.signal.aborted?'interrupted':'error';planning.updatedAt=Date.now();planning.issues=[ctl.signal.aborted?String(ctl.signal.reason?.message??'Đã dừng.'):this.publicError(e)];}const m:Message={id:uid(),role:'assistant',text:ctl.signal.aborted?(ctl.signal.reason instanceof Error?ctl.signal.reason.message:'Đã dừng yêu cầu.'):this.publicError(e),at:Date.now(),error:true,failure:taskFailure(e,ctl.signal,this.publicError(e))};c.messages.push(m);this.changed();if(!learningQueued&&(learningKind==='feedback'||(learningKind==='praise'&&about)))this.queueLearning(c.id,text,about,learningKind);if(isPlan||c.workflowDesign)this.captureSignal({group:signalGroup({planning:isPlan,workflow:!!c.workflowDesign}),kind:'draft',chatId:c.id,projectId:c.projectId,sourceId:m.id,outcome:'unverified',text:ctl.signal.aborted?'Soạn nháp bị ngắt.':'Soạn nháp bị lỗi.'});this.scheduleReflect(c.id);throw e;}finally{clearTimeout(deadline);this.jobs.delete(c.id);this.liveProgress.delete(c.id);this.emit({id:req.id,event:'delta',data:{chatId:c.id,text:'',reset:true}});this.changed();this.drainPrompts(c);}
    }
    case 'selfTipDecide':{const d=STR(p.decision,10);if(!['open','later','never'].includes(d))throw Error('Quyết định gợi ý không hợp lệ.');const t=this.selfAdvisor.decide(STR(p.id,80),d as 'open'|'later'|'never');this.changed();return t?{capabilityId:t.capabilityId}:null;}
@@ -1920,7 +1974,7 @@ ${n} tệp đã đọc trong phạm vi này.${trees.length?'\n'+trees.map(t=>tre
     return {promptSaved:true,steps:save.map(s=>s.name)};
    }
    case 'workflowPromptCancel':{const id=STR(p.id,80);this.workflowPrompts.cancel(p.plan===true?this.findPlan(id).workflowId??id:id);return true;}
-   case 'setUrgency':{if(typeof p.on!=='boolean')throw Error('Thiếu trạng thái cờ.');const v=this.urgency.set(p.on,typeof p.minutes==='number'&&Number.isFinite(p.minutes)?p.minutes:undefined);if(p.on)void this.urgency.samplePressure();return v;}
+   case 'setUrgency':{if(typeof p.on!=='boolean')throw Error('Thiếu trạng thái cờ.');if(p.on){if(!this.urgency.isUrgent()&&this.store.data.preferences.access!=='full')this.previousAccessBeforeHandsFree=this.store.data.preferences.access??'ask';this.store.data.preferences.access='full';}else if(this.previousAccessBeforeHandsFree){this.store.data.preferences.access=this.previousAccessBeforeHandsFree;this.previousAccessBeforeHandsFree=undefined;}const v=this.urgency.set(p.on,typeof p.minutes==='number'&&Number.isFinite(p.minutes)?p.minutes:undefined);if(p.on)void this.urgency.samplePressure();return v;}
    case 'workflowCancel':{this.workflowPrompts.cancel(STR(p.id,80));const w=this.store.data.workflows?.find(w=>w.id===p.id);if(w?.planId){this.jobs.get(this.findPlan(w.planId).chatId)?.abort();return true;}return this.workflows.cancel(STR(p.id,80));}
    case 'approveAction':return this.applyAction(STR(p.id,80));
    case 'declineAction':{for(const c of this.store.data.chats)for(const m of c.messages)for(const a of m.actions??[])if(a.id===p.id&&a.state==='pending')a.state='declined';this.approvals.get(String(p.id))?.(false);this.approvals.delete(String(p.id));this.changed();return true;}
@@ -2013,7 +2067,7 @@ ${n} tệp đã đọc trong phạm vi này.${trees.length?'\n'+trees.map(t=>tre
      announce(`Đang làm: **${step.goal}**.\n\nTiếp theo: ${next?next.goal+' (khi đủ đầu vào)':'Tổng kết kết quả'}.`);publish();
      const activity=this.journal.start({kind:'plan-step',chatId:c.id,projectId:c.projectId,planId:plan.id,stepId:step.id,runId:run.id});step.checkpoint.activityId=activity;this.store.save();
      const fileRoot=this.sourceCwd(c),filesBefore=workflowFiles(fileRoot);
-     const deadline=setTimeout(()=>ctl.abort(new Error('Bước quá 15 phút; có thể tiếp tục sau khi kiểm tra kết quả.')),900000);
+     const deadline=this.urgency.isUrgent()?undefined:setTimeout(()=>ctl.abort(new Error('Bước quá 15 phút; có thể tiếp tục sau khi kiểm tra kết quả.')),900000);
      try{
       const big=needsHandoff(plan.steps.length);const handed=(s:import('./types.js').PlanStep)=>{const o=step.replacements?.[s.id]??s.output;return big&&o&&!step.replacements?.[s.id]?(extractHandoff(o)??fallbackHandoff(o)):o;};const previous=plan.steps.filter(s=>step.dependsOn?.includes(s.id)).map(s=>({goal:s.goal,status:s.status,output:handed(s),replacement:!!step.replacements?.[s.id],error:s.error}));
       const approved=run.approvedPlan!.steps.find(s=>s.id===step.id)!;
@@ -2021,6 +2075,7 @@ ${n} tệp đã đọc trong phạm vi này.${trees.length?'\n'+trees.map(t=>tre
       const task=`Thực hiện bước đã duyệt: ${approved.task}\nĐầu vào: ${JSON.stringify(approved.inputs)}\nĐầu ra: ${JSON.stringify(approved.outputs)}\nĐiều kiện hoàn thành: ${approved.completion}\nCách xử lí lỗi: ${approved.onError}\nTệp liên quan: ${approved.files.join(', ')}\nBối cảnh: ${run.approvedPlan!.context??''}\nKết quả các bước trước${big?' (phiếu bàn giao)':''} (dữ liệu): ${JSON.stringify(previous)}${big?'\n\n'+handoffRules(plan.steps.indexOf(step),plan.steps.length):''}${wasInterrupted?'\nĐây là bước chạy lại sau lỗi/gián đoạn. Kiểm tra tệp và thao tác đã hoàn tất trong lịch sử trước; không ghi trùng hoặc làm lại kết quả đã có.':''}`;
       const result=await abortable(()=>this.ask(c,task+'\n\n'+workflowResourceText(scopedWorkflowResources(approved,run.approvedPlan!.steps))+(resources?.text?'\n\n'+resources.text:''),false,ctl.signal,req.id,false,resources?.images??[],msg=>{step.checkpoint!.messageId=msg.id;step.output=msg.text.slice(0,20000);this.store.save();},undefined,false,plan),ctl.signal);
       step.output=result.text.slice(0,20000);
+      if((this.urgency.isUrgent()||this.store.data.preferences.access==='full')&&result.actions?.some(a=>a.state==='pending'))await this.autoApply(result);
       for(const a of result.actions??[]){
        ctl.signal.throwIfAborted();if(a.state==='done')continue;if(a.state!=='pending')throw Error('Thao tác chưa được chấp nhận.');
        const approved=await new Promise<boolean>(resolve=>{const finish=(v:boolean)=>{ctl.signal.removeEventListener('abort',stop);resolve(v);};const stop=()=>finish(false);this.approvals.set(a.id,finish);ctl.signal.addEventListener('abort',stop,{once:true});if(ctl.signal.aborted)stop();});
@@ -2328,6 +2383,12 @@ Nhiệm vụ:
    case 'learningRead':{
     this.ensureLearningStore();
     return this.learningStore.read();
+   }
+   case 'suggestPlan':{
+    const c=p.chatId?this.store.data.chats.find(x=>x.id===p.chatId):undefined;
+    const files=c?this.files(c):[];
+    const text=STR(p.text??c?.messages.filter(m=>m.role==='user').at(-1)?.text??'',20000);
+    return suggestPlanningMode({text,planMode:!!c?.planningSession,planningMode:c?.planningSession,workflow:!!c?.workflowDesign,attachmentCount:files.length,attachmentNames:files.map(f=>f.name),learnedRules:this.store.data.learned.filter(l=>l.status!=='rejected').map(l=>l.rule),insights:this.modelChoices.insights()})??null;
    }
    case 'hints':{const c=this.chat(p.chatId);if(!CORE_POLICY.documentHints&&!this.store.data.preferences.hints)return [];const files=this.files(c);const text=[c.title,...files.map(a=>a.name)].join(' ').toLowerCase();const hints:any[]=[];if(/điểm|bảng|tính|xlsx/.test(text))hints.push({label:'Kiểm tra số liệu',mode:'accounting'});if(/đề|khoa học|bài|giáo án/.test(text))hints.push({label:'Văn phong học thuật',mode:'academic'});for(const s of this.skills.list().filter(s=>s.load!=='off'&&s.name!==CHOICE_MODEL_SKILL_NAME&&this.canUseSkill(s.name,{projectId:c.projectId,chatId:c.id})))if((s.description+' '+s.name).toLowerCase().split(/\s+/).some(w=>w.length>5&&text.includes(w)))hints.push({label:s.name,prompt:`/${s.name} `});return hints.slice(0,4);}
    case 'openLink':{const url=STR(p.url,2000);const u=new URL(url);if(!['http:','https:'].includes(u.protocol))throw Error('Liên kết không hợp lệ.');const cmd=process.platform==='darwin'?'open':process.platform==='win32'?'rundll32.exe':'xdg-open';const args=process.platform==='win32'?['url.dll,FileProtocolHandler',url]:[url];await new Promise<void>((resolve,reject)=>{execFile(cmd,args,{windowsHide:true},e=>e?reject(Error('Không mở được trình duyệt.')):resolve());});return true;}

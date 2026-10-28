@@ -2,17 +2,28 @@ import {execFile} from 'node:child_process';
 import os from 'node:os';
 
 /**
- * Cờ việc gấp: điều tiết số bước Quy trình chạy cùng lúc theo CPU/RAM và áp lực bộ nhớ.
- * Cờ xanh giữ cấu hình của từng quy trình; cờ đỏ tính theo máy, có trần.
- * Áp lực RAM chạm mức vàng (cảnh báo) trở lên thì không mở thêm bước song song:
- * bước đang chạy vẫn chạy tiếp, chỉ không ép thêm.
+ * Cờ xanh - đỏ (trên biểu tượng Não bộ tự học):
+ * - Cờ xanh (urgent = false): Chế độ Tự động — PVTA khóa thời gian suy nghĩ để tránh hết quota và hỏi duyệt trước khi chạy lệnh.
+ * - Cờ đỏ (urgent = true): Chế độ Rảnh tay (Hands-free) — PVTA không khóa thời gian chạy của model AI và có thể tự chạy các lệnh mà không cần hỏi (có thể hết limit 5h).
  */
 export type MemoryPressure='normal'|'warn'|'critical'|'unknown';
 /** limit: số bước song song tối đa hiện tại; 0 = theo cấu hình từng quy trình (cờ xanh, RAM ổn). */
-export interface UrgencyView{urgent:boolean;until?:number;pressure:MemoryPressure;limit:number;note:string}
+export interface UrgencyView{
+ urgent:boolean;
+ /** Cờ đỏ = chế độ Rảnh tay (chạy lệnh không cần hỏi, không khóa thời gian chạy model AI). */
+ handsFree?:boolean;
+ /** Giới hạn thời gian suy nghĩ mỗi lượt gọi AI (ms); 0 = không khóa thời gian chạy. */
+ thinkingTimeCapMs?:number;
+ until?:number;
+ pressure:MemoryPressure;
+ limit:number;
+ note:string;
+}
 
 export const URGENT_MAX=8;
 export const URGENT_MINUTES=30;
+/** Cờ xanh (Chế độ Tự động): khóa thời gian suy nghĩ tối đa 3 phút/lượt để bảo vệ quota 5h. */
+export const GREEN_THINKING_CAP_MS=180_000;
 const STEP_BYTES=600*1024**2;
 const RESERVE_BYTES=1.5*1024**3;
 const SAMPLE_MS=3000;
@@ -65,6 +76,10 @@ export class UrgencyGovernor{
  private now(){return this.o.now?.()??Date.now();}
  private machine(){return {cpus:this.o.cpus?.()??(os.availableParallelism?.()??os.cpus().length),total:this.o.total?.()??os.totalmem(),free:this.o.free?.()??os.freemem(),platform:this.o.platform??process.platform};}
  isUrgent(){this.expire();return this.urgent;}
+ /** Chế độ Rảnh tay (Cờ đỏ): chạy lệnh không cần hỏi và không khóa thời gian chạy của model AI. */
+ isHandsFree(){return this.isUrgent();}
+ /** Thời gian tối đa cho một lượt suy nghĩ/chạy model AI: Cờ xanh khóa 180s để tránh hết quota; Cờ đỏ = 0 (không giới hạn). */
+ thinkingTimeCapMs(){return this.isUrgent()?0:GREEN_THINKING_CAP_MS;}
  set(on:boolean,minutes=URGENT_MINUTES){
   if(this.timer){clearTimeout(this.timer);this.timer=undefined;}
   this.urgent=on;this.used=false;this.backoff=0;
@@ -100,8 +115,10 @@ export class UrgencyGovernor{
   // limit = 0 khi cờ xanh và RAM ổn: theo cấu hình từng quy trình.
   const p=this.pressure,limit=this.urgent?urgentLimit({...this.machine(),pressure:p,backoff:this.backoff}):strained(p)?1:0;
   const brake=strained(p)?' Áp lực RAM đang ở mức '+(p==='warn'?'vàng':'đỏ')+': không mở thêm bước song song.':'';
-  const note=this.urgent?`Cờ đỏ: việc gấp, tối đa ${limit} bước Quy trình chạy song song.${this.backoff?' Đang giảm vì nhà cung cấp báo quá nhiều yêu cầu.':''}${brake}`:`Cờ xanh: chạy mặc định theo cấu hình từng quy trình.${brake}`;
-  return {urgent:this.urgent,...(this.urgent?{until:this.until}:{}),pressure:p,limit,note};
+  const note=this.urgent
+   ?`Cờ đỏ: chế độ Rảnh tay — PVTA không khóa thời gian chạy của model AI và có thể chạy các lệnh mà không cần hỏi (có thể hết limit 5h).${this.backoff?' Đang giảm nhịp vì nhà cung cấp báo quá nhiều yêu cầu.':''}${brake}`
+   :`Cờ xanh: chế độ Tự động — PVTA khóa thời gian suy nghĩ để tránh hết quota.${brake}`;
+  return {urgent:this.urgent,handsFree:this.urgent,thinkingTimeCapMs:this.urgent?0:GREEN_THINKING_CAP_MS,...(this.urgent?{until:this.until}:{}),pressure:p,limit,note};
  }
  dispose(){if(this.timer)clearTimeout(this.timer);this.timer=undefined;}
 }

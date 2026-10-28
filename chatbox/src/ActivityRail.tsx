@@ -8,9 +8,9 @@ export function ActivityRail({selected,collapsed,onSelect,onSettings,onHome,refl
  </div>{onUrgency&&<UrgencyFlag urgent={urgent} note={urgencyNote} onToggle={onUrgency}/>}{onReflect&&<button type="button" className={`activity-brain ${reflect?'lit':''} ${reflecting?'thinking':''}`} aria-label={uiText("Não bộ: rút kinh nghiệm")} aria-pressed={reflect} title={reflect?(reflectNote||uiText("Não bộ đang sáng: PVTA rút kinh nghiệm sau mỗi tiến trình. Bấm để tắt.")):uiText("Bật Não bộ: model mặc định học hỏi từ tiến trình làm việc và lưu bài học vào bộ nhớ")} onClick={onReflect}><Icon name="brain" size={23}/><span className="activity-tooltip" aria-hidden="true">{reflect?uiText("Não bộ đang sáng"):uiText("Bật Não bộ rút kinh nghiệm")}</span></button>}<button className="activity-settings" aria-label={uiText("Cài đặt")} title={uiText("Cài đặt")} onClick={onSettings}><Icon name="gear" size={23}/><span className="activity-tooltip" aria-hidden="true">{uiText("Cài đặt")}</span></button></nav>;
 }
 export function nextSidebarSelection(selected:string,collapsed:boolean,key:string){return {selected:key,collapsed:key===selected?!collapsed:false};}
-/** Cờ việc gấp: xanh = chạy mặc định, đỏ = chạy song song theo CPU/RAM. Chỉ đổi màu, không viền, không quầng sáng. */
+/** Cờ xanh - đỏ: xanh = chế độ Tự động (khóa thời gian suy nghĩ để tránh hết quota), đỏ = chế độ Rảnh tay (không khóa thời gian chạy model AI, tự chạy lệnh không cần hỏi). */
 export function UrgencyFlag({urgent,note,onToggle}:{urgent:boolean;note:string;onToggle:()=>void}){
- const label=urgent?uiText("Cờ đỏ: việc gấp"):uiText("Cờ xanh: chạy mặc định");
- const tip=note||(urgent?uiText("Cờ đỏ: việc gấp, Quy trình chạy song song theo CPU/RAM. Bấm để về cờ xanh."):uiText("Cờ xanh: chạy mặc định. Bấm để bật cờ đỏ khi việc gấp."));
+ const label=urgent?uiText("Cờ đỏ: chế độ Rảnh tay"):uiText("Cờ xanh: chế độ Tự động");
+ const tip=note||(urgent?uiText("Cờ đỏ: chế độ Rảnh tay — PVTA không khóa thời gian chạy của model AI và có thể chạy các lệnh mà không cần hỏi (có thể hết limit 5h). Bấm để về Cờ xanh."):uiText("Cờ xanh: chế độ Tự động — PVTA khóa thời gian suy nghĩ để tránh hết quota. Bấm để bật Cờ đỏ (chế độ Rảnh tay)."));
  return <button type="button" className={`activity-urgency ${urgent?'urgent':'calm'}`} aria-label={label} aria-pressed={urgent} title={tip} onClick={onToggle}><Icon name="flag" size={23} inheritColor/><span className="activity-tooltip" aria-hidden="true">{label}</span></button>;
 }

@@ -23,3 +23,5 @@ chatbox/src-tauri/runtime/
 
 # Bản sao tạm khi hoàn tác thao tác xoá/đặt lại
 .pvta-reset/
+backups/
+experiments/
