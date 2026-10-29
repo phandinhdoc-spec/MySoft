@@ -476,3 +476,8 @@ it('planApprovalTask keeps every turn in order and marks truncation honestly',as
  const long=planApprovalTask([{role:'user',text:'DAU '+'x'.repeat(5000)},{role:'user',text:'y'.repeat(5000)+' CUOI'}],'plan',t=>t,2000)!;
  expect(long).toContain('DAU');expect(long).toContain('CUOI');expect(long).toContain('đã lược');
 });
+it('giữ số bước chạy đồng thời người dùng đã chọn khi đồng bộ lại Plan', () => {
+ const p:Plan={id:'p2',chatId:'c',title:'P',approved:true,steps:[0,1].map(i=>({id:''+i,goal:'G'+i,task:'T'+i,files:[],risk:'',status:'waiting' as const}))};
+ const list:Workflow[]=[];const w=linkPlan(p,list);expect(w.maxConcurrency).toBe(1);
+ w.maxConcurrency=3;linkPlan(p,list);expect(list[0]!.maxConcurrency).toBe(3);
+});

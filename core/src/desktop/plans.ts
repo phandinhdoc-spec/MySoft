@@ -100,11 +100,11 @@ export function editPlanSteps(plan:Plan,input:unknown){
 export function linkPlan(plan:Plan,list:Workflow[],createdAt?:number):Workflow{
  plan.workflowHidden=false;
  let w=list.find(w=>w.planId===plan.id||w.id===plan.workflowId);
- if(!w){w={id:uid(),name:plan.title,planId:plan.id,steps:[],runs:[],updatedAt:Date.now()};list.push(w);}
+ if(!w){w={id:uid(),name:plan.title,planId:plan.id,mode:'parallel',maxConcurrency:1,steps:[],runs:[],updatedAt:Date.now()};list.push(w);}
  w.createdAt??=createdAt??w.updatedAt;
  const previousDefinition=JSON.stringify([w.name,w.steps,w.mode,w.maxConcurrency]);
  plan.steps=plan.steps.map((s,i)=>({...s,...planContract(s,i,plan.steps)}));
- plan.workflowId=w.id;w.planId=plan.id;w.name=plan.title;w.mode='parallel';w.maxConcurrency=1;
+ plan.workflowId=w.id;w.planId=plan.id;w.name=plan.title;w.mode='parallel';w.maxConcurrency??=1;
  w.steps=plan.steps.map(s=>({id:s.id,name:s.goal,prompt:s.task,resources:s.resources,choice:'auto',access:s.writes===true?'full':'read',inputs:s.inputs,outputs:s.outputs,dependsOn:s.dependsOn,completion:s.completion,onError:s.onError,...(s.templateCopy?{templateCopy:true as const,files:s.files,...(s.origin?{origin:{...s.origin}}:{})}:{}),...(s.promptFormat?{promptFormat:s.promptFormat}:{})}));if(previousDefinition!==JSON.stringify([w.name,w.steps,w.mode,w.maxConcurrency]))w.updatedAt=Date.now();return w;
 }
 export function syncPlanRun(plan:Plan,run:WorkflowRun){
