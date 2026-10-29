@@ -14,5 +14,5 @@ CA="$USER_HOME/Library/Application Support/PVTA/office-plugin/certs/ca.crt"
 if [ -f "$CA" ]; then
   /usr/bin/security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain "$CA" >>"$LOG" 2>&1 || true
 fi
-/usr/bin/sudo -u "$USER_NAME" /usr/bin/open -a /Applications/PVTA.app >/dev/null 2>&1 || true
+/bin/launchctl asuser "$(/usr/bin/id -u "$USER_NAME")" /usr/bin/sudo -u "$USER_NAME" /usr/bin/open -a /Applications/PVTA.app >/dev/null 2>&1 || true
 exit 0

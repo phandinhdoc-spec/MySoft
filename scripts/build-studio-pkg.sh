@@ -9,8 +9,9 @@ version="$(node -p "require('./package.json').version")"
 work="$(mktemp -d)"; mount=""
 cleanup() { if [ -n "$mount" ]; then hdiutil detach "$mount" -quiet -force || true; fi; rm -rf "$work"; }
 trap cleanup EXIT
-mount="$(mktemp -d)"; hdiutil attach "$chat" -mountpoint "$mount" -nobrowse -readonly -quiet
-app="$(find "$mount" -maxdepth 1 -name '*.app' | head -1)"; [ -n "$app" ] || { echo "Không thấy .app trong $chat" >&2; exit 1; }
+if [ -d "$chat" ]; then app="$(find "$chat" -maxdepth 1 -name '*.app' | head -1)"  # thư mục chứa PVTA.app (build tại máy)
+else mount="$(mktemp -d)"; hdiutil attach "$chat" -mountpoint "$mount" -nobrowse -readonly -quiet
+app="$(find "$mount" -maxdepth 1 -name '*.app' | head -1)"; fi; [ -n "$app" ] || { echo "Không thấy .app trong $chat" >&2; exit 1; }
 root="$work/root"; mkdir -p "$root/Applications" "$root/usr/local/share/pvta-installer" "$outdir"
 ditto "$app" "$root/Applications/PVTA.app"
 cp "$tgz" "$root/usr/local/share/pvta-installer/pvta-office.tar.gz"
