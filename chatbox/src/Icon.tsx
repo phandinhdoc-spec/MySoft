@@ -4,9 +4,11 @@ import {useIconStyle} from './icon-preference';
 import {COLOR_ICON_STYLES,type IconStyleId} from '@pvta/shared';
 import React from 'react';
 import './icons.css';
-const iconTones:Record<string,string>={chat:'teal',project:'amber',folder:'amber','folder-add':'amber',notebook:'green',workflow:'violet',spark:'rose',settings:'blue',office:'blue',file:'blue',skills:'violet',eye:'blue',mouth:'rose',pen:'amber',stop:'rose',close:'rose'};
+const iconTones:Record<string,string>={calendar:'blue',tasks:'teal',chat:'teal',project:'amber',folder:'amber','folder-add':'amber',notebook:'green',workflow:'violet',spark:'rose',settings:'blue',office:'blue',file:'blue',skills:'violet',eye:'blue',mouth:'rose',pen:'amber',stop:'rose',close:'rose'};
 const tones=['blue','violet','green','amber','rose','teal'];
 const paths:Record<string,React.ReactNode>={
+ calendar:<><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></>,
+ tasks:<><rect x="3" y="5" width="6" height="6" rx="1"/><path d="m3 17 2 2 4-4M13 6h8M13 12h8M13 18h8"/></>,
  calculator:<><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M7 6h10M7 11h2m6 0h2M7 15h2m6 0h2M7 19h2m6 0h2"/></>,
  brain:<><path d="M12 4c-4-5-9 0-7 4-5 2-3 8 0 8-1 5 5 7 7 3 2 4 8 2 7-3 3 0 5-6 0-8 2-4-3-9-7-4Zm0 0v15M5 8l3 2m11-2-3 2M5 16l3-2m11 2-3-2"/></>,
  scale:<><path d="M12 3v18M5 21h14M4 7h16M5 7l-4 8h8L5 7Zm14 0-4 8h8l-4-8Z"/></>,

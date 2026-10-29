@@ -26,6 +26,8 @@ export const claudeBackend: Backend = {
   invocation(opts: InvokeOptions): Invocation {
     const mcpOn = opts.mcp?.enabled === true;
     const mcpTools = (opts.mcp?.allowedTools ?? []).map((t) => t.trim()).filter((t) => /^mcp__[\w.-]+(__[\w.*-]+)?$/.test(t));
+    // Claude Code nạp công cụ MCP qua công cụ gốc ToolSearch; khi có danh sách MCP được phép thì mở thêm ToolSearch.
+    const baseTools = [opts.workspaceWrite === true ? FULL_TOOLS : opts.images?.length ? "Read" : "", ...(mcpOn && mcpTools.length ? ["ToolSearch"] : [])].filter(Boolean).join(",");
     const args: Invocation["args"] = [{ flag: "-p", essential: true }];
     if (!opts.plain) {
       args.push(
@@ -37,15 +39,14 @@ export const claudeBackend: Backend = {
     args.push(
       // Ba cờ an toàn: không bao giờ bị bỏ khi thích ứng phiên bản (thiếu thì báo lỗi, không chạy yếu đi).
       // Có ảnh: chỉ mở công cụ Read (để xem ảnh trong thư mục làm việc), không gì khác.
-      { flag: "--tools", value: opts.workspaceWrite===true ? FULL_TOOLS : opts.images?.length ? "Read" : "", essential: true },
+      { flag: "--tools", value: baseTools, essential: true },
       // Chỉ bỏ khi người dùng bật "Cho phép công cụ kết nối" (mặc định tắt).
       ...(mcpOn ? [] : [{ flag: "--strict-mcp-config", essential: true }]),
       { flag: "--disable-slash-commands", essential: true },
     );
     // Quyền "full" (người dùng chủ động bật chế độ Chỉnh sửa): sửa tệp và chạy lệnh trong thư mục làm việc.
     // Công cụ MCP chỉ được duyệt khi nằm trong danh sách cho phép; quyền ghi tệp không mở rộng sang MCP.
-    const baseAllowed = opts.workspaceWrite === true ? FULL_TOOLS : opts.images?.length ? "Read" : "";
-    const allowed = [baseAllowed, ...(mcpOn ? mcpTools : [])].filter(Boolean).join(",");
+    const allowed = [baseTools, ...(mcpOn ? mcpTools : [])].filter(Boolean).join(",");
     if (allowed) args.push({ flag: "--allowedTools", value: allowed, essential: true });
     // Thay lời nhắc hệ thống mặc định (hướng dẫn lập trình, công cụ: rất dài) bằng quy tắc của PVTA.
     // Không bắt buộc: CLI cũ không có cờ này thì quy tắc đi trong prompt.

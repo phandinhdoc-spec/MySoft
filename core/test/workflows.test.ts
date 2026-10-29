@@ -34,7 +34,7 @@ describe('workflows',()=>{
   expect((await runner.run(wf.id)).status).toBe('success');
   expect(calls[0]!.text).toBe('Yêu cầu: '+wf.input.value);
   expect(calls[1]!.text).toContain(wf.input.value);
-  expect(calls.every(c=>!c.run)).toBe(true);
+  expect(calls.every(c=>!c.run?.cwd&&c.run?.permission==='read'&&c.run?.unlimited===true)).toBe(true);
   expect(normalizeWorkflow(wf).input).toEqual(wf.input);
  });
  it('đọc nội dung một tệp và báo lỗi nếu tệp không còn tồn tại',async()=>{

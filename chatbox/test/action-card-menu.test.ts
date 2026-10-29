@@ -38,3 +38,14 @@ it('leaves approval, decline and upload retry visible',async()=>{
  expect(host.textContent).toContain('Bỏ qua');await click([...host.querySelectorAll('button')].find(b=>b.textContent==='Áp dụng · Tạo tệp')!);expect(rpc).toHaveBeenLastCalledWith('approveAction',{id:'other'});
  await render({...action,uploadError:'Tải lên chưa xong'});await click([...host.querySelectorAll('button')].find(b=>b.textContent==='Thử tải lên lại')!);expect(rpc).toHaveBeenLastCalledWith('retryUpload',{id:'other'});
 });
+it('clicks file name or path on ActionCard to open directly',async()=>{
+ await render();
+ const titleNode=host.querySelector('.artifact-heading strong[role="button"]')!;
+ await click(titleNode);
+ expect(rpc).toHaveBeenLastCalledWith('openOutput',{id:'other'});
+ const codes=host.querySelectorAll('.artifact-locations code');
+ await click(codes[0]!);
+ expect(rpc).toHaveBeenLastCalledWith('openOutput',{id:'other',preferSaved:false});
+ await click(codes[1]!);
+ expect(rpc).toHaveBeenLastCalledWith('openOutput',{id:'other',preferSaved:true});
+});

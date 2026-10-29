@@ -167,8 +167,8 @@ describe("backend claude", () => {
     expect(f).not.toContain("--strict-mcp-config");
     expect(f).not.toContain("--safe-mode");
     expect(f).toContain("--disable-slash-commands");
-    expect(i.args.find((a) => a.flag === "--tools")?.value).toBe("");
-    expect(i.args.find((a) => a.flag === "--allowedTools")?.value).toBe("mcp__google__list_files,mcp__canva__get_design");
+    expect(i.args.find((a) => a.flag === "--tools")?.value).toBe("ToolSearch");
+    expect(i.args.find((a) => a.flag === "--allowedTools")?.value).toBe("ToolSearch,mcp__google__list_files,mcp__canva__get_design");
   });
   it("kết nối MCP bật cùng quyền ghi: quyền ghi tệp không mở rộng sang MCP", () => {
     const i = claudeBackend.invocation({ model: "sonnet", prompt: "hi", permission: "ask", workspaceWrite: true, mcp: { enabled: true } });

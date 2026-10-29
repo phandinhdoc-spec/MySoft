@@ -16,7 +16,9 @@ export function LinkGuard({report}:{report:(e:unknown)=>void}){
   ask=setUrl;
   const onClick=(e:MouseEvent)=>{
    const a=(e.target as HTMLElement|null)?.closest?.('a[href]') as HTMLAnchorElement|null;if(!a)return;
-   const href=a.href||a.getAttribute('href')||'';if(!/^https?:\/\//i.test(href))return;
+   if(a.classList.contains('pvta-file-ref')||a.dataset.pvtaFileRef)return;
+   const rawHref=a.getAttribute('href')||'';if(!/^https?:\/\//i.test(rawHref))return;
+   const href=a.href||rawHref;
    e.preventDefault();e.stopPropagation();setUrl(href);
   };
   document.addEventListener('click',onClick,true);document.addEventListener('auxclick',onClick,true);

@@ -141,7 +141,7 @@ export interface WorkflowDeps{
  /** Gọi một lượt model. cwd/permission chỉ có khi quy trình có thư mục hoặc bước được ghi. */
  /** Đoạn nguồn từ sổ nguồn liên kết với quy trình (và dự án của nó); rỗng nếu không có. */
  grounding?(wf:Workflow,query:string):string;
- model(text:string,system:string,signal:AbortSignal,choice:ModelChoice|undefined,run?:{cwd?:string;projectId?:string;permission:'read'|'full';timeoutMs:number},images?:string[]):Promise<string>;
+ model(text:string,system:string,signal:AbortSignal,choice:ModelChoice|undefined,run?:{cwd?:string;projectId?:string;permission:'read'|'full';timeoutMs:number;unlimited?:boolean},images?:string[]):Promise<string>;
  /** Skill và quy tắc cho tài nguyên riêng của nút (/tên, #khóa). Thiếu thì bỏ qua phần này. */
  resources?(wf:Workflow):Omit<StepResourceDeps,'extract'>;
  /** Quy tắc lõi PVTA (Brain, gợi ý, harness) cho cả lượt chạy; tính một lần, lỗi thì chạy tiếp không có khối này. */
@@ -287,12 +287,10 @@ export class WorkflowRunner{
   if(stepId===undefined)record();
   const parallel=wf.mode==='parallel';
   const dependencies=steps.map((s,i)=>parallel?(s.dependsOn??[]):(i?[steps[i-1]!.id]:[]));
-  let deadline:ReturnType<typeof setTimeout>|undefined;
   try{
    const program=language?compileWorkflow({...wf,steps,frames}):undefined;
    const machine=program?new WorkflowMachine(program):undefined;
    if(program){
-    deadline=setTimeout(()=>ctl.abort(new Error('Quy trình vượt giới hạn 30 phút.')),30*60_000);
     for(const step of steps)for(const c of program.parsed.get(step.id)!.commands)if(c.kind==='dau-vao'&&c.value!=='@truoc'){
      const file=inputPath(c.value);try{if(!fs.statSync(file).isFile())throw Error();fs.accessSync(file,fs.constants.R_OK);}catch{throw new WorkflowLanguageError(step.id,c.line,`Tệp không đọc được: ${file}`);}
      step.files=[...new Set([...(step.files??[]),file])];
@@ -397,7 +395,7 @@ export class WorkflowRunner{
       +(step.access==='full'&&(runDir??cwd)?`\nQUYỀN: CHỈNH SỬA. Thư mục làm việc: ${runDir??cwd}. Được sửa tệp và chạy lệnh tại đây; không xóa tệp ngoài yêu cầu, báo lại những gì đã đổi.`:'\nQUYỀN: CHỈ ĐỌC. Không ghi hay sửa tệp.')+coreRules;
      const where=runDir??cwd;
      const choice=step.choice==='auto'?undefined:step.choice;
-     let out=parsed&&!parsed.text?'':await this.d.model(text,system,ctl.signal,choice,where||wf.projectId?{cwd:where,projectId:wf.projectId,permission:step.access==='full'?'full':'read',timeoutMs:900_000}:undefined,extra.images.length?extra.images:undefined);
+     let out=parsed&&!parsed.text?'':await this.d.model(text,system,ctl.signal,choice,{cwd:where,projectId:wf.projectId,permission:where&&step.access==='full'?'full':'read',timeoutMs:0,unlimited:true},extra.images.length?extra.images:undefined);
      ctl.signal.throwIfAborted();
      let extraFiles:string[]=[];
      if(decl){
@@ -458,7 +456,7 @@ export class WorkflowRunner{
    const failed=e instanceof WorkflowLanguageError?run.steps.find(s=>s.stepId===e.stepId):stepId===undefined?run.steps[0]:run.steps.find(s=>s.stepId===stepId);
    if(!ctl.signal.aborted&&failed){failed.status='error';failed.error=e instanceof Error?e.message:String(e);}
    if(!(e instanceof Error&&e.message==='Đã dừng quy trình.'||ctl.signal.aborted))throw e;
-  }finally{if(deadline)clearTimeout(deadline);run.endedAt=Date.now();this.jobs.delete(id);if(!this.jobs.size)this.d.idle?.();this.d.changed();}
+  }finally{run.endedAt=Date.now();this.jobs.delete(id);if(!this.jobs.size)this.d.idle?.();this.d.changed();}
   return run;
  }
 }

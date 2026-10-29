@@ -14,7 +14,7 @@ export interface Workflow {functions?:import('./workflow-language.js').FunctionI
 export interface WorkflowStepRun {transfer?:import('./workflow-expression.js').Value}
 import type { PaletteId, FontId, IconStyleId, ModelChoice, Effort, ModelCatalog, CustomMode, LibraryPrompt } from '@pvta/shared';
 export type StepStatus = 'waiting'|'running'|'done'|'error'|'interrupted'|'skipped'|'blocked';
-export interface PlanStepContract { inputs?:string[]; outputs?:string[]; dependsOn?:string[]; completion?:string; onError?:string }
+export interface PlanStepContract { /** PVTA khai báo đầu ra của nút là tệp/thay đổi cần ghi → quy trình đặt nút ở Chỉnh sửa. */ writes?:boolean; inputs?:string[]; outputs?:string[]; dependsOn?:string[]; completion?:string; onError?:string }
 export interface PlanVersion { revision:number; title:string; context?:string; steps:PlanStep[]; savedAt:number }
 export interface PlanStep extends PlanStepContract { failure?:import('./task-failure.js').TaskFailure; checkpoint?:import('./plan-recovery.js').PlanCheckpoint; replacements?:Record<string,string>; logs?:{at:number;text:string}[]; output?:string;startedAt?:number;endedAt?:number; id:string; goal:string; task:string; files:string[]; risk:string; status:StepStatus; error?:string }
 export interface Plan { /** Quy trình đề thi bắt buộc kiểm định trước xuất. */ assessment?:boolean; /** true = tạo bằng Plan Pro; khi chạy, mỗi bước qua cổng kiểm định của quy tắc lõi. */ pro?:boolean; workflowHidden?:boolean; versions?:PlanVersion[]; workflowId?:string;context?:string;revision?:number; id:string; chatId:string; title:string; steps:PlanStep[]; approved:boolean }
@@ -72,7 +72,7 @@ export type RpcEvent =
  | {id:string;event:'usage';data:{backend:ModelChoice['backend'];usage:import('@pvta/shared').ProviderUsage}}
  | {id:string;event:'progress';data:import('@pvta/shared').AiProgressEvent}
  | {id:string;event:'github';data:import('./github-model.js').GithubEvent}
- | {id:string;event:'delta'|'state'|'status'|'update'|'setup'|'notebook'|'editSession';data:unknown};
+ | {id:string;event:'delta'|'state'|'status'|'update'|'setup'|'notebook'|'editSession'|'google';data:unknown};
 /** Additive contract for the new GitHub RPC; legacy method `github` stays unchanged. */
 export type {GithubRpcMethods,GithubRpcReply} from './github-model.js';
 export interface RpcResponse {id:string;result?:unknown;error?:string}

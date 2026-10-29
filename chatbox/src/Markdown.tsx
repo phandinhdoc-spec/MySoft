@@ -34,24 +34,61 @@ export interface MarkdownProps {
   chatId?: string;
 }
 
-const FILE_EXT = 'docx?|xlsx?|pptx?|docm|xlsm|pptm|dotx|xltx|potx|pdf|zip|md|txt|csv|typ|png|jpe?g|webp';
-const FILE_REF = new RegExp(`^(?:file://)?(?:[A-Za-z]:[\\\\/]|/|\\./|~/)?[^\\s<>"|?*\\x00-\\x1f]*[^\\s<>"|?*\\x00-\\x1f/\\\\]\\.(?:${FILE_EXT})$`, 'i');
+const FILE_EXT = 'docx?|xlsx?|pptx?|docm|xlsm|pptm|dotx|xltx|potx|odt|ods|odp|rtf|pdf|zip|rar|7z|md|markdown|txt|csv|tsv|typ|tex|png|jpe?g|webp|gif|svg|mp3|mp4|wav|m4a|mov';
+const CODE_EXT = 'ts|tsx|js|jsx|mjs|cjs|py|json|ya?ml|toml|xml|html?|css|scss|less|sql|rs|go|c|cpp|h|hpp|java|swift|kt|rb|php|lua|r|ini|conf|log';
+const FILE_REF = new RegExp(`^(?:file://)?(?:[A-Za-z]:[\\\\/]|/|\\./|~/).*\\.(?:${FILE_EXT}|${CODE_EXT})$|^[^\\s<>"|?*\\x00-\\x1f/\\\\]+\\.(?:${FILE_EXT})$`, 'i');
+
+function cleanLocalRef(raw: string): string {
+  let s = raw.trim();
+  if (/^file:\/\//i.test(s)) {
+    try {
+      const u = new URL(s);
+      if (u.hostname && u.hostname !== 'localhost') return '';
+      return decodeURIComponent(u.pathname).replace(/^\/([a-z]:[\\/])/i, '$1');
+    } catch {
+      s = s.replace(/^file:\/\/(?:localhost)?/i, '');
+    }
+  }
+  s = s.replace(/#L?\d[\d-]*$/i, '').replace(/[#?].*$/, '');
+  try { s = decodeURIComponent(s); } catch { /* keep raw */ }
+  return s.trim();
+}
+
 /** Tên tệp (hoặc đường dẫn) đứng riêng trong `code` hay trong liên kết cục bộ thì thành nút bấm mở tệp. */
 export function fileRefOf(text: string): string | undefined {
-  const t = text.trim();
-  if (t.length < 3 || t.length > 500 || /^https?:/i.test(t) || t.startsWith('~')) return undefined;
+  const raw = text.trim();
+  if (raw.length < 3 || raw.length > 500 || /^(?:https?|mailto|tel|javascript|data):/i.test(raw)) return undefined;
+  const t = /^file:\/\//i.test(raw) ? cleanLocalRef(raw) : raw.replace(/#L?\d[\d-]*$/i, '');
+  if (!t || t.length < 3) return undefined;
   return FILE_REF.test(t) ? t : undefined;
+}
+
+/** Nhận diện đường dẫn tệp cục bộ từ thuộc tính href của liên kết Markdown `[tên](href)`. */
+export function localFileLinkOf(href: string, text?: string): string | undefined {
+  const raw = href.trim();
+  if (!raw || /^(?:https?|mailto|tel|javascript|data):/i.test(raw) || raw.startsWith('#') || raw.startsWith('//')) return undefined;
+  if (/^file:\/\//i.test(raw)) {
+    const cleaned = cleanLocalRef(raw);
+    return cleaned || undefined;
+  }
+  const cleaned = cleanLocalRef(raw);
+  if (!cleaned) return undefined;
+  if (cleaned.startsWith('/') || cleaned.startsWith('~/') || cleaned.startsWith('./') || cleaned.startsWith('../') || /^[A-Za-z]:[\\/]/.test(cleaned)) {
+    return cleaned;
+  }
+  if (/^[^\\s<>"|?*\x00-\x1f]+\.(?:[a-z0-9]{1,10})$/i.test(cleaned)) return cleaned;
+  return fileRefOf(cleaned) ?? (text ? fileRefOf(text) : undefined);
 }
 
 /** Nhóm màu của liên kết tệp: Word, Excel, PowerPoint, PDF, ảnh, văn bản, khác. */
 export function fileKindOf(ref: string): string {
   const ext = /\.([a-z0-9]+)$/i.exec(ref)?.[1]?.toLowerCase() ?? '';
-  if (/^docx?$|^docm$|^dotx$/.test(ext)) return 'word';
-  if (/^xlsx?$|^xlsm$|^xltx$|^csv$/.test(ext)) return 'excel';
-  if (/^pptx?$|^pptm$|^potx$/.test(ext)) return 'ppt';
+  if (/^docx?$|^docm$|^dotx$|^odt$|^rtf$/.test(ext)) return 'word';
+  if (/^xlsx?$|^xlsm$|^xltx$|^csv$|^tsv$|^ods$/.test(ext)) return 'excel';
+  if (/^pptx?$|^pptm$|^potx$|^odp$/.test(ext)) return 'ppt';
   if (ext === 'pdf') return 'pdf';
-  if (/^(png|jpe?g|webp)$/.test(ext)) return 'image';
-  if (/^(md|txt|typ)$/.test(ext)) return 'text';
+  if (/^(png|jpe?g|webp|gif|svg)$/.test(ext)) return 'image';
+  if (new RegExp(`^(?:md|markdown|txt|typ|tex|${CODE_EXT})$`).test(ext)) return 'text';
   return 'other';
 }
 
@@ -128,7 +165,14 @@ function MarkdownContent({text, onToggleTask, className, chatId}: MarkdownProps)
     const defaultLink = renderer.link;
     renderer.link = function(token) {
       const kind = mediaKind(token.href);
-      return kind ? richPlaceholder(kind, token.href, token.text) : defaultLink.call(this, token);
+      if (kind) return richPlaceholder(kind, token.href, token.text);
+      const localRef = localFileLinkOf(token.href, token.text);
+      if (localRef) {
+        const inner = this.parser.parseInline(token.tokens);
+        const titleAttr = token.title ? ` title="${escapeAttribute(token.title)}"` : '';
+        return `<a href="#" data-pvta-file-ref="${escapeAttribute(localRef)}"${titleAttr}>${inner}</a>`;
+      }
+      return defaultLink.call(this, token);
     };
     const imageRenderer = renderer.image;
     renderer.image = function(token) {
@@ -151,7 +195,7 @@ function MarkdownContent({text, onToggleTask, className, chatId}: MarkdownProps)
       USE_PROFILES: {html: true, mathMl: true, svg: true},
       FORBID_TAGS: ['style', 'iframe', 'object', 'embed', 'form'],
       ADD_TAGS: ['input', 'mark', 'u', 'table', 'thead', 'tbody', 'tr', 'th', 'td'],
-      ADD_ATTR: ['data-pvta-rich', 'data-pvta-payload', 'data-pvta-label', 'type', 'checked', 'class', 'data-task-index', 'aria-label', 'colspan', 'rowspan']
+      ADD_ATTR: ['data-pvta-rich', 'data-pvta-payload', 'data-pvta-label', 'data-pvta-file-ref', 'data-pvta-image-path', 'type', 'checked', 'class', 'data-task-index', 'aria-label', 'colspan', 'rowspan']
     });
   }, [text]);
 
@@ -214,14 +258,16 @@ function MarkdownContent({text, onToggleTask, className, chatId}: MarkdownProps)
     });
 
     // 3b. Tên tệp trong `code` hoặc liên kết cục bộ: bấm để mở tệp (không đổi màu/kiểu đã có).
-    el.querySelectorAll<HTMLElement>('code, a[href]').forEach(node => {
-      if (node.closest('pre') || node.dataset.pvtaFileRef) return;
-      let ref: string | undefined;
-      if (node.tagName === 'CODE') ref = fileRefOf(node.textContent ?? '');
-      else {
-        const href = node.getAttribute('href') ?? '';
-        if (/^(?:https?|mailto|tel|#)/i.test(href)) return;
-        try {ref = fileRefOf(decodeURIComponent(href));} catch {ref = undefined;}
+    el.querySelectorAll<HTMLElement>('a[data-pvta-file-ref], a[href], code').forEach(node => {
+      if (node.closest('pre')) return;
+      if (node.tagName === 'CODE' && node.closest('a.pvta-file-ref, a[data-pvta-file-ref]')) return;
+      let ref = node.dataset.pvtaFileRef;
+      if (!ref) {
+        if (node.tagName === 'CODE') ref = fileRefOf(node.textContent ?? '');
+        else {
+          const href = node.getAttribute('href') ?? '';
+          ref = localFileLinkOf(href, node.textContent ?? '');
+        }
       }
       if (!ref) return;
       node.dataset.pvtaFileRef = ref;
@@ -229,7 +275,7 @@ function MarkdownContent({text, onToggleTask, className, chatId}: MarkdownProps)
       node.setAttribute('role', 'button');
       node.tabIndex = 0;
       node.dataset.pvtaFileKind = fileKindOf(ref);
-      node.title = /\.(?:png|jpe?g|webp)$/i.test(ref) ? `Bấm để mở menu · Nhấp đúp để xem ảnh lớn: ${ref}` : `Bấm để mở menu Xem / Sửa · Nhấp đúp để mở ngay: ${ref}`;
+      node.title = `Bấm để mở ngay · Chuột phải để chọn Mở / Mở thư mục: ${ref}`;
     });
 
     // 4. Resolve local file images for preview
@@ -279,7 +325,7 @@ function MarkdownContent({text, onToggleTask, className, chatId}: MarkdownProps)
 
   const isImageRef = (ref?: string) => !!ref && /\.(?:png|jpe?g|webp)$/i.test(ref);
   const isEditableRef = (ref?: string) => !!ref && /\.(?:docx|xlsx|pptx|pdf|md|txt|csv)$/i.test(ref);
-  const fileRefCall = (method: 'openFileRef' | 'revealFileRef', node: HTMLElement, app?: 'office' | 'vscode') => {
+  const fileRefCall = (method: 'openFileRef' | 'revealFileRef', node: HTMLElement, app?: 'office' | 'vscode' | 'system') => {
     const ref = node.dataset.pvtaFileRef;
     if (!ref) return Promise.resolve();
     node.classList.remove('pvta-file-ref-error');
@@ -313,20 +359,21 @@ function MarkdownContent({text, onToggleTask, className, chatId}: MarkdownProps)
       node.title = String((error as Error)?.message ?? error);
     });
   };
-  const openFileRef = (node: HTMLElement) => {void (isImageRef(node.dataset.pvtaFileRef) ? viewImageRef(node) : fileRefCall('openFileRef', node));};
+  const openFileRef = (node: HTMLElement) => {void fileRefCall('openFileRef', node);};
   const fileMenu = useObjectMenu<HTMLElement>({
     contextKey: `md-file-ref:${chatId ?? ''}`,
     commands: node => isImageRef(node.dataset.pvtaFileRef) ? [
-      {id: 'view', label: uiText('Xem ảnh lớn'), group: 'open', run: () => viewImageRef(node)},
-      {id: 'open', label: uiText('Mở bằng ứng dụng ngoài'), group: 'open', run: () => fileRefCall('openFileRef', node)},
-      {id: 'open-vscode', label: uiText('Mở bằng Visual Studio Code'), group: 'open', run: () => fileRefCall('openFileRef', node, 'vscode')},
-      {id: 'reveal', label: uiText('Mở thư mục chứa tệp'), group: 'open', run: () => fileRefCall('revealFileRef', node)},
+      {id: 'open', label: uiText('Mở'), group: 'open', run: () => fileRefCall('openFileRef', node)},
+      {id: 'reveal', label: uiText('Mở thư mục'), group: 'open', run: () => fileRefCall('revealFileRef', node)},
+      {id: 'view', label: uiText('Xem ảnh lớn'), group: 'view', run: () => viewImageRef(node)},
+      {id: 'open-external', label: uiText('Mở bằng ứng dụng ngoài'), group: 'app', run: () => fileRefCall('openFileRef', node)},
+      {id: 'open-vscode', label: uiText('Mở bằng Visual Studio Code'), group: 'app', run: () => fileRefCall('openFileRef', node, 'vscode')},
     ] : [
-      {id: 'open', label: uiText('Mở tệp'), group: 'open', run: () => fileRefCall('openFileRef', node)},
-      ...(isEditableRef(node.dataset.pvtaFileRef) ? [{id: 'edit-pvta', label: uiText('Xem & chỉnh sửa trong PVTA'), group: 'open', run: () => editFileRef(node)}] : []),
-      ...(/\.(?:docx?|xlsx?|pptx?|docm|xlsm|pptm|dotx|xltx|potx)$/i.test(node.dataset.pvtaFileRef ?? '') ? [{id: 'open-office', label: uiText('Mở bằng Microsoft Office'), group: 'open', run: () => fileRefCall('openFileRef', node, 'office')}] : []),
-      {id: 'open-vscode', label: uiText('Mở bằng Visual Studio Code'), group: 'open', run: () => fileRefCall('openFileRef', node, 'vscode')},
-      {id: 'reveal', label: uiText('Mở thư mục chứa tệp'), group: 'open', run: () => fileRefCall('revealFileRef', node)},
+      {id: 'open', label: uiText('Mở'), group: 'open', run: () => fileRefCall('openFileRef', node)},
+      {id: 'reveal', label: uiText('Mở thư mục'), group: 'open', run: () => fileRefCall('revealFileRef', node)},
+      ...(isEditableRef(node.dataset.pvtaFileRef) ? [{id: 'edit-pvta', label: uiText('Xem & chỉnh sửa trong PVTA'), group: 'edit', run: () => editFileRef(node)}] : []),
+      ...(/\.(?:docx?|xlsx?|pptx?|docm|xlsm|pptm|dotx|xltx|potx)$/i.test(node.dataset.pvtaFileRef ?? '') ? [{id: 'open-office', label: uiText('Mở bằng Microsoft Office'), group: 'app', run: () => fileRefCall('openFileRef', node, 'office')}] : []),
+      {id: 'open-vscode', label: uiText('Mở bằng Visual Studio Code'), group: 'app', run: () => fileRefCall('openFileRef', node, 'vscode')},
     ],
   });
   const fileRefNode = (target: EventTarget | null) => target instanceof Element ? target.closest<HTMLElement>('.pvta-file-ref') : null;
@@ -350,7 +397,8 @@ function MarkdownContent({text, onToggleTask, className, chatId}: MarkdownProps)
     e.preventDefault();
     e.stopPropagation();
     fileMenu.close();
-    openFileRef(node);
+    if (isImageRef(node.dataset.pvtaFileRef)) void viewImageRef(node);
+    else openFileRef(node);
   };
 
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -360,8 +408,8 @@ function MarkdownContent({text, onToggleTask, className, chatId}: MarkdownProps)
     if (fileRef) {
       e.preventDefault();
       e.stopPropagation();
-      const r = fileRef.getBoundingClientRect();
-      fileMenu.open(fileRef, fileRef, e.clientX || r.left, e.clientY || r.bottom);
+      fileMenu.close();
+      openFileRef(fileRef);
       return;
     }
 

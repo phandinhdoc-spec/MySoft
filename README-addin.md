@@ -155,10 +155,10 @@ PVTA không có MCP client riêng. Thầy cô tự thêm máy chủ MCP vào CLI
 
 **Bật trong PVTA:** ⚙ Cài đặt → Công cụ AI → **Cho phép công cụ kết nối** (mặc định **tắt**). Khi bật, nhập mỗi dòng một công cụ được phép, dạng `mcp__<máy-chủ>__<công-cụ>`; dòng sai dạng (vd `Bash`) bị bỏ. Tắt thì PVTA chạy y như trước.
 
-**Thêm máy chủ vào từng CLI** (lệnh lấy từ `--help` trên máy, claude 2.1.303, codex-cli 0.163.0, agy 1.4.2, ngày 2026-10-19):
-- Claude Code: `claude mcp add -t http <tên> <url>`, rồi `claude mcp login <tên>`.
+**Thêm máy chủ vào từng CLI** (theo tài liệu chính thức của Google Antigravity `https://antigravity.google/docs/mcp` và `--help` trên máy):
+- Claude Code: `claude mcp add -s user -t http <tên> <url>` (hoặc stdio: `claude mcp add -s user <tên> -e KEY=VAL -- npx -y <gói>`), rồi đăng nhập OAuth trong Claude.
 - Codex: `codex mcp add <tên> --url <url>`, rồi `codex mcp login`.
-- agy: `agy mcp add --type http <tên> <url>` (cờ đứng trước tên). Trợ giúp không thấy lệnh đăng nhập OAuth.
+- agy (Google Antigravity): `agy mcp add [cờ] <tên> <commandOrUrl> [tham-số...]` (cờ đứng trước `<tên>`, URL `http`/`https` tự nhận, dùng `--` trước lệnh có dấu `-`), hoặc khai báo trong `~/.gemini/config/mcp_config.json` (máy chủ HTTP từ xa dùng khóa `"serverUrl"` kèm `"oauth": { "clientId", "clientSecret" }`; máy chủ stdio dùng `"command"`, `"args"`, `"env"`).
 
 URL máy chủ MCP chính thức của Google và Canva do nhà cung cấp công bố; thầy cô lấy từ tài liệu của họ. Tài liệu này không ghi URL vì chưa tra nguồn.
 

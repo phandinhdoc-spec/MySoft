@@ -96,12 +96,10 @@ export class OfficeLive {
  pairingCode(){return this.token;}
  async prepareOpen(file?:string){
   const host=file?hostForOfficeFile(file):undefined;
-  if(file&&host){
-   ensureDocumentAddin(file,this.assets,process.platform==='darwin');
-   this.connectFile(file);
-  }
-  await this.start().catch(()=>{});
-  if(host&&process.platform==='darwin')await this.installMac(host).catch(()=>{});
+  if(!file||!host)return;
+  ensureDocumentAddin(file,this.assets,process.platform==='darwin');
+  this.connectFile(file);
+  void this.start().catch(()=>{});
  }
  async createAndOpen(host:unknown){
   if(host!=='word'&&host!=='excel'&&host!=='powerpoint')throw Error('Ứng dụng Office không hợp lệ.');

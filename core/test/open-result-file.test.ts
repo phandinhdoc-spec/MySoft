@@ -18,6 +18,16 @@ describe('mở tệp kết quả', () => {
     }
   });
 
+  it('app system chạy `open <đường dẫn>` cho mọi tệp, trừ tệp thực thi', () => {
+    const calls: [string, string[]][] = [];
+    const opener = (cmd: string, args: string[]) => {calls.push([cmd, args]);};
+    const f = touch('z.svg');
+    expect(openResultFile(f, {platform: 'darwin', opener, app: 'system'} as any)).toEqual({ok: true, file: f});
+    expect(calls).toEqual([['open', [f]]]);
+    expect(openResultFile(touch('r.command'), {platform: 'darwin', opener, app: 'system'} as any).ok).toBe(false);
+    expect(calls.length).toBe(1);
+  });
+
   it('vẫn từ chối đuôi không nằm trong danh sách (vd. .exe, .svg)', () => {
     for (const name of ['x.exe', 'y.svg']) {
       const r = openResultFile(touch(name), {platform: 'darwin', opener: () => {throw Error('không được gọi');}} as any);
@@ -33,8 +43,11 @@ describe('mở tệp kết quả', () => {
     expect(calls).toEqual([['open', ['-R', f]]]);
   });
 
-  it('mở .md bằng VS Code (open -a ...) khi VS Code có mặt trên macOS', () => {
-    const f = touch('readme.md');
+  it('mở .md và tệp mã nguồn (.ts, .tsx) bằng VS Code theo quy tắc PVTA; tệp chưa quy định mở bằng mặc định macOS (open)', () => {
+    const md = touch('readme.md');
+    const tsFile = touch('google-workspace.ts');
+    const pdf = touch('tai-lieu.pdf');
+    const svg = touch('hinh.svg');
     const calls: [string, string[]][] = [];
     // Giả lập VS Code tồn tại bằng cách stub existsSync cho đường dẫn VS Code
     const origExistsSync = fs.existsSync;
@@ -43,11 +56,23 @@ describe('mở tệp kết quả', () => {
       return origExistsSync(p);
     };
     try {
-      const r = openResultFile(f, {platform: 'darwin', opener: (cmd: string, args: string[]) => {calls.push([cmd, args]);}} as any);
-      expect(r).toEqual({ok: true, file: f});
+      const r1 = openResultFile(md, {platform: 'darwin', opener: (cmd: string, args: string[]) => {calls.push([cmd, args]);}} as any);
+      expect(r1).toEqual({ok: true, file: md});
       expect(calls[0]?.[0]).toBe('open');
       expect(calls[0]?.[1]).toContain('-a');
       expect(calls[0]?.[1]?.join(' ')).toContain('Visual Studio Code');
+
+      const r2 = openResultFile(tsFile, {platform: 'darwin', opener: (cmd: string, args: string[]) => {calls.push([cmd, args]);}} as any);
+      expect(r2).toEqual({ok: true, file: tsFile});
+      expect(calls[1]?.[1]?.join(' ')).toContain('Visual Studio Code');
+
+      const r3 = openResultFile(pdf, {platform: 'darwin', fallbackSystem: true, opener: (cmd: string, args: string[]) => {calls.push([cmd, args]);}} as any);
+      expect(r3).toEqual({ok: true, file: pdf});
+      expect(calls[2]).toEqual(['open', [pdf]]);
+
+      const r4 = openResultFile(svg, {platform: 'darwin', fallbackSystem: true, opener: (cmd: string, args: string[]) => {calls.push([cmd, args]);}} as any);
+      expect(r4).toEqual({ok: true, file: svg});
+      expect(calls[3]).toEqual(['open', [svg]]);
     } finally {
       (fs as any).existsSync = origExistsSync;
     }

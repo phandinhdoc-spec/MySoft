@@ -1,0 +1,1689 @@
+.google-workspace-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.google-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.google-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--accent-soft, rgba(54, 78, 120, 0.1));
+  color: var(--accent, #364e78);
+  border: 1px solid var(--line, rgba(133, 133, 165, 0.25));
+}
+
+.google-status-pill.connected i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  display: inline-block;
+}
+
+.google-error-banner {
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(206, 66, 87, 0.1);
+  border: 1px solid rgba(206, 66, 87, 0.35);
+  color: var(--danger, #b52232);
+  font-size: 13px;
+}
+
+.google-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--line, rgba(133, 133, 165, 0.25));
+  padding-bottom: 10px;
+}
+
+.google-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.google-tabs button.selected {
+  background: var(--accent-soft, rgba(54, 78, 120, 0.12));
+  color: var(--accent, #364e78);
+  border-color: var(--line, rgba(133, 133, 165, 0.3));
+}
+
+.google-overview {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.google-stats-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.google-stat-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--surface, var(--bg, #fff));
+  border: 1px solid var(--line, rgba(133, 133, 165, 0.25));
+}
+
+.google-stat-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--accent-soft, rgba(54, 78, 120, 0.1));
+  color: var(--accent, #364e78);
+  flex-shrink: 0;
+}
+
+.google-stat-card > div {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.google-stat-card strong {
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.google-stat-card small {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.google-section {
+  background: var(--surface, var(--bg, #fff));
+  border: 1px solid var(--line, rgba(133, 133, 165, 0.25));
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.google-section h2,
+.google-section h3 {
+  margin: 0;
+  font-size: 15px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.google-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.google-toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.google-ai-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px;
+}
+
+.google-ai-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--line, rgba(133, 133, 165, 0.28));
+  background: var(--bg, #fff);
+  text-align: left;
+  cursor: pointer;
+}
+
+.google-ai-card:hover {
+  border-color: var(--accent, #364e78);
+  background: var(--accent-soft, rgba(54, 78, 120, 0.06));
+}
+
+.google-ai-card div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.google-ai-card strong {
+  font-size: 13px;
+}
+
+.google-ai-card small {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.google-split-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.google-item-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.google-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--line, rgba(133, 133, 165, 0.22));
+  background: var(--bg, #fff);
+}
+
+.google-item.completed .google-item-main strong {
+  text-decoration: line-through;
+  opacity: 0.65;
+}
+
+.google-item-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.google-item-main strong {
+  font-size: 13.5px;
+  overflow-wrap: anywhere;
+}
+
+.google-item-main small {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.google-item-desc {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: pre-wrap;
+}
+
+.google-item-ops {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.google-item-ops button {
+  font-size: 12px;
+  padding: 4px 9px;
+}
+
+.google-task-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.google-task-check input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  margin: 3px 0 0;
+  flex-shrink: 0;
+}
+
+.google-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 10px;
+  background: var(--bg, #fff);
+  border: 1px solid var(--line, rgba(133, 133, 165, 0.3));
+}
+
+.google-form h4 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.google-form-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.google-period-presets {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.google-period-chip {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  padding: 3px 8px !important;
+  border-radius: 999px !important;
+  background: var(--accent-soft, rgba(37, 99, 235, 0.08)) !important;
+  color: var(--accent, #1d4ed8) !important;
+  border: 1px solid rgba(37, 99, 235, 0.22) !important;
+  cursor: pointer;
+}
+
+.google-period-chip:hover {
+  background: rgba(37, 99, 235, 0.16) !important;
+}
+
+.google-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px;
+}
+
+.google-form-grid label.full {
+  grid-column: 1 / -1;
+}
+
+.google-checkbox-inline {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px;
+  align-self: end;
+  padding-bottom: 8px;
+}
+
+.google-checkbox-inline input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+
+.google-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.google-filter-pills {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.google-filter-pills button {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.google-filter-pills button.selected {
+  background: var(--accent-soft, rgba(54, 78, 120, 0.14));
+  color: var(--accent, #364e78);
+}
+
+.google-setup-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.google-guide-steps {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.google-guide-links {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+
+/* ─── Full Calendar & Timetable Views (Day / Week / Month / Agenda) ─── */
+.google-fullcal-section {
+  gap: 14px;
+}
+
+.google-fullcal-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.google-fullcal-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.google-today-btn {
+  font-weight: 600;
+  padding: 6px 12px;
+}
+
+.google-nav-arrows {
+  display: inline-flex;
+  border: 1px solid var(--line, rgba(133, 133, 165, 0.3));
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.google-nav-arrows button {
+  border: none;
+  border-radius: 0;
+  padding: 4px 11px;
+  font-size: 16px;
+  line-height: 1.2;
+  background: var(--bg, #fff);
+}
+
+.google-nav-arrows button + button {
+  border-left: 1px solid var(--line, rgba(133, 133, 165, 0.25));
+}
+
+.google-date-jump {
+  padding: 5px 9px;
+  font-size: 12.5px;
+  border-radius: 8px;
+  border: 1px solid var(--line, rgba(133, 133, 165, 0.3));
+  background: var(--bg, #fff);
+  color: inherit;
+}
+
+.google-fullcal-title {
+  margin: 0 0 0 4px !important;
+  font-size: 16px !important;
+  font-weight: 700;
+}
+
+.google-fullcal-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.google-view-switcher {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 9px;
+  background: var(--accent-soft, rgba(54, 78, 120, 0.08));
+  border: 1px solid var(--line, rgba(133, 133, 165, 0.25));
+  gap: 2px;
+}
+
+.google-view-switcher button {
+  border: none;
+  background: transparent;
+  padding: 5px 11px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.google-view-switcher button.selected {
+  background: var(--surface, var(--bg, #fff));
+  color: var(--accent, #364e78);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.google-timetable-legend {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--muted);
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--bg, rgba(133, 133, 165, 0.05));
+  border: 1px dashed var(--line, rgba(133, 133, 165, 0.25));
+}
+
+.legend-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+  color: var(--fg, inherit);
+}
+
+.legend-pill i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.legend-pill.lesson i {
+  background: #2563eb;
+}
+
+.legend-pill.meeting i {
+  background: #059669;
+}
+
+.legend-pill.exam i {
+  background: #d97706;
+}
+
+.legend-pill.general i {
+  background: #6366f1;
+}
+
+.legend-tip {
+  margin-left: auto;
+  font-size: 11.5px;
+}
+
+/* Hộp chi tiết nhanh sự kiện (Popover banner) */
+.google-event-popover {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--accent-soft, rgba(37, 99, 235, 0.07));
+  border: 1px solid var(--accent, #364e78);
+}
+
+.google-event-popover-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 220px;
+  flex: 1;
+}
+
+.google-event-popover-main h4 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.google-event-popover-meta {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.google-event-popover-desc {
+  margin: 4px 0 0;
+  font-size: 12.5px;
+  white-space: pre-wrap;
+}
+
+.google-event-popover-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.google-event-popover-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.google-cal-source-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.08);
+  color: var(--fg, #334155);
+}
+
+.google-timegrid-event .ev-note-dot {
+  margin-left: auto;
+  font-size: 10px;
+  line-height: 1;
+}
+
+.google-tone-badge {
+  align-self: flex-start;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  color: #fff;
+  background: #364e78;
+}
+
+.google-tone-badge.lesson {
+  background: #2563eb;
+}
+
+.google-tone-badge.meeting {
+  background: #059669;
+}
+
+.google-tone-badge.exam {
+  background: #d97706;
+}
+
+/* Lưới Thời khóa biểu theo Ngày / Tuần (TimeGrid) */
+.google-timegrid-wrapper {
+  border: 1px solid var(--line, rgba(133, 133, 165, 0.28));
+  border-radius: 12px;
+  background: var(--bg, #fff);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.google-timegrid-header {
+  display: grid;
+  border-bottom: 1px solid var(--line, rgba(133, 133, 165, 0.28));
+  background: var(--surface, rgba(54, 78, 120, 0.04));
+}
+
+.google-timegrid-corner {
+  padding: 10px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  text-align: center;
+  border-right: 1px solid var(--line, rgba(133, 133, 165, 0.22));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.google-timegrid-dayhead {
+  padding: 8px 6px;
+  text-align: center;
+  border-right: 1px solid var(--line, rgba(133, 133, 165, 0.18));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.google-timegrid-dayhead:last-child {
+  border-right: none;
+}
+
+.google-timegrid-dayhead:hover {
+  background: var(--accent-soft, rgba(54, 78, 120, 0.08));
+}
+
+.google-timegrid-dayhead .dow {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.google-timegrid-dayhead .dom {
+  font-size: 14px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.google-timegrid-dayhead.today .dow {
+  color: var(--accent, #2563eb);
+}
+
+.google-timegrid-dayhead.today .dom {
+  background: var(--accent, #2563eb);
+  color: #fff;
+}
+
+/* Hàng sự kiện Cả ngày */
+.google-timegrid-allday {
+  display: grid;
+  border-bottom: 1px solid var(--line, rgba(133, 133, 165, 0.26));
+  min-height: 34px;
+  background: var(--bg, #fff);
+}
+
+.google-timegrid-allday-label {
+  font-size: 11px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid var(--line, rgba(133, 133, 165, 0.22));
+  padding: 4px;
+}
+
+.google-timegrid-allday-cell {
+  border-right: 1px solid var(--line, rgba(133, 133, 165, 0.18));
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.google-timegrid-allday-cell:last-child {
+  border-right: none;
+}
+
+.google-allday-chip {
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 3px 7px;
+  border-radius: 5px;
+  text-align: left;
+  border: 1px solid transparent;
+  background: rgba(99, 102, 241, 0.14);
+  color: #3730a3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Khung cuộn Lưới Giờ học */
+.google-timegrid-body-scroll {
+  max-height: 760px;
+  overflow: auto;
+  position: relative;
+}
+
+.google-timegrid-body {
+  display: grid;
+  position: relative;
+  min-width: 780px;
+}
+
+.google-timegrid-wrapper.mode-day .google-timegrid-body {
+  min-width: 320px;
+}
+
+.google-timegrid-axis {
+  border-right: 1px solid var(--line, rgba(133, 133, 165, 0.22));
+  background: var(--surface, rgba(54, 78, 120, 0.02));
+}
+
+.google-timegrid-hour-label {
+  border-bottom: 1px solid var(--line, rgba(133, 133, 165, 0.18));
+  padding: 5px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 3px;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.google-timegrid-hour-label .axis-hour {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--fg, inherit);
+  line-height: 1.15;
+}
+
+.google-timegrid-hour-label .axis-period-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  width: 100%;
+  padding: 2px 4px;
+  border-radius: 5px;
+  background: rgba(37, 99, 235, 0.06);
+  border: 1px solid rgba(37, 99, 235, 0.14);
+  box-sizing: border-box;
+}
+
+.google-timegrid-hour-label .axis-period-title {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--accent, #1d4ed8);
+  line-height: 1.2;
+}
+
+.google-timegrid-hour-label .axis-period-time {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--fg, #334155);
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.google-timegrid-hour-label .axis-period-sat {
+  font-size: 9.5px;
+  font-weight: 600;
+  color: #b45309;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.google-timegrid-daycol {
+  position: relative;
+  border-right: 1px solid var(--line, rgba(133, 133, 165, 0.18));
+}
+
+.google-timegrid-daycol:last-child {
+  border-right: none;
+}
+
+.google-timegrid-daycol.today {
+  background: rgba(37, 99, 235, 0.03);
+}
+
+.google-timegrid-slot {
+  border-bottom: 1px solid var(--line, rgba(133, 133, 165, 0.18));
+  box-sizing: border-box;
+  cursor: pointer;
+}
+
+.google-timegrid-slot.noon-break {
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(133, 133, 165, 0.045),
+    rgba(133, 133, 165, 0.045) 6px,
+    transparent 6px,
+    transparent 12px
+  );
+}
+
+.google-timegrid-slot:hover {
+  background: var(--accent-soft, rgba(37, 99, 235, 0.06));
+}
+
+/* Thẻ Tiết dạy / Sự kiện trên Lưới Giờ */
+.google-timegrid-event {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 2px;
+  padding: 4px 8px;
+  border-radius: 7px;
+  border: 1px solid rgba(37, 99, 235, 0.42);
+  border-left: 4px solid #2563eb;
+  background: #eff6ff;
+  color: #0f172a;
+  text-align: left;
+  overflow: hidden;
+  box-sizing: border-box;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+.google-timegrid-event.lesson {
+  border-color: rgba(37, 99, 235, 0.42);
+  border-left-color: #2563eb;
+  background: #eff6ff;
+  color: #0f172a;
+}
+
+.google-timegrid-event.meeting {
+  border-color: rgba(5, 150, 105, 0.42);
+  border-left-color: #059669;
+  background: #ecfdf5;
+  color: #064e3b;
+}
+
+.google-timegrid-event.exam {
+  border-color: rgba(217, 119, 6, 0.45);
+  border-left-color: #d97706;
+  background: #fffbeb;
+  color: #78350f;
+}
+
+.google-timegrid-event.general {
+  border-color: rgba(99, 102, 241, 0.42);
+  border-left-color: #6366f1;
+  background: #eef2ff;
+  color: #1e1b4b;
+}
+
+.google-timegrid-event.active,
+.google-timegrid-event:hover {
+  z-index: 5;
+  height: auto !important;
+  min-height: 54px;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.18);
+  filter: brightness(0.98);
+}
+
+.google-timegrid-event .ev-time-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  min-width: 0;
+}
+
+.google-timegrid-event .ev-period-tag {
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(37, 99, 235, 0.16);
+  color: #1d4ed8;
+  white-space: nowrap;
+  flex-shrink: 0;
+  line-height: 1.2;
+}
+
+.google-timegrid-event .ev-time {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #1e40af;
+  line-height: 1.2;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.google-timegrid-event .ev-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  width: 100%;
+}
+
+.google-timegrid-event .ev-loc {
+  font-size: 10.5px;
+  font-weight: 500;
+  line-height: 1.2;
+  opacity: 0.9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.google-timegrid-event.active .ev-title,
+.google-timegrid-event:hover .ev-title,
+.google-timegrid-event.active .ev-loc,
+.google-timegrid-event:hover .ev-loc {
+  white-space: normal;
+  overflow: visible;
+}
+
+/* Lưới Lịch Tháng (Month Grid) */
+.google-monthgrid-wrapper {
+  border: 1px solid var(--line, rgba(133, 133, 165, 0.28));
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg, #fff);
+}
+
+.google-monthgrid-header {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(95px, 1fr));
+  background: var(--surface, rgba(54, 78, 120, 0.04));
+  border-bottom: 1px solid var(--line, rgba(133, 133, 165, 0.26));
+}
+
+.google-monthgrid-dow {
+  padding: 8px 6px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  border-right: 1px solid var(--line, rgba(133, 133, 165, 0.16));
+}
+
+.google-monthgrid-dow:last-child {
+  border-right: none;
+}
+
+.google-monthgrid-cells {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(95px, 1fr));
+}
+
+.google-monthgrid-cell {
+  min-height: 108px;
+  border-right: 1px solid var(--line, rgba(133, 133, 165, 0.18));
+  border-bottom: 1px solid var(--line, rgba(133, 133, 165, 0.18));
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-sizing: border-box;
+}
+
+.google-monthgrid-cell:nth-child(7n) {
+  border-right: none;
+}
+
+.google-monthgrid-cell.outside {
+  opacity: 0.48;
+  background: rgba(133, 133, 165, 0.03);
+}
+
+.google-monthgrid-cell.today {
+  background: rgba(37, 99, 235, 0.035);
+}
+
+.google-monthgrid-cell.selected {
+  outline: 2px solid var(--accent, #364e78);
+  outline-offset: -2px;
+}
+
+.google-monthgrid-cell-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.google-monthgrid-cell-top .day-number {
+  border: none;
+  background: transparent;
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.google-monthgrid-cell.today .day-number {
+  background: var(--accent, #2563eb);
+  color: #fff;
+}
+
+.google-monthgrid-cell-top .quick-add-day {
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  padding: 1px 5px;
+  opacity: 0;
+  border-radius: 4px;
+}
+
+.google-monthgrid-cell:hover .quick-add-day {
+  opacity: 0.85;
+}
+
+.google-monthgrid-events {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.google-month-event-pill {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: none;
+  border-left: 3px solid #2563eb;
+  background: rgba(37, 99, 235, 0.11);
+  color: inherit;
+  font-size: 11px;
+  text-align: left;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.google-month-event-pill.meeting {
+  border-left-color: #059669;
+  background: rgba(5, 150, 105, 0.12);
+}
+
+.google-month-event-pill.exam {
+  border-left-color: #d97706;
+  background: rgba(217, 119, 6, 0.13);
+}
+
+.google-month-event-pill.general {
+  border-left-color: #6366f1;
+  background: rgba(99, 102, 241, 0.12);
+}
+
+.google-month-event-pill .pill-time {
+  font-weight: 700;
+  opacity: 0.85;
+  flex-shrink: 0;
+}
+
+.google-month-event-pill .pill-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.google-month-more-btn {
+  border: none;
+  background: transparent;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent, #364e78);
+  text-align: left;
+  padding: 1px 4px;
+}
+
+/* ─── Bố cục Apple Calendar / Google Calendar (Sidebar + MiniCal + Year + NowLine + DragDrop) ─── */
+.google-cal-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.google-cal-workspace.with-sidebar {
+  grid-template-columns: 238px minmax(0, 1fr);
+}
+
+@media (max-width: 980px) {
+  .google-cal-workspace.with-sidebar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.google-cal-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid var(--line, rgba(133, 133, 165, 0.25));
+  background: var(--surface, rgba(54, 78, 120, 0.03));
+}
+
+.google-cal-main {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.google-sidebar-toggle.active {
+  background: var(--accent-soft, rgba(37, 99, 235, 0.12));
+  border-color: var(--accent, #2563eb);
+  color: var(--accent, #2563eb);
+}
+
+.google-cal-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9px;
+  border: 1px solid var(--line, rgba(133, 133, 165, 0.3));
+  background: var(--bg, #fff);
+  min-width: 210px;
+}
+
+.google-cal-search input {
+  border: none !important;
+  outline: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+  font-size: 12.5px;
+  width: 100%;
+}
+
+/* Mini Calendar trong Sidebar */
+.google-minical {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 10px;
+  background: var(--bg, #fff);
+  border: 1px solid var(--line, rgba(133, 133, 165, 0.2));
+}
+
+.google-minical-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12.5px;
+}
+
+.google-minical-head button {
+  padding: 2px 7px;
+  font-size: 13px;
+}
+
+.google-minical-dow {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.google-minical-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.minical-day {
+  position: relative;
+  border: none;
+  background: transparent;
+  padding: 4px 0;
+  font-size: 11.5px;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--fg, inherit);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.1;
+}
+
+.minical-day:hover {
+  background: var(--accent-soft, rgba(37, 99, 235, 0.1));
+}
+
+.minical-day.outside {
+  opacity: 0.38;
+}
+
+.minical-day.today {
+  background: var(--accent, #2563eb);
+  color: #fff;
+  font-weight: 700;
+}
+
+.minical-day.selected:not(.today) {
+  background: rgba(37, 99, 235, 0.16);
+  color: var(--accent, #1d4ed8);
+  font-weight: 700;
+}
+
+.minical-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #2563eb;
+  margin-top: 2px;
+}
+
+.minical-day.today .minical-dot {
+  background: #fff;
+}
+
+.google-sidebar-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 10px;
+  background: var(--bg, #fff);
+  border: 1px solid var(--line, rgba(133, 133, 165, 0.2));
+}
+
+.google-sidebar-box-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+}
+
+.google-cal-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.google-cal-checkitem {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.google-cal-checkitem .cal-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cal-color-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.google-ics-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.google-ics-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px dashed var(--accent, #2563eb);
+  background: rgba(37, 99, 235, 0.05);
+  color: var(--accent, #1d4ed8);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+}
+
+.google-ics-upload-btn:hover {
+  background: rgba(37, 99, 235, 0.12);
+}
+
+/* Kim chỉ giờ hiện tại màu đỏ (Red Now Line) */
+.google-now-indicator {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #ef4444;
+  z-index: 6;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+}
+
+.google-now-indicator .now-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #ef4444;
+  margin-left: -5px;
+  box-shadow: 0 0 0 2px #fff;
+}
+
+/* Hiệu ứng Kéo - Thả (Drag & Drop) */
+.google-timegrid-slot.drag-over,
+.google-timegrid-allday-cell.drag-over,
+.google-monthgrid-cell.drag-over {
+  background: rgba(37, 99, 235, 0.16) !important;
+  outline: 2px dashed #2563eb;
+  outline-offset: -2px;
+}
+
+/* Chế độ Xem Năm 12 Tháng (macOS Year View) */
+.google-yeargrid-wrapper {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 14px;
+}
+
+.google-year-month-card {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line, rgba(133, 133, 165, 0.24));
+  background: var(--bg, #fff);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.google-year-month-title {
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--accent, #2563eb);
+  padding: 2px 4px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.google-year-month-title:hover {
+  background: var(--accent-soft, rgba(37, 99, 235, 0.08));
+}
+
+.google-year-dow {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.google-year-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.year-day {
+  border: none;
+  background: transparent;
+  padding: 4px 0;
+  font-size: 11px;
+  border-radius: 999px;
+  cursor: pointer;
+  color: var(--fg, inherit);
+}
+
+.year-day.outside {
+  opacity: 0.3;
+}
+
+.year-day.has-events {
+  font-weight: 700;
+  background: rgba(37, 99, 235, 0.12);
+  color: #1d4ed8;
+}
+
+.year-day.today {
+  background: #ef4444;
+  color: #fff;
+  font-weight: 700;
+}
+
+.google-fullcal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 8px;
+  border-top: 1px solid var(--line, rgba(133, 133, 165, 0.22));
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+/* ─── Sổ tay Ghi chú Giáo viên (Google Keep & Google Drive Notes) ─── */
+.google-note-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 9px;
+  border: 1px solid var(--line, rgba(133, 133, 165, 0.3));
+  background: var(--bg, #fff);
+  min-width: 240px;
+}
+
+.google-note-search input {
+  border: none !important;
+  outline: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+  font-size: 12.5px;
+  width: 100%;
+}
+
+.google-note-color-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12.5px;
+}
+
+.google-note-color-picker .color-swatches {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.color-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid rgba(100, 116, 139, 0.35);
+  padding: 0;
+  cursor: pointer;
+}
+
+.color-swatch.selected {
+  border-color: var(--accent, #2563eb);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25);
+  transform: scale(1.08);
+}
+
+.google-notes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+  align-items: stretch;
+}
+
+.google-note-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(100, 116, 139, 0.28);
+  background: #fef9c3;
+  color: #1e293b;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.05);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.google-note-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.09);
+}
+
+.google-note-card.pinned {
+  border-width: 1.5px;
+  border-color: #d97706;
+}
+
+.google-note-card.color-yellow {
+  background: #fef9c3;
+  border-color: #fde047;
+}
+
+.google-note-card.color-green {
+  background: #d1fae5;
+  border-color: #6ee7b7;
+}
+
+.google-note-card.color-blue {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+
+.google-note-card.color-purple {
+  background: #ede9fe;
+  border-color: #c4b5fd;
+}
+
+.google-note-card.color-pink {
+  background: #fce7f3;
+  border-color: #f9a8d4;
+}
+
+.google-note-card.color-default {
+  background: var(--bg, #f8fafc);
+  color: var(--fg, #1e293b);
+  border-color: var(--line, rgba(133, 133, 165, 0.3));
+}
+
+.google-note-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.google-note-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+
+.google-note-card-head h4 {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 700;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.google-note-source-badge {
+  align-self: flex-start;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.08);
+  color: inherit;
+}
+
+.google-pin-btn {
+  border: none;
+  background: transparent;
+  padding: 3px 6px;
+  border-radius: 6px;
+  opacity: 0.45;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.google-pin-btn.active,
+.google-pin-btn:hover {
+  opacity: 1;
+  background: rgba(15, 23, 42, 0.08);
+}
+
+.google-note-body {
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.google-note-body p {
+  margin: 0;
+}
+
+.google-note-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.google-note-tag {
+  border: none;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.09);
+  color: inherit;
+  cursor: pointer;
+}
+
+.google-note-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(15, 23, 42, 0.1);
+}
+
+.google-note-QuickColors {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.mini-swatch {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 1px solid rgba(15, 23, 42, 0.3);
+  padding: 0;
+  cursor: pointer;
+}
+
+.mini-swatch.active {
+  outline: 2px solid #1e293b;
+  outline-offset: 1px;
+}
+
+.google-note-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.google-note-actions button {
+  font-size: 11.5px;
+  padding: 4px 8px;
+}

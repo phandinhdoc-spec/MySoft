@@ -8,7 +8,11 @@ import {Icon} from './Icon';
 type Attachment=ViewState['data']['attachments'][number];
 export function AttachmentChip({file,chatId,onDraft,onProject,onPdf,report}:{file:Attachment;chatId:string;onDraft:()=>void;onProject?:()=>void;onPdf:()=>void;report:(e:unknown)=>void}){
  const menu=useObjectMenu({contextKey:`${chatId}:${file.id}`,onError:report,commands:()=>{
-  const commands:ObjectCommand[]=[{id:'open',label:uiText("Xem / mở"),run:()=>{if(/\.pdf$/i.test(file.name))onPdf();else document.getElementById(`attachment-open-${file.id}`)?.click();}}];
+  const commands:ObjectCommand[]=[
+   {id:'openFile',label:uiText("Mở"),group:'open',run:()=>rpc('openFileRef',{ref:file.path,chatId})},
+   {id:'revealFolder',label:uiText("Mở thư mục"),group:'open',run:()=>rpc('revealFileRef',{ref:file.path,chatId})},
+   {id:'open',label:uiText("Xem / mở"),run:()=>{if(/\.pdf$/i.test(file.name))onPdf();else document.getElementById(`attachment-open-${file.id}`)?.click();}},
+  ];
   if(/\.(docx?|docm|dotx|xlsx?|xlsm|xltx|pptx?|pptm|potx)$/i.test(file.name))commands.push({id:'openOffice',label:uiText("Mở bằng Microsoft Office"),group:'open',run:()=>rpc('openFileRef',{ref:file.path,chatId,app:'office'})});
   commands.push({id:'openVscode',label:uiText("Mở bằng Visual Studio Code"),group:'open',run:()=>rpc('openFileRef',{ref:file.path,chatId,app:'vscode'})});
   if(/\.(md|txt|pdf)$/i.test(file.name))commands.push({id:'draft',label:uiText("Sửa Markdown"),run:onDraft});

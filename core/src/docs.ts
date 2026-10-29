@@ -2,8 +2,14 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawn } from "node:child_process";
 
-/** Các đuôi tệp văn bản thuần — nên mở bằng editor thay vì app mặc định của OS. */
-const TEXT_EXTS = new Set([".md", ".txt", ".csv", ".typ"]);
+/** Các đuôi tệp văn bản thuần, Markdown và công cụ lập trình — mở bằng VS Code / editor theo quy tắc của PVTA. */
+const TEXT_EXTS = new Set([
+  ".md", ".markdown", ".txt", ".csv", ".tsv", ".typ", ".tex", ".log",
+  ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs",
+  ".py", ".json", ".yaml", ".yml", ".toml", ".xml", ".ini", ".conf",
+  ".css", ".scss", ".less", ".sql", ".rs", ".go", ".c", ".cpp", ".h", ".hpp",
+  ".java", ".swift", ".kt", ".rb", ".php", ".lua", ".r",
+]);
 
 /**
  * Tìm đường dẫn thực thi của Visual Studio Code trên macOS.
@@ -139,18 +145,24 @@ const RESULT_OPENABLE = new Set([
   ".docx", ".doc", ".docm", ".dotx",
   ".xlsx", ".xls", ".xlsm", ".xltx",
   ".pptx", ".ppt", ".pptm", ".potx",
-  ".pdf", ".zip", ".md", ".txt", ".csv", ".typ",
-  ".png", ".jpg", ".jpeg", ".webp",
+  ".odt", ".ods", ".odp", ".rtf",
+  ".pdf", ".zip", ".html", ".htm",
+  ".png", ".jpg", ".jpeg", ".webp", ".gif",
+  ".mp3", ".mp4", ".wav", ".m4a", ".mov",
+  ...TEXT_EXTS,
 ]);
 
+/** Tệp có thể tự chạy mã khi mở: lệnh «Mở» chung không mở trực tiếp. */
+const SYSTEM_OPEN_BLOCKED = new Set([".app", ".command", ".sh", ".exe", ".bat", ".cmd", ".com", ".msi", ".scr", ".ps1", ".vbs", ".jar", ".scpt", ".workflow", ".pkg", ".dmg", ".desktop", ".appimage"]);
+
 /** Ứng dụng người dùng chọn để mở tệp: mặc định của hệ điều hành, Microsoft Office hoặc Visual Studio Code. */
-export type OpenApp = "default" | "office" | "vscode";
+export type OpenApp = "default" | "office" | "vscode" | "system";
 const WORD_EXTS = new Set([".docx", ".doc", ".docm", ".dotx"]);
 const EXCEL_EXTS = new Set([".xlsx", ".xls", ".xlsm", ".xltx"]);
 const PPT_EXTS = new Set([".pptx", ".ppt", ".pptm", ".potx"]);
 
 export function normalizeOpenApp(v: unknown): OpenApp {
-  return v === "office" || v === "vscode" ? v : "default";
+  return v === "office" || v === "vscode" || v === "system" ? v : "default";
 }
 
 function officeAppName(ext: string): "Microsoft Word" | "Microsoft Excel" | "Microsoft PowerPoint" | undefined {
@@ -196,28 +208,48 @@ function openWithApp(app: OpenApp, file: string, ext: string, platform: NodeJS.P
   }
 }
 
-export function openResultFile(p: unknown, opts: { platform?: NodeJS.Platform; opener?: Opener; app?: OpenApp } = {}): { ok: true; file: string } | { ok: false; error: string } {
+export function openResultFile(p: unknown, opts: { platform?: NodeJS.Platform; opener?: Opener; app?: OpenApp; fallbackSystem?: boolean } = {}): { ok: true; file: string } | { ok: false; error: string } {
   if (typeof p !== "string" || !p.trim()) return { ok: false, error: "Thiếu đường dẫn tệp." };
   const raw = p.trim();
   if (raw.length > 1000 || /[\u0000-\u001f]/.test(raw)) return { ok: false, error: "Đường dẫn không hợp lệ." };
   if (!path.isAbsolute(raw)) return { ok: false, error: "Cần đường dẫn đầy đủ (tuyệt đối) của tệp." };
   const file = path.normalize(raw);
   const ext = path.extname(file).toLowerCase();
-  if (!RESULT_OPENABLE.has(ext)) return { ok: false, error: `Định dạng tệp ${ext} không hỗ trợ mở trực tiếp.` };
+  // «Mở» bằng lệnh hệ thống (open / explorer / xdg-open) áp dụng cho mọi loại tệp, trừ tệp có thể tự chạy.
+  if ((opts.app === "system" || opts.fallbackSystem) && SYSTEM_OPEN_BLOCKED.has(ext)) return { ok: false, error: `Không mở trực tiếp tệp thực thi ${ext}.` };
+  if (opts.app !== "system" && !opts.fallbackSystem && !RESULT_OPENABLE.has(ext)) return { ok: false, error: `Định dạng tệp ${ext} không hỗ trợ mở trực tiếp.` };
   let st: fs.Stats;
   try {
     st = fs.statSync(file);
   } catch {
     return { ok: false, error: `Không thấy tệp tại đường dẫn: ${file}` };
   }
-  if (!st.isFile()) return { ok: false, error: "Đường dẫn này không phải là tệp." };
   const platform = opts.platform ?? process.platform;
   const open = opts.opener ?? defaultOpener;
+  if (st.isDirectory()) {
+    if (opts.app === "system" || opts.fallbackSystem) {
+      try {
+        if (platform === "darwin") open("open", [file]);
+        else if (platform === "win32") open("explorer.exe", [file]);
+        else open("xdg-open", [file]);
+        return { ok: true, file };
+      } catch (e) {
+        return { ok: false, error: e instanceof Error ? e.message : String(e) };
+      }
+    }
+    return { ok: false, error: "Đường dẫn này không phải là tệp." };
+  }
+  if (!st.isFile()) return { ok: false, error: "Đường dẫn này không phải là tệp." };
   try {
-    if (opts.app === "office" || opts.app === "vscode") {
+    if (opts.app === "system") {
+      // Tương đương gõ `open <đường dẫn đầy đủ>` trong terminal.
+      if (platform === "darwin") open("open", [file]);
+      else if (platform === "win32") open("explorer.exe", [file]);
+      else open("xdg-open", [file]);
+    } else if (opts.app === "office" || opts.app === "vscode") {
       openWithApp(opts.app, file, ext, platform, open);
     } else if (TEXT_EXTS.has(ext)) {
-      // Tệp văn bản: mở bằng VS Code / editor thay vì app mặc định OS.
+      // Tệp văn bản, Markdown, mã nguồn: mở bằng VS Code / editor theo quy tắc của PVTA.
       openTextFile(file, platform, open);
     } else if (platform === "darwin") {
       const appPath = officeAppPath(ext);

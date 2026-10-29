@@ -16,7 +16,7 @@ const STYLES:Record<ColorIconStyleId,Style>={
 };
 // Stable semantic colors across the interface: documents blue, skills violet,
 // projects amber, chat teal; auxiliary symbols receive their own pair as well.
-const ROLES:Record<string,number>={chat:5,project:3,'folder-add':3,office:0,file:0,notebook:2,skills:1,workflow:1,github:1,history:3,eye:0,mouth:4,pen:3,stop:4,close:4,'git-status':2,'git-fetch':0,'git-pull':2,'git-push':3,exam:1,grade:2,slides:4,math:5,help:0};
+const ROLES:Record<string,number>={calendar:0,tasks:2,chat:5,project:3,'folder-add':3,office:0,file:0,notebook:2,skills:1,workflow:1,github:1,history:3,eye:0,mouth:4,pen:3,stop:4,close:4,'git-status':2,'git-fetch':0,'git-pull':2,'git-push':3,exam:1,grade:2,slides:4,math:5,help:0};
 export function ColorIcon({name,size,style}:{name:string;size:number;style:ColorIconStyleId}){
  const config=STYLES[style],id=`color-icon-${useId().replace(/:/g,'')}`;
  const index=ROLES[name]??Array.from(name).reduce((n,c)=>n+c.charCodeAt(0),0)%6;
@@ -28,6 +28,8 @@ export function ColorIcon({name,size,style}:{name:string;size:number;style:Color
  const arrow=name==='git-push'?<>{line('M12 17V5m-4 4 4-4 4 4')}</>:<>{line('M12 5v12m-4-4 4 4 4-4')}</>;
  let drawing:React.ReactNode;
  switch(name){
+ case 'calendar':drawing=<>{rect(3,4,18,17)}{rect(3,4,18,5,s,1)}{line('M8 2v4m8-4v4')}{circle(8,14,1.2,s)}{circle(12,14,1.2,s)}{circle(16,14,1.2,s)}{circle(8,18,1.2,s)}{circle(12,18,1.2,s)}</>;break;
+ case 'tasks':drawing=<>{rect(3,3,18,18)}{rect(6,6,4,4,s,1)}{rect(6,14,4,4,s,1)}{line('M12 8h6m-6 8h6')}</>;break;
  case 'calculator':drawing=<>{rect(4,2,16,20)}{rect(7,5,10,4,s,1)}{circle(8,13,1,s)}{circle(16,13,1,s)}{circle(8,18,1,s)}{circle(16,18,1,s)}</>;break;
  case 'brain':drawing=<><path d="M12 4c-4-5-9 0-7 4-5 2-3 8 0 8-1 5 5 7 7 3 2 4 8 2 7-3 3 0 5-6 0-8 2-4-3-9-7-4Z" fill={p}/>{line('M12 4v15M5 8l3 2m11-2-3 2M5 16l3-2m11 2-3-2')}</>;break;
  case 'flag':drawing=<>{line('M5 21V4')}<path d="M5 4h12l-2.5 4.5L17 13H5Z" fill="currentColor"/>{rect(2.5,19.5,5,2.5,s,1)}</>;break;

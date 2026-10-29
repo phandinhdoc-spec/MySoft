@@ -50,3 +50,7 @@ it('maps AI dependency numbers to fresh IDs and rejects cycles',()=>{
  value.steps[0]!.waitFor=[3];expect(()=>parseDesignedWorkflow(JSON.stringify(value))).toThrow('vòng lặp');
  value.steps[0]!.waitFor=[99];expect(()=>parseDesignedWorkflow(JSON.stringify(value))).toThrow('không hợp lệ');
 });
+it('đặt nút ở Chỉnh sửa chỉ khi model khai báo đầu ra là tệp', () => {
+ const wf=parseDesignedWorkflow(JSON.stringify({name:'Soạn đề',steps:[{name:'Phân tích',prompt:'Phân tích yêu cầu.',writes:false},{name:'Xuất Word',prompt:'Ghi đề ra tệp Word.',writes:true},{name:'Rà soát',prompt:'Kiểm tra.'}]}));
+ expect(wf.steps.map(s=>s.access)).toEqual(['read','full','read']);
+});
