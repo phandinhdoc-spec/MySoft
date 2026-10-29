@@ -1,0 +1,18 @@
+#!/bin/bash
+# Chạy bằng quyền root trước khi chép PVTA.app. Chỉ đưa BẢN CÀI cũ vào Thùng rác; không đụng tới dữ liệu người dùng
+# (~/Library/Application Support/PVTA, ~/.phananh-office/{skills,rules,cấu hình}, profile, provider, MCP).
+USER_NAME="$(/usr/bin/stat -f%Su /dev/console)"
+[ -n "$USER_NAME" ] && [ "$USER_NAME" != root ] || exit 0
+USER_HOME="$(/usr/bin/dscl . -read "/Users/$USER_NAME" NFSHomeDirectory | /usr/bin/awk '{print $2}')"
+STAMP="$(date +%Y%m%d-%H%M%S)"
+/usr/bin/sudo -u "$USER_NAME" /usr/bin/osascript -e 'tell application "PVTA" to quit' >/dev/null 2>&1 || true
+for _ in 1 2 3 4 5 6 7 8 9 10; do /usr/bin/pgrep -x PVTA >/dev/null 2>&1 || break; sleep 0.5; done
+/usr/bin/pkill -x PVTA >/dev/null 2>&1 || true
+mkdir -p "$USER_HOME/.Trash"
+for name in PVTA.app PVTA.previous.app; do
+  if [ -d "/Applications/$name" ]; then
+    /bin/mv "/Applications/$name" "$USER_HOME/.Trash/${name%.app} (cũ $STAMP).app" 2>/dev/null || /bin/rm -rf "/Applications/$name"
+    /usr/sbin/chown -R "$USER_NAME" "$USER_HOME/.Trash/${name%.app} (cũ $STAMP).app" 2>/dev/null || true
+  fi
+done
+exit 0

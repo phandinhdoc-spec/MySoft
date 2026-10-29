@@ -13,6 +13,7 @@ Bản phát hành chỉ có các gói người dùng cần:
 
 - Windows: `PVTA-Studio-Setup-<v>.exe`, MỘT tệp cho cả x64 và ARM64 khi chọn `win`. Bên trong có sẵn PVTA Chat (x64 và ARM64 nếu có) và tiện ích Office; khi chạy tự chọn đúng kiến trúc, không cần tải thêm (chỉ cần Internet nếu máy chưa có Node.js).
 - macOS Apple Silicon: `PVTA-Studio-<v>-arm64.dmg`, chứa PVTA.app và `Cai-tien-ich-Office.command` (kèm gói Office). Intel Mac chỉ dựng khi chọn rõ `mac-x64`.
+- macOS cài tự động: `PVTA-Studio-<v>-arm64.pkg` — một tệp cho cả cài mới và cập nhật: tự đưa PVTA.app cũ vào Thùng rác, cài PVTA.app + tiện ích Office, mở lại app, không hỏi lại. Không bao giờ xóa dữ liệu người dùng (profile, provider, skill, rules, MCP). Bản dựng chưa ký số nên lần đầu mở .pkg: chuột phải → Mở.
 - Linux x86_64: `PVTA-Chatbox-<v>-x64.AppImage` (không có tiện ích Office trên Linux).
 - `pvta-office.tar.gz`, `office-latest.json` (tiện ích Office tự cập nhật dùng) và `SHA256SUMS`.
 

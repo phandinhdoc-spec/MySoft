@@ -1,0 +1,18 @@
+#!/bin/bash
+# Cài/cập nhật tiện ích Office (cầu nối nền + manifest Word/Excel/PowerPoint) cho người dùng đang đăng nhập, rồi mở lại PVTA.
+SHARE="/usr/local/share/pvta-installer"
+USER_NAME="$(/usr/bin/stat -f%Su /dev/console)"
+[ -n "$USER_NAME" ] && [ "$USER_NAME" != root ] || exit 0
+USER_HOME="$(/usr/bin/dscl . -read "/Users/$USER_NAME" NFSHomeDirectory | /usr/bin/awk '{print $2}')"
+/usr/sbin/chown -R "$USER_NAME" /Applications/PVTA.app 2>/dev/null || true
+LOG="$USER_HOME/.phananh-office-install.log"
+# Không hỏi gì: bỏ menu CLI và đăng nhập; chứng chỉ được tin cậy ở bước dưới bằng quyền root.
+/usr/bin/sudo -u "$USER_NAME" -H env HOME="$USER_HOME" PVTA_LOCAL_TGZ="$SHARE/pvta-office.tar.gz" PVTA_INSTALL_CLI=none PVTA_SKIP_TRUST=1 \
+  PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin" /bin/bash "$SHARE/office.sh" </dev/null >"$LOG" 2>&1
+status=$?
+CA="$USER_HOME/Library/Application Support/PVTA/office-plugin/certs/ca.crt"
+if [ -f "$CA" ]; then
+  /usr/bin/security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain "$CA" >>"$LOG" 2>&1 || true
+fi
+/usr/bin/sudo -u "$USER_NAME" /usr/bin/open -a /Applications/PVTA.app >/dev/null 2>&1 || true
+exit 0
